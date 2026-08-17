@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>800VDC 電源革命：台達電・光寶科・Vertiv・MPWR｜台大控股</title>
+<style>
+:root{
+  --bg:#EAE7E1; --card:#F7F5F1; --card2:#F1EEE8;
+  --ink:#3E3A36; --sub:#7E786F; --line:#DCD6CC; --line2:#CBC3B6;
+  --dt:#B4735A; --lo:#849A5C; --vr:#5B7FA3; --mp:#8A6F9E;
+  --sand:#C0A170; --rose:#B08079; --slate:#8C8880;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font-family:"Noto Serif TC","Songti TC","PingFang TC",serif;
+ font-size:15.5px;line-height:1.82;padding-bottom:70px}
+.wrap{max-width:960px;margin:0 auto;padding:0 20px}
+.slide{background:var(--card);border:1px solid var(--line);border-radius:12px;
+ padding:28px 30px;margin:22px 0;box-shadow:0 1px 2px rgba(62,58,54,.05)}
+.kick{font-size:11px;letter-spacing:.22em;color:var(--sub);font-weight:700;text-transform:uppercase}
+h1{font-size:34px;line-height:1.22;margin:10px 0 8px;font-weight:800;letter-spacing:-.01em}
+h2{font-size:23px;margin:2px 0 12px;font-weight:800;line-height:1.35}
+h3{font-size:17px;margin:20px 0 8px;font-weight:700}
+.sub{color:var(--sub);font-size:13px;line-height:1.7}
+p{margin:0 0 11px}
+a{color:var(--vr)}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+th{text-align:left;color:var(--sub);font-weight:600;font-size:11.5px;letter-spacing:.05em;
+ border-bottom:2px solid var(--ink);padding:6px 9px;vertical-align:bottom}
+td{border-bottom:1px solid var(--line);padding:7px 9px;vertical-align:top}
+tr:last-child td{border-bottom:none}
+.num{font-variant-numeric:tabular-nums;font-family:ui-monospace,"SF Mono",Menlo,monospace}
+.stat{display:flex;gap:11px;flex-wrap:wrap;margin:14px 0}
+.stat>div{flex:1;min-width:132px;background:var(--card2);border:1px solid var(--line);
+ border-radius:9px;padding:11px 13px}
+.stat b{display:block;font-size:21px;line-height:1.3;font-family:ui-monospace,Menlo,monospace}
+.stat span{font-size:11.5px;color:var(--sub);line-height:1.55;display:block;margin-top:3px}
+.quote{background:var(--card2);border-left:4px solid var(--line2);padding:12px 18px;
+ margin:14px 0;font-size:14px}
+.quote i{display:block;font-style:normal;color:var(--sub);font-size:11.5px;margin-top:6px}
+.box{background:var(--card2);border:1px solid var(--line);border-radius:9px;
+ padding:14px 18px;margin:14px 0;font-size:13.8px}
+.box.warn{background:#F2ECE2;border-color:var(--sand)}
+.box.hl{background:#EFEDE6;border-left:5px solid var(--ink);border-radius:0 9px 9px 0}
+svg{display:block;width:100%;height:auto;margin:10px 0}
+svg text{font-family:"Noto Serif TC","PingFang TC",serif}
+.note{font-size:12px;color:var(--sub);line-height:1.7}
+.src{font-size:11.5px;color:var(--sub);line-height:1.7;margin-top:8px}
+ul{margin:6px 0 12px;padding-left:20px}
+li{margin:5px 0}
+.toc{display:grid;grid-template-columns:1fr 1fr;gap:8px 26px;margin-top:14px}
+.toc div{display:flex;gap:11px;font-size:14px;padding:6px 0;border-bottom:1px solid var(--line)}
+.toc b{color:var(--sub);font-family:ui-monospace,Menlo,monospace;font-size:12.5px;min-width:22px;padding-top:3px}
+.toc span{font-size:11.5px;color:var(--sub);display:block}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:680px){.two,.toc{grid-template-columns:1fr}h1{font-size:26px}h2{font-size:20px}.slide{padding:20px 17px}}
+.pt{width:100%;border-collapse:collapse;font-size:13.5px;margin:10px 0}
+.pt th{background:var(--card2);border:1px solid var(--line);padding:7px 9px;text-align:center;color:var(--ink);font-weight:700;font-size:12.5px}
+.pt td{border:1px solid var(--line);padding:7px 9px;text-align:center}
+.pt td:first-child,.pt th:first-child{text-align:left;color:var(--sub);font-weight:600}
+.pt .hi{font-weight:800}
+.sl{display:grid;grid-template-columns:150px 1fr 150px;gap:12px;align-items:center;font-size:13px;margin:9px 0}
+.sl output{font-family:ui-monospace,Menlo,monospace;font-weight:700;text-align:right}
+input[type=range]{width:100%;height:22px;accent-color:var(--slate)}
+.readout{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--card2);
+ border:1.5px dashed var(--line2);border-radius:9px;padding:12px 15px;margin:12px 0;line-height:1.95}
+.tag{display:inline-block;font-size:11px;padding:2px 9px;border-radius:11px;border:1px solid var(--line2);color:var(--sub);margin-right:5px}
+footer{color:var(--sub);font-size:11.5px;max-width:960px;margin:34px auto 0;padding:18px 20px;border-top:2px solid var(--ink);line-height:1.85}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ══════════ 封面 ══════════ -->
+<div class="slide" style="border-top:5px solid var(--dt)">
+  <div class="kick">台大控股・產業深度 05</div>
+  <h1>800VDC：AI 工廠的供電革命</h1>
+  <p style="font-size:17px;margin:10px 0 4px">台達電 2308 ・ 光寶科 2301 ・ Vertiv VRT ・ Monolithic Power MPWR</p>
+  <p class="sub" style="font-size:14px">物理原理 ｜ 供應鏈分工 ｜ 股癌脈絡 ｜ 四檔採信度評分 ｜ 目標價區間與對帳日曆</p>
+  <div style="height:1px;background:var(--line);margin:16px 0"></div>
+  <p class="sub">2026 年 8 月 17 日 ｜ 研究：Claude ｜ 信心評分與判斷：祖曜筬（2026-08-17 親評，四張採信度盤）<br>
+  價格座標（8/14 收盤）：台達電 <span class="num">NT$1,885</span>　光寶科 <span class="num">NT$267</span>　Vertiv <span class="num">$293.84</span>　MPWR <span class="num">$1,402.01</span></p>
+  <div class="box hl">
+    <b>這份報告要回答的三個問題</b><br>
+    一、800V 到底在改什麼，為什麼是物理逼的、不是行銷。<br>
+    二、錢會流過哪些環節，台股和美股各站在哪一格。<br>
+    三、四檔標的按你自己評的信心分數，各值多少、什麼時候開獎。
+  </div>
+</div>
+
+<!-- ══════════ 目錄 ══════════ -->
+<div class="slide">
+  <div class="kick">目錄</div>
+  <h2>報告大綱</h2>
+  <div class="toc">
+    <div><b>01</b><div>800V 是什麼<span>一條公式、兩個瓶頸、五個官方數字</span></div></div>
+    <div><b>02</b><div>這一輪走到哪<span>白皮書→改裝件→原生大浪；遞延派 vs 如期派</span></div></div>
+    <div><b>03</b><div>錢在鏈上怎麼分<span>五個環節、29 家名單、月營收溫度計</span></div></div>
+    <div><b>04</b><div>股癌脈絡<span>EP671→EP686→EP688，逐字稿為準</span></div></div>
+    <div><b>05</b><div>你的四張採信度盤<span>十六個賭注、淨傾向、與市場的分歧</span></div></div>
+    <div><b>06</b><div>Vertiv VRT<span>淨傾向 +61.6：跟市場一致地看多</span></div></div>
+    <div><b>07</b><div>MPWR<span>淨傾向 +53.9：ED 付底價、800V 當選擇權</span></div></div>
+    <div><b>08</b><div>光寶科 2301<span>淨傾向 +26.8：多空同桌</span></div></div>
+    <div><b>09</b><div>台達電 2308<span>淨傾向 +8.6：都會兌現、都在價內</span></div></div>
+    <div><b>10</b><div>四檔並排＋倍數自己拉<span>目標價總表、組合層三註記、互動區</span></div></div>
+    <div><b>11</b><div>對帳日曆<span>每個判斷都有開獎日</span></div></div>
+    <div><b>12</b><div>判斷留檔與附錄<span>初判、評分存底、口徑對照、來源</span></div></div>
+  </div>
+</div>
+
+<!-- ══════════ 01 ══════════ -->
+<div class="slide">
+  <div class="kick">第一章 ・ 基礎介紹</div>
+  <h2>800V 是什麼：把送電電壓從 54V 拉到 800V、交流改直流</h2>
+  <div class="stat">
+    <div><b>P＝V×I</b><span>功率＝電壓×電流。機櫃功率暴增、電壓不動，電流就得暴增——電流是一切麻煩的來源。</span></div>
+    <div><b>I²R</b><span>導線發熱跟電流的平方成正比。電流降 15 倍，同一條銅排發熱降 200 倍以上。</span></div>
+    <div><b>級數↓</b><span>交流轉直流集中在廠區邊緣做一次，櫃內只剩直流降直流——每少轉一手就少漏一次電。</span></div>
+  </div>
+
+  <svg viewBox="0 0 900 168" role="img" aria-label="54V 與 800V 送同樣功率所需電流對比">
+    <text x="14" y="22" font-size="14.5" font-weight="700">同一個 330kW 機櫃，兩種電壓要吃的電流（股癌 EP688 的算術，驗算成立）</text>
+    <g font-size="13">
+      <text x="14" y="62" fill="#7E786F">54V 架構</text>
+      <rect x="120" y="46" width="700" height="24" rx="5" fill="#B08079"><title>330,000W ÷ 54V ≈ 6,111A</title></rect>
+      <text x="828" y="64" class="num" font-weight="800">6.1kA</text>
+      <text x="14" y="104" fill="#7E786F">800V 架構</text>
+      <rect x="120" y="88" width="46" height="24" rx="5" fill="#849A5C"><title>330,000W ÷ 800V ≈ 413A</title></rect>
+      <text x="176" y="106" class="num" font-weight="800">0.4kA</text>
+    </g>
+    <text x="14" y="140" font-size="12" fill="#7E786F">電流差 15 倍。54V 要撐到 1MW，每櫃約 200 公斤銅排（NVIDIA 官方口徑）；光電源就要吃 64U，GPU 沒位置放。</text>
+    <text x="14" y="158" font-size="12" fill="#7E786F">所以 800V 同時是空間改革：電源整個搬出機櫃——先搬到櫃旁 sidecar 電力櫃，再集中成每排共用的 row power center。</text>
+  </svg>
+
+  <h3>NVIDIA 白皮書給的五個官方數字</h3>
+  <div class="stat">
+    <div><b class="num">+5%</b><span>端到端效率。1GW 的 AI 工廠＝省下 50MW，夠餵幾萬顆 GPU。</span></div>
+    <div><b class="num">−45%</b><span>全廠銅用量（你 7 月報告的 −94% 是單櫃匯流排口徑，見附錄口徑表）。</span></div>
+    <div><b class="num">−70%</b><span>維護成本。</span></div>
+    <div><b class="num">−30%</b><span>總持有成本。</span></div>
+    <div><b class="num">+157%</b><span>同線徑下 800VDC 比 415VAC 多送的功率。</span></div>
+  </div>
+  <div class="box hl"><b>儲能跟著升級（你初判押的段落）：</b>幾萬顆 GPU 同一毫秒一起加速、一起停，電網看到的是巨幅擺盪。白皮書把儲能寫成雙層標配——毫秒級用櫃邊電容與超級電容吸震、秒級用廠級電池削峰。<b>BBU 的角色從「停電備援的選配」變成「電力品質的標配」。</b></div>
+  <p class="src">來源：NVIDIA 技術部落格（2025-10-13，白皮書《800 VDC Architecture for Next-Generation AI Infrastructure》）、NVIDIA 800VDC 生態系頁；股癌 EP688 逐字稿（2026-08-15）。</p>
+</div>
+
+<!-- ══════════ 02 ══════════ -->
+<div class="slide">
+  <div class="kick">第二章 ・ 時程</div>
+  <h2>這一輪走到哪：白皮書→改裝件→原生大浪</h2>
+  <p>股癌 EP688 開場：「過去的一陣子……所有的這個投資交易圈的人士呢，都在傳一個 NVIDIA 的 800VDC 的一個白皮書」——白皮書 2025 年 10 月就發了，2026 年 8 月才擴散到交易圈，這就是本報告的時點。</p>
+
+  <svg viewBox="0 0 900 150" role="img" aria-label="800VDC 時程軸">
+    <line x1="30" y1="70" x2="880" y2="70" stroke="#CBC3B6" stroke-width="3"/>
+    <g font-size="12.5">
+      <circle cx="80" cy="70" r="8" fill="#8C8880"/><text x="80" y="40" text-anchor="middle" font-weight="800">2025/10</text><text x="80" y="100" text-anchor="middle" fill="#7E786F">白皮書＋18 家名單</text>
+      <circle cx="240" cy="70" r="8" fill="#8C8880"/><text x="240" y="40" text-anchor="middle" font-weight="800">2026/3</text><text x="240" y="100" text-anchor="middle" fill="#7E786F">TI 完整晶片組</text><text x="240" y="118" text-anchor="middle" fill="#7E786F">OCP 白皮書更新</text>
+      <circle cx="390" cy="70" r="8" fill="#8C8880"/><text x="390" y="40" text-anchor="middle" font-weight="800">2026/7</text><text x="390" y="100" text-anchor="middle" fill="#7E786F">固態變壓器規格 v0.3</text>
+      <circle cx="560" cy="70" r="10" fill="#C0A170"/><text x="560" y="40" text-anchor="middle" font-weight="800">2H26（現在）</text><text x="560" y="100" text-anchor="middle" fill="#7E786F">改裝件出貨：Vertiv 上市</text><text x="560" y="118" text-anchor="middle" fill="#7E786F">台達 Q3 量產・光寶 11 月小量產</text>
+      <circle cx="730" cy="70" r="10" fill="#B4735A"/><text x="730" y="40" text-anchor="middle" font-weight="800">2027</text><text x="730" y="100" text-anchor="middle" fill="#7E786F">Kyber 量產＝原生大浪</text><text x="730" y="118" text-anchor="middle" fill="#7E786F">台達放量・光寶 Q1 規模量產</text>
+      <circle cx="855" cy="70" r="8" fill="#8C8880"/><text x="855" y="40" text-anchor="middle" font-weight="800">2028–30</text><text x="855" y="100" text-anchor="middle" fill="#7E786F">設施級直流</text>
+    </g>
+  </svg>
+
+  <h3>兩階段受惠清單（股癌 EP688 版，與 NVIDIA 官方時程對得上）</h3>
+  <table class="pt">
+    <tr><th style="width:130px">階段</th><th>形式</th><th>受惠環節（他的原話清單）</th></tr>
+    <tr><td><b>一、2026–27</b></td><td>Power Rack／sidecar 改裝，不動既有建築</td><td style="text-align:left">「AC 到 800V PSU、800V 再到 54V 的轉換、電容、連接器、BBU」；BBU 依規格有用有不用、往標配走</td></tr>
+    <tr><td><b>二、2028–30</b><br><span class="note">他自猜的區間</span></td><td>Row Power Center→設施級</td><td style="text-align:left">「集中式整流器，然後 IGBT」、SiC／GaN（「特別是 GaN……超乎自己的想像」）、「DC 的 UPS……BESS、SCADA」；散熱連動：「全部東西都要使用水冷，power 本身它也變成是熱源」</td></tr>
+  </table>
+
+  <div class="two">
+    <div class="box"><b>如期派的證據</b><br>整條鏈時程對齊：TI 晶片組（3/16）、Vertiv 2H26 出貨、台達 Q3 量產、光寶 11 月小量產；外資供應鏈實查給台達 2027 滲透率約 20%。</div>
+    <div class="box warn"><b>遞延派的證據</b><br>SemiAnalysis／Dylan Patel：「未來一年滲透率 5%」、原生 800V 等 2027/28 Kyber；美國電工法規（NEC）2029 年版才完整支援直流；固態變壓器的高頻隔離變壓器絕緣壽命被低估。<b>兩個滲透率可以同時為真——母數不同（全球既有機房 vs 新建 AI 機櫃），見附錄口徑表。</b></div>
+  </div>
+
+  <svg viewBox="0 0 900 130" role="img" aria-label="HVDC 市場規模預估">
+    <text x="14" y="22" font-size="14" font-weight="700">市場多大：亞系外資的 HVDC 市場預估（台達法說季報導引用口徑）</text>
+    <g font-size="13">
+      <text x="14" y="60" fill="#7E786F">2026</text>
+      <rect x="120" y="45" width="30" height="22" rx="4" fill="#C0A170"><title>2026 約 US$7.5 億</title></rect>
+      <text x="160" y="61" class="num">US$7.5 億</text>
+      <text x="14" y="98" fill="#7E786F">2028</text>
+      <rect x="120" y="83" width="720" height="22" rx="4" fill="#B4735A"><title>2028 約 US$180 億，兩年 24 倍</title></rect>
+      <text x="580" y="99" class="num" font-weight="800" fill="#F7F5F1">US$180 億（24 倍）</text>
+    </g>
+    <text x="14" y="124" font-size="12" fill="#7E786F">另兩套口徑：SemiAnalysis 估 sidecar 電力櫃 2028 高峰約 US$110 億、固態變壓器 2030 約 US$320 億；每櫃電源價值量到 Rubin Ultra 約 11.5 倍（Diligence Stack）。母數各不同，附錄 B 有對照。</text>
+  </svg>
+  <p class="src">來源：NVIDIA 官方部落格×3；經濟日報 2026-05-07（亞系外資）；TechNews 2026-07-23；SemiAnalysis〈Inside the 800VDC Revolution – Part 1〉2026-05-26；The Diligence Stack 2026-03-31；Riccardo Tinivella 2026-06-26；股癌 EP688 逐字稿。</p>
+</div>
+<!-- ══════════ 03 ══════════ -->
+<div class="slide">
+  <div class="kick">第三章 ・ 產業鏈</div>
+  <h2>錢在鏈上怎麼分：越靠電網的新插槽賺新單價，越靠 GPU 的老位置賺顆數</h2>
+
+  <svg viewBox="0 0 900 232" role="img" aria-label="800VDC 電力路徑與供應鏈分工">
+    <defs><marker id="arr2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0 0 L9 4.5 L0 9 z" fill="#3E3A36"/></marker></defs>
+    <g font-size="13">
+      <rect x="10" y="24" width="196" height="168" rx="9" fill="#F1EEE8" stroke="#DCD6CC"/>
+      <text x="24" y="48" font-weight="800">邊緣整流＋電力櫃</text>
+      <text x="24" y="70" font-size="11.5" fill="#7E786F">AC→800V，一次做完</text>
+      <text x="24" y="94" fill="#B4735A" font-weight="700">台達電・光寶科</text>
+      <text x="24" y="116" fill="#7E786F">Flex・Megmeet（陸）</text>
+      <text x="24" y="138" fill="#7E786F">Lead Wealth＝領裕</text>
+      <text x="24" y="156" font-size="11" fill="#7E786F">（深圳比亞迪系，未上市）</text>
+      <text x="24" y="182" font-size="11.5" fill="#7E786F">賺全新插槽的新單價</text>
+
+      <path d="M212 108 L 240 108" stroke="#3E3A36" stroke-width="2" marker-end="url(#arr2)"/>
+
+      <rect x="246" y="24" width="180" height="168" rx="9" fill="#F1EEE8" stroke="#DCD6CC"/>
+      <text x="260" y="48" font-weight="800">母線・線纜・連接器</text>
+      <text x="260" y="72" fill="#B4735A" font-weight="700">貿聯-KY</text>
+      <text x="260" y="94" font-size="11.5" fill="#7E786F">busway 隨 Vertiv／</text>
+      <text x="260" y="112" font-size="11.5" fill="#7E786F">Eaton 系統出貨</text>
+      <text x="260" y="138" font-size="11.5" fill="#7E786F">電容・連接器在 EP688</text>
+      <text x="260" y="156" font-size="11.5" fill="#7E786F">第一階段受惠清單內</text>
+      <text x="260" y="182" font-size="11.5" fill="#7E786F">賺規格升級＋用量</text>
+
+      <path d="M432 108 L 460 108" stroke="#3E3A36" stroke-width="2" marker-end="url(#arr2)"/>
+
+      <rect x="466" y="24" width="196" height="168" rx="9" fill="#F1EEE8" stroke="#DCD6CC"/>
+      <text x="480" y="48" font-weight="800">櫃內降壓（晶片）</text>
+      <text x="480" y="70" font-size="11.5" fill="#7E786F">800V→54V→板端 &lt;1V</text>
+      <text x="480" y="94" fill="#8A6F9E" font-weight="700">MPWR（中段＋垂直供電）</text>
+      <text x="480" y="116" fill="#7E786F">英飛凌・TI・ST・onsemi</text>
+      <text x="480" y="134" fill="#7E786F">ADI・Renesas・ROHM</text>
+      <text x="480" y="152" fill="#7E786F">Navitas・POWI・AOS 等 14 家</text>
+      <text x="480" y="182" font-size="11.5" fill="#7E786F">SiC 前端・GaN 中段（7 月報告）</text>
+
+      <path d="M668 108 L 696 108" stroke="#3E3A36" stroke-width="2" marker-end="url(#arr2)"/>
+
+      <rect x="702" y="24" width="188" height="168" rx="9" fill="#F1EEE8" stroke="#DCD6CC"/>
+      <text x="716" y="48" font-weight="800">儲能＋機電系統</text>
+      <text x="716" y="72" fill="#849A5C" font-weight="700">BBU：光寶・台達</text>
+      <text x="716" y="92" font-size="11.5" fill="#7E786F">AES-KY・順達・加百裕</text>
+      <text x="716" y="116" fill="#5B7FA3" font-weight="700">系統：Vertiv・Eaton</text>
+      <text x="716" y="136" font-size="11.5" fill="#7E786F">Schneider・ABB・Siemens</text>
+      <text x="716" y="154" font-size="11.5" fill="#7E786F">GE Vernova・日立・三菱</text>
+      <text x="716" y="182" font-size="11.5" fill="#7E786F">標配化＋整廠工程</text>
+    </g>
+    <text x="10" y="222" font-size="11.5" fill="#7E786F">四檔標的的位置：台達與光寶在電力櫃（兼儲能）、MPWR 在櫃內晶片、Vertiv 在機電系統。NVIDIA 官方名單三類共 29 家。</text>
+  </svg>
+  <div class="box warn"><b>查證警示：</b>Lead Wealth 有台媒誤傳為台廠。查證結果＝領裕國際，深圳、比亞迪電子（0285.HK）體系、未上市（港交所公告＋公司官網）。名單上有它不等於台股受惠。</div>
+
+  <h3>月營收是免費的溫度計：同一個題材，鏈上位置溫度差很多</h3>
+  <svg viewBox="0 0 900 200" role="img" aria-label="800V 電源鏈台股 7 月營收年增率">
+    <g font-size="13">
+      <text x="14" y="32" fill="#7E786F">貿聯-KY（線纜連接）</text>
+      <rect x="216" y="16" width="497" height="19" rx="4" fill="#B4735A"><title>貿聯 7 月營收 96.30 億，年增 59.59%，創歷史新高</title></rect>
+      <text x="722" y="31" class="num" font-weight="700">+59.6%</text>
+      <text x="14" y="62" fill="#7E786F">台達電（電源＋散熱）</text>
+      <rect x="216" y="46" width="398" height="19" rx="4" fill="#B4735A"><title>台達電 7 月營收 670.73 億，年增 47.75%，創歷史新高</title></rect>
+      <text x="623" y="61" class="num" font-weight="700">+47.8%</text>
+      <text x="14" y="92" fill="#7E786F">AES-KY（BBU 電池）</text>
+      <rect x="216" y="76" width="236" height="19" rx="4" fill="#849A5C"><title>AES-KY 7 月營收 17.23 億，年增 28.24%，續創新高</title></rect>
+      <text x="461" y="91" class="num" font-weight="700">+28.2%</text>
+      <text x="14" y="122" fill="#7E786F">光寶科（2Q26 營收年增）</text>
+      <rect x="216" y="106" width="253" height="19" rx="4" fill="#849A5C"><title>光寶科 2Q26 營收 527 億，年增 30.4%（7 月單月數未取，用季增速替代）</title></rect>
+      <text x="478" y="121" class="num" font-weight="700">+30.4%</text>
+      <rect x="133" y="136" width="83" height="19" rx="4" fill="#B08079"><title>加百裕 7 月營收 3.89 億，年減 9.88%，連 6 個月衰退</title></rect>
+      <text x="141" y="151" class="num" font-weight="700" fill="#F7F5F1">−9.9%</text>
+      <text x="226" y="151" fill="#7E786F">加百裕（BBU 電池）</text>
+    </g>
+    <line x1="216" y1="8" x2="216" y2="160" stroke="#CBC3B6" stroke-width="1"/>
+    <text x="14" y="182" font-size="12" fill="#7E786F">同是 BBU 題材，AES-KY 創新高、加百裕連 6 個月衰退——訂單分配不均是查證過的事實，「沾到題材」與「拿到訂單」是兩件事。</text>
+  </svg>
+  <p class="src">資料：各公司月營收公告（Newtalk 2026-08-10、TechNews 2026-08-05、經濟日報 2026-08-05、財報狗 8 月）；光寶科 2Q26 法說（鉅亨 2026-07-31）。順達 7 月單月數未取，其全年 BBU 營收目標 70–80 億（7/29 法說）。</p>
+
+  <div class="box hl"><b>這張圖的意思：</b>價值量升級先反映在「本來就有位置」的公司（貿聯、台達），BBU 純電池廠吃的是第二波、而且分配集中。這跟你初判「BBU 與儲能最賺」的對照是：段落的邏輯成立（標配化），但可投資的純標的少、分化大——你後來把 BBU 論點放在光寶身上，等於選了「有系統位置的 BBU」而非純電池廠。</div>
+</div>
+
+<!-- ══════════ 04 ══════════ -->
+<div class="slide">
+  <div class="kick">第四章 ・ 股癌脈絡</div>
+  <h2>股癌怎麼講這個題材：三集、三個階段（逐字稿為準）</h2>
+  <table>
+    <tr><th style="width:110px">集數</th><th>原話（逐字稿）</th><th style="width:200px">讀法</th></tr>
+    <tr><td class="num"><b>EP671</b><br>6/17</td><td>「SemiAnalysis 去講說 800V DC 可能會有遞延……可能你在明年就只會看到一個 5% 的 penetration rate」；「不管你是走哪一種 approach……你會用到的功率元件的數量都是大幅的上升」</td><td>時程可以吵，用量方向沒得吵——他把兩件事拆開</td></tr>
+    <tr><td class="num"><b>EP686</b><br>8/8</td><td>「（美系客戶）可能會比較比同業來說提早地往 800V 的方向去走……ASP 是跑到數倍以上」；「光寶它開完之後直接就射出去嘛……甚至最後面連大哥台達電都跟著動？」；台達電：「那是一個很強大很屌的公司，訂單超滿，那只是就是錢沒有在這裡」</td><td>轉積極的一集：光寶法說被當成電源族群啟動訊號；台達給的是「公司強、資金未到」的分離判斷</td></tr>
+    <tr><td class="num"><b>EP688</b><br>8/15</td><td>整集 800V 專題：白皮書瘋傳、6.1kA→0.4kA 算術、兩階段受惠清單、「SiC 跟 GaN……超乎自己的想像」、全水冷</td><td>從觀察升級為結構專題；全集未點名台股個股——媒體概念股清單屬延伸，非他親口</td></tr>
+  </table>
+  <p class="note">EP671–680 逐字稿全文、EP686／EP688 引句經 vocus 逐字稿核對。筆記流傳版與逐字稿有出入處（例：EP686「買了套著也安全」逐字稿查無此句）一律以逐字稿為準。他的輪動時點語錄屬進出場判斷，照流程放第十二章附錄。</p>
+</div>
+
+<!-- ══════════ 05 ══════════ -->
+<div class="slide">
+  <div class="kick">第五章 ・ 信心評分</div>
+  <h2>你的四張採信度盤：十六個賭注，我查證、你給分</h2>
+  <p>流程分工：領先指標與反面證據由我查證、市場基準由我測量，<b>邏輯×可發生性×影響幅度三個分數全部由你 2026-08-17 親自評</b>，四份 JSON 存底不再修改。</p>
+
+  <svg viewBox="0 0 900 240" role="img" aria-label="四檔多空賭注權重總和與淨傾向">
+    <text x="14" y="22" font-size="14.5" font-weight="700">多方權重總和（右）vs 空方權重總和（左）——淨傾向就是你的立場強度</text>
+    <line x1="360" y1="36" x2="360" y2="210" stroke="#3E3A36" stroke-width="1.5"/>
+    <g font-size="13">
+      <text x="14" y="66" fill="#5B7FA3" font-weight="700">Vertiv</text>
+      <rect x="320" y="50" width="40" height="22" rx="4" fill="#B08079"><title>空方 ΣW 9.9</title></rect>
+      <rect x="360" y="50" width="286" height="22" rx="4" fill="#5B7FA3"><title>多方 ΣW 71.5</title></rect>
+      <text x="654" y="66" class="num" font-weight="800">淨 +61.6</text>
+      <text x="14" y="112" fill="#8A6F9E" font-weight="700">MPWR</text>
+      <rect x="323" y="96" width="37" height="22" rx="4" fill="#B08079"><title>空方 ΣW 9.2</title></rect>
+      <rect x="360" y="96" width="252" height="22" rx="4" fill="#8A6F9E"><title>多方 ΣW 63.1</title></rect>
+      <text x="620" y="112" class="num" font-weight="800">淨 +53.9</text>
+      <text x="14" y="158" fill="#849A5C" font-weight="700">光寶科</text>
+      <rect x="251" y="142" width="109" height="22" rx="4" fill="#B08079"><title>空方 ΣW 27.2（台達競爭 23.3 為全場最大空方注）</title></rect>
+      <rect x="360" y="142" width="216" height="22" rx="4" fill="#849A5C"><title>多方 ΣW 54.0</title></rect>
+      <text x="584" y="158" class="num" font-weight="800">淨 +26.8</text>
+      <text x="14" y="204" fill="#B4735A" font-weight="700">台達電</text>
+      <rect x="324" y="188" width="36" height="22" rx="4" fill="#B08079"><title>空方 ΣW 8.9</title></rect>
+      <rect x="360" y="188" width="70" height="22" rx="4" fill="#B4735A"><title>多方 ΣW 17.5</title></rect>
+      <text x="438" y="204" class="num" font-weight="800">淨 +8.6</text>
+    </g>
+    <text x="14" y="232" font-size="12" fill="#7E786F">長度＝權重總和等比例。淨傾向排序與你 8/16 的初判信心排序（VRT 高、MPWR 高、台達 中）一致。</text>
+  </svg>
+
+  <svg viewBox="0 0 900 190" role="img" aria-label="與市場採信度分歧最大的四個賭注">
+    <text x="14" y="22" font-size="14.5" font-weight="700">你 vs 市場：分歧最大的四注（F 減市場隱含採信度中值，±20pp 才觸發說明關卡，全部未觸發）</text>
+    <line x1="450" y1="36" x2="450" y2="162" stroke="#3E3A36" stroke-width="1.5"/>
+    <g font-size="12.5">
+      <text x="14" y="62" fill="#849A5C">光寶 800V 時程如期（多）</text>
+      <rect x="450" y="46" width="150" height="20" rx="4" fill="#849A5C"><title>你 F80 vs 市場 55–75（中值 65）：+15pp</title></rect>
+      <text x="608" y="61" class="num" font-weight="700">+15pp　你更信</text>
+      <text x="14" y="94" fill="#8A6F9E">MPWR 換代重演（空）</text>
+      <rect x="450" y="78" width="90" height="20" rx="4" fill="#8A6F9E"><title>你 F26 vs 市場 10–25（中值 17.5）：+9pp</title></rect>
+      <text x="548" y="93" class="num" font-weight="700">+9pp　你更信這個空方</text>
+      <text x="14" y="126" fill="#B4735A">台達 800V 遞延（空）</text>
+      <rect x="370" y="110" width="80" height="20" rx="4" fill="#B08079"><title>你 F10 vs 市場 10–25（中值 17.5）：−8pp</title></rect>
+      <text x="362" y="125" class="num" font-weight="700" text-anchor="end">−8pp　市場更信</text>
+      <text x="14" y="158" fill="#8A6F9E">MPWR 2027 減速（空）</text>
+      <rect x="350" y="142" width="100" height="20" rx="4" fill="#B08079"><title>你 F13 vs 市場 15–30（中值 22.5）：−10pp</title></rect>
+      <text x="342" y="157" class="num" font-weight="700" text-anchor="end">−10pp　市場更信</text>
+    </g>
+    <text x="14" y="182" font-size="12" fill="#7E786F">另外兩注無法比：光寶 BBU（W39.0）與 MPWR 800V 插槽（W34.3）市場無法定價——而它們正好是你兩張盤的最重注。</text>
+  </svg>
+
+  <div class="box hl"><b>全場結構一句話：</b>你把兩張盤的最重注（光寶 BBU、MPWR 800V 插槽）都押在市場無法定價的賭注上；台達電那張你評「都會兌現、但都撼動不了故事」（L 高 I 低）；VRT 那張你跟市場幾乎零分歧。</div>
+</div>
+<!-- ══════════ 06 VRT ══════════ -->
+<div class="slide" style="border-top:4px solid var(--vr)">
+  <div class="kick" style="color:var(--vr)">第六章 ・ 個股解析 1/4</div>
+  <h2>Vertiv（VRT）</h2>
+  <p class="sub">紐約證交所 ｜ 資料中心電力與散熱系統商 ｜ 你的淨傾向 +61.6（四檔最高）</p>
+  <div class="stat">
+    <div><b class="num">$293.84</b><span>8/14 收盤<br>市值約 $1,131 億</span></div>
+    <div><b class="num">34.4×</b><span>預期本益比<br>現價 ÷ FY2027 共識 $8.55</span></div>
+    <div><b class="num">37.7%</b><span>2Q26 毛利率；調整後營益率 22.6%</span></div>
+    <div><b class="num">~80%</b><span>營收綁資料中心；800V 組合 2H26 上市</span></div>
+  </div>
+
+  <h3>賣什麼＋觀察重點</h3>
+  <table>
+    <tr><th style="width:110px">項目</th><th>內容</th></tr>
+    <tr><td>產品</td><td>不斷電系統、配電、精密空調、液冷；800V 世代新增集中整流器、DC busway、櫃級 DC-DC、直流備援</td></tr>
+    <tr><td>獨特之處</td><td>系統整合＋5,000 名以上現場服務工程師——連空方（天下陳良榕）都承認這是台達短期補不上的壁壘</td></tr>
+    <tr><td>基本盤</td><td>2Q26 營收 $32.7 億（有機 +17.8%）、調整後 EPS $1.52（+60%）；全年指引三度上修至營收中值 $140 億、EPS $6.70</td></tr>
+    <tr><td>關鍵事實</td><td>backlog 最後一次揭露 $15.0B（2025/12/31，+109%）之後<b>連兩季沉默</b>；2Q 營收低於共識 3%、當日 −17.26%，但同一份財報遞延收入半年倍增至 $3.63B、存貨 +73%——同組數字多空各拿一半</td></tr>
+    <tr><td>800V 原話</td><td>「此架構 2026 年客戶驗證中，2027 年部署」；每 MW 內容價值「有信心達 $3.25M–3.75M 區間高端」；與 VisionBay.ai 在台灣建全球首座 rack/pod 級 800VDC AI 資料中心</td></tr>
+  </table>
+
+  <h3>你的評分（2026-08-17）</h3>
+  <table class="pt">
+    <tr><th>方向</th><th style="text-align:left">賭注</th><th>L×F×I</th><th>W</th><th>Δ</th></tr>
+    <tr><td>多</td><td style="text-align:left">訂單與備貨動能延續，撐 FY27 共識 +28%</td><td class="num">72×80×65</td><td class="num hi">37.4</td><td class="num">0pp</td></tr>
+    <tr><td>多</td><td style="text-align:left">800V 組合 2H26 出貨、2027 隨 Rubin Ultra 放量</td><td class="num">70×75×65</td><td class="num">34.1</td><td class="num">+5pp</td></tr>
+    <tr><td>空</td><td style="text-align:left">動能見頂（miss＋揭露轉暗＝領先訊號）</td><td class="num">25×25×90</td><td class="num">5.6</td><td class="num">−3pp</td></tr>
+    <tr><td>空</td><td style="text-align:left">台達等亞洲電源廠切走系統價值</td><td class="num">25×20×85</td><td class="num">4.3</td><td class="num">−3pp</td></tr>
+  </table>
+  <div class="quote">頭號注是訂單動能、與市場零分歧；兩個空方都是「低機率、高殺傷」的形狀。這張盤是四檔裡最貼共識的一張——優勢來源是執行追蹤，沒有資訊差。<i>——祖曜筬評分紀錄摘要，2026-08-17。與查證資料的衝突：無</i></div>
+
+  <h3>同業倍數：六家機電可比排第 2 貴</h3>
+  <svg viewBox="0 0 900 208" role="img" aria-label="機電同業預期本益比比較">
+    <g font-size="13">
+      <text x="14" y="30" fill="#7E786F">GE Vernova</text><rect x="150" y="15" width="500" height="18" rx="4" fill="#8C8880"><title>GEV 50.0 倍</title></rect><text x="658" y="29" class="num">50.0×</text>
+      <text x="14" y="58" fill="#5B7FA3" font-weight="700">Vertiv</text><rect x="150" y="43" width="377" height="18" rx="4" fill="#5B7FA3"><title>VRT 37.7 倍</title></rect><text x="535" y="57" class="num" font-weight="700">37.7×</text>
+      <text x="14" y="86" fill="#7E786F">Eaton</text><rect x="150" y="71" width="302" height="18" rx="4" fill="#8C8880"><title>ETN 30.2 倍</title></rect><text x="460" y="85" class="num">30.2×</text>
+      <text x="14" y="114" fill="#7E786F">nVent</text><rect x="150" y="99" width="297" height="18" rx="4" fill="#8C8880"><title>NVT 29.7 倍</title></rect><text x="455" y="113" class="num">29.7×</text>
+      <text x="14" y="142" fill="#7E786F">Schneider</text><rect x="150" y="127" width="277" height="18" rx="4" fill="#8C8880"><title>SU 27.7 倍</title></rect><text x="435" y="141" class="num">27.7×</text>
+      <text x="14" y="170" fill="#7E786F">ABB</text><rect x="150" y="155" width="222" height="18" rx="4" fill="#8C8880"><title>ABB 22.2 倍</title></rect><text x="380" y="169" class="num">22.2×</text>
+    </g>
+    <text x="14" y="198" font-size="11.5" fill="#7E786F">口徑：未來十二個月共識（stockanalysis，8/14 收盤）。對 Eaton 溢價 25%＝市場已給 800V／AI 領導地位一段價。</text>
+  </svg>
+
+  <h3>目標價區間（分母：FY2027 共識 EPS $8.55，Zacks 7/20）</h3>
+  <table class="pt">
+    <tr><th style="width:190px">情境</th><th>悲觀</th><th>合理</th><th>樂觀</th></tr>
+    <tr><td>倍數</td><td class="num">25×</td><td class="num hi">34×</td><td class="num">40×</td></tr>
+    <tr><td>倍數依據</td>
+      <td style="font-size:11.5px;text-align:left;color:#7E786F">競爭空方注兌現，降到 Eaton 之下（UPS 邊緣化被定價）</td>
+      <td style="font-size:11.5px;text-align:left;color:#7E786F">維持現在市場對 FY27 付的 34.4 倍</td>
+      <td style="font-size:11.5px;text-align:left;color:#7E786F">賣方目標中位 $345 隱含的 40 倍</td></tr>
+    <tr><td><b>2027 目標價</b></td><td class="num">$214</td><td class="num hi">$291</td><td class="num">$342</td></tr>
+    <tr><td>對現價 $293.84</td><td class="num" style="color:#B08079">−27%</td><td class="num">−1%</td><td class="num" style="color:#849A5C">+16%</td></tr>
+  </table>
+  <div class="box"><b>對照賣方：</b>28 位分析師平均 $338、中位 $345。<b>合理情境幾乎等於現價</b>——上檔要靠 FY27 共識上修（訂單重新揭露）或倍數守 40，這正是你頭號賭注在賭的東西。驗算：214＝8.55×25；291＝8.55×34；342＝8.55×40。</div>
+
+  <h3>什麼會讓這個判斷錯掉</h3>
+  <ul>
+    <li>3Q26 財報（10 月下旬）仍無 backlog／訂單量化揭露，且營收再度低於共識。</li>
+    <li>800V 組合 2H26 未出貨（12 月底前無公司確認），或每 MW 口徑下修。</li>
+    <li>台達拿下指標性 CSP 系統級訂單——你 I=85 的空方注開始兌現。</li>
+  </ul>
+</div>
+
+<!-- ══════════ 07 MPWR ══════════ -->
+<div class="slide" style="border-top:4px solid var(--mp)">
+  <div class="kick" style="color:var(--mp)">第七章 ・ 個股解析 2/4</div>
+  <h2>Monolithic Power（MPWR）</h2>
+  <p class="sub">那斯達克 ｜ 類比電源管理 IC 平台 ｜ 你的淨傾向 +53.9</p>
+  <div class="stat">
+    <div><b class="num">$1,402.01</b><span>8/14 收盤<br>市值 $689 億・淨現金約 $9 億、零負債</span></div>
+    <div><b class="num">51.2×</b><span>預期本益比<br>現價 ÷ FY2026 共識 $27.39</span></div>
+    <div><b class="num">55.6%</b><span>非 GAAP 毛利率<br>功率／類比可比組第一</span></div>
+    <div><b class="num">38.8%</b><span>Enterprise Data 佔營收<br>2Q26 $380.6M、+44.8% QoQ</span></div>
+  </div>
+
+  <h3>賣什麼＋觀察重點</h3>
+  <table>
+    <tr><th style="width:110px">項目</th><th>內容</th></tr>
+    <tr><td>產品</td><td>資料中心核心供電（DrMOS、多相控制、48V 垂直供電模組）＋車用、工控、消費</td></tr>
+    <tr><td>ED 軌跡</td><td>季營收五季連跳：144→191.5→233.5→262.8→380.6（$M）；全年成長下限由 85% 上調至 130%（財務主管原話）</td></tr>
+    <tr><td>800V 原話</td><td>高壓 AC/DC「開始送樣」、SiC 全用自家元件、GaN「will have a working device」——<b>無時點、無金額、法說全場未點名 NVIDIA</b></td></tr>
+    <tr><td>換代前科</td><td>2024/11 Edgewater：B200/GB200 配額「大幅受限或歸零」、當日重挫；2024 年報揭露一家 AI 電源間接客戶佔 17%。CEO 今年口徑「no concentrated customers」與 17% 並存，照列不裁定</td></tr>
+  </table>
+
+  <h3>你的評分（2026-08-17）</h3>
+  <table class="pt">
+    <tr><th>方向</th><th style="text-align:left">賭注</th><th>L×F×I</th><th>W</th><th>Δ</th></tr>
+    <tr><td>多</td><td style="text-align:left">800V 以自家 SiC＋自研 GaN 卡進前端新插槽</td><td class="num">70×70×70</td><td class="num hi">34.3</td><td class="num">無法計算</td></tr>
+    <tr><td>多</td><td style="text-align:left">ED 全年 130% 下限兌現且 2027 不失速</td><td class="num">80×80×45</td><td class="num">28.8</td><td class="num">+3pp</td></tr>
+    <tr><td>空</td><td style="text-align:left">NVIDIA 換代重新投票（Blackwell 事件重演）</td><td class="num">35×26×85</td><td class="num">7.7</td><td class="num">+9pp</td></tr>
+    <tr><td>空</td><td style="text-align:left">ED 高基期後 2027 減速大於共識</td><td class="num">13×13×90</td><td class="num">1.5</td><td class="num">−10pp</td></tr>
+  </table>
+  <div class="quote">最重的注押在市場無法定價的 800V 插槽上；ED 給高邏輯高可發生但影響只有 45——結構是「ED 付底價、800V 當選擇權」，而市場（51.2 倍）已把底價付滿。換代風險比市場多信 9pp，出處是 7 月功率報告的原型風險條。<i>——祖曜筬評分紀錄摘要，2026-08-17。與查證資料的衝突：無</i></div>
+
+  <h3>同業倍數：六家可比排第 2 貴</h3>
+  <svg viewBox="0 0 900 208" role="img" aria-label="功率類比同業預期本益比比較">
+    <g font-size="13">
+      <text x="14" y="30" fill="#7E786F">Vicor</text><rect x="150" y="15" width="606" height="18" rx="4" fill="#8C8880"><title>VICR 67.3 倍</title></rect><text x="764" y="29" class="num">67.3×</text>
+      <text x="14" y="58" fill="#8A6F9E" font-weight="700">MPWR</text><rect x="150" y="43" width="461" height="18" rx="4" fill="#8A6F9E"><title>MPWR 51.2 倍</title></rect><text x="619" y="57" class="num" font-weight="700">51.2×</text>
+      <text x="14" y="86" fill="#7E786F">英飛凌</text><rect x="150" y="71" width="329" height="18" rx="4" fill="#8C8880"><title>IFX 36.6 倍</title></rect><text x="487" y="85" class="num">36.6×</text>
+      <text x="14" y="114" fill="#7E786F">德州儀器</text><rect x="150" y="99" width="301" height="18" rx="4" fill="#8C8880"><title>TXN 33.4 倍</title></rect><text x="459" y="113" class="num">33.4×</text>
+      <text x="14" y="142" fill="#7E786F">ADI</text><rect x="150" y="127" width="282" height="18" rx="4" fill="#8C8880"><title>ADI 31.3 倍</title></rect><text x="440" y="141" class="num">31.3×</text>
+      <text x="14" y="170" fill="#7E786F">onsemi</text><rect x="150" y="155" width="232" height="18" rx="4" fill="#8C8880"><title>ON 25.8 倍</title></rect><text x="390" y="169" class="num">25.8×</text>
+    </g>
+    <text x="14" y="198" font-size="11.5" fill="#7E786F">口徑：8/14 收盤 ÷ 各家 FY2026 共識 EPS。對 TXN／ADI 溢價約五成——把 51.2 倍壓回 33 倍，需要 EPS 比共識再高約 55%。</text>
+  </svg>
+
+  <h3>目標價區間（分母：FY2027 共識 EPS $31.06，WallStreetZen，財報前口徑・偏舊）</h3>
+  <table class="pt">
+    <tr><th style="width:190px">情境</th><th>悲觀</th><th>合理</th><th>樂觀</th></tr>
+    <tr><td>倍數</td><td class="num">33×</td><td class="num hi">45×</td><td class="num">58.6×</td></tr>
+    <tr><td>倍數依據</td>
+      <td style="font-size:11.5px;text-align:left;color:#7E786F">換代注兌現時回到類比同業（TXN 33 倍）的定價</td>
+      <td style="font-size:11.5px;text-align:left;color:#7E786F">維持現在市場對 FY27 付的約 45 倍</td>
+      <td style="font-size:11.5px;text-align:left;color:#7E786F">賣方目標中位 $1,820 隱含的 58.6 倍</td></tr>
+    <tr><td><b>2027 目標價</b></td><td class="num">$1,025</td><td class="num hi">$1,398</td><td class="num">$1,820</td></tr>
+    <tr><td>對現價 $1,402.01</td><td class="num" style="color:#B08079">−27%</td><td class="num">0%</td><td class="num" style="color:#849A5C">+30%</td></tr>
+  </table>
+  <div class="box"><b>對照賣方：</b>15 位平均 $1,830、中位 $1,820、11 家 Strong Buy。<b>合理情境等於現價</b>——市場付的是「不減速」劇本；你的頭號賭注（800V 插槽）若拿到官方時點，等於樂觀情境的入場券。FY27 共識為財報前口徑，10 月底財報後要換新分母重算。驗算：1,025＝31.06×33；1,398＝31.06×45；1,820＝31.06×58.6。</div>
+
+  <h3>什麼會讓這個判斷錯掉</h3>
+  <ul>
+    <li>3Q26 ED 金額季減（10 月底財報；隱含全年下限的軌道約 $440M 以上）。</li>
+    <li>Rubin 世代供應商名單出現 MPWR 被替換的可信通路報導。</li>
+    <li>800V 送樣到 2027 年中仍無量產時點——你頭號賭注的死線。</li>
+  </ul>
+</div>
+
+<!-- ══════════ 08 光寶 ══════════ -->
+<div class="slide" style="border-top:4px solid var(--lo)">
+  <div class="kick" style="color:var(--lo)">第八章 ・ 個股解析 3/4</div>
+  <h2>光寶科（2301）</h2>
+  <p class="sub">台灣證交所 ｜ 電源管理為核心 ｜ 你的淨傾向 +26.8（唯一多空同桌）</p>
+  <div class="stat">
+    <div><b class="num">NT$267</b><span>8/14 收盤<br>市值約 6,184 億</span></div>
+    <div><b class="num">22.1×</b><span>預期本益比<br>現價 ÷ 2027 共識 12.06</span></div>
+    <div><b class="num">27.2%</b><span>2Q26 毛利率，三率三升創高；全年目標約 25%</span></div>
+    <div><b class="num">55%</b><span>雲端佔營收；BBU 佔雲端 20–25%</span></div>
+  </div>
+
+  <h3>賣什麼＋觀察重點</h3>
+  <table>
+    <tr><th style="width:110px">項目</th><th>內容</th></tr>
+    <tr><td>產品</td><td>伺服器電源、BBU、800V 電源櫃、120kW CDU／sidecar（Q2 已量產）＋光電、資訊消費</td></tr>
+    <tr><td>時程原話</td><td>800V 電源櫃 8 月送樣（13 週測試）→<b>11 月小量產</b>→2027Q1 規模量產；1 家大型 CSP 設計出貨、新增 2 家接洽；公司自留但書：2027 需求「尚未完全明朗」</td></tr>
+    <tr><td>基本盤</td><td>2Q26 營收 527 億（+30.4%）、EPS 3.14 創高；1H26 EPS 4.80（+66%）；雲端全年指引年增 >70%；「每家主要 CSP 長期營收 10 億美元」</td></tr>
+    <tr><td>關鍵缺口</td><td>BBU 金額未單獨揭露——你的頭號賭注目前沒有逐季對帳窗口；資本支出 130→180 億（2025 的 2.6 倍）</td></tr>
+  </table>
+
+  <h3>你的評分（2026-08-17）</h3>
+  <table class="pt">
+    <tr><th>方向</th><th style="text-align:left">賭注</th><th>L×F×I</th><th>W</th><th>Δ</th></tr>
+    <tr><td>多</td><td style="text-align:left">BBU 選配→標配、雲端 >70%、每 CSP 10 億美元可信</td><td class="num">80×75×65</td><td class="num hi">39.0</td><td class="num">無法計算</td></tr>
+    <tr><td>空</td><td style="text-align:left">台達以更完整系統方案壓縮份額與價格</td><td class="num">74×35×90</td><td class="num hi">23.3</td><td class="num">−5pp</td></tr>
+    <tr><td>多</td><td style="text-align:left">11 月小量產→2027Q1 規模量產如期</td><td class="num">75×80×25</td><td class="num">15.0</td><td class="num">+15pp</td></tr>
+    <tr><td>空</td><td style="text-align:left">資本支出翻倍引發折舊侵蝕、毛利率失守</td><td class="num">35×15×75</td><td class="num">3.9</td><td class="num">−5pp</td></tr>
+  </table>
+  <div class="quote">最重的注（BBU）又是無法定價的那種；同時放了全場最重的空方注在台達競爭上——L74 代表你認為因果鏈大致成立，只是短期未必發生。時程比市場多信 15pp，是十六注裡最大的正分歧。這檔能抱的前提是觀察點逐季通過。<i>——祖曜筬評分紀錄摘要，2026-08-17。與查證資料的衝突：無</i></div>
+
+  <h3>同業倍數：台股電源可比排第 3</h3>
+  <svg viewBox="0 0 900 180" role="img" aria-label="電源同業預期本益比比較（光寶視角）">
+    <g font-size="13">
+      <text x="14" y="30" fill="#B4735A" font-weight="700">台達電</text><rect x="150" y="15" width="480" height="18" rx="4" fill="#B4735A"><title>台達電 48.0 倍（2026 共識口徑）</title></rect><text x="638" y="29" class="num" font-weight="700">48.0×</text>
+      <text x="14" y="58" fill="#7E786F">Vertiv</text><rect x="150" y="43" width="377" height="18" rx="4" fill="#8C8880"><title>VRT 37.7 倍</title></rect><text x="535" y="57" class="num">37.7×</text>
+      <text x="14" y="86" fill="#849A5C" font-weight="700">光寶科</text><rect x="150" y="71" width="303" height="18" rx="4" fill="#849A5C"><title>光寶科 30.3 倍（2026 共識口徑）</title></rect><text x="461" y="85" class="num" font-weight="700">30.3×</text>
+      <text x="14" y="114" fill="#7E786F">Eaton</text><rect x="150" y="99" width="302" height="18" rx="4" fill="#8C8880"><title>ETN 30.2 倍</title></rect><text x="460" y="113" class="num">30.2×</text>
+      <text x="14" y="142" fill="#7E786F">群光</text><rect x="150" y="127" width="88" height="18" rx="4" fill="#8C8880"><title>群光 8.8 倍（近四季）</title></rect><text x="246" y="141" class="num">8.8×</text>
+    </g>
+    <text x="14" y="170" font-size="11.5" fill="#7E786F">口徑：台股用 8/14 收盤 ÷ 2026 FactSet 共識；VRT／ETN 為未來十二個月口徑；群光缺 2026 共識、用近四季。光寶對台達折價 37%＝二線定位＋搶單風險的價格。</text>
+  </svg>
+
+  <h3>目標價區間（分母：2027 共識 EPS 12.06，FactSet）</h3>
+  <table class="pt">
+    <tr><th style="width:190px">情境</th><th>悲觀</th><th>合理</th><th>樂觀</th></tr>
+    <tr><td>倍數</td><td class="num">18×</td><td class="num hi">24×</td><td class="num">30×</td></tr>
+    <tr><td>倍數依據</td>
+      <td style="font-size:11.5px;text-align:left;color:#7E786F">台達競爭注兌現＋毛利失守，折價擴大</td>
+      <td style="font-size:11.5px;text-align:left;color:#7E786F">現在對 2027 付 22.1 倍附近、可比折價維持</td>
+      <td style="font-size:11.5px;text-align:left;color:#7E786F">最樂觀投顧 370 的隱含口徑；同業中位倍數用到 2027</td></tr>
+    <tr><td><b>2027 目標價</b></td><td class="num">NT$217</td><td class="num hi">NT$289</td><td class="num">NT$362</td></tr>
+    <tr><td>對現價 NT$267</td><td class="num" style="color:#B08079">−19%</td><td class="num" style="color:#849A5C">+8%</td><td class="num" style="color:#849A5C">+36%</td></tr>
+  </table>
+  <div class="box"><b>對照賣方：</b>12 位中位 250（8/1 上調後仍低於現價）、最高 370、最低 176、大摩中立 170——<b>賣方分歧是四檔裡最大的</b>，現價已超車中位目標，8/3–8/4 連兩根漲停消化法說。驗算：217＝12.06×18；289＝12.06×24；362＝12.06×30。</div>
+
+  <h3>什麼會讓這個判斷錯掉</h3>
+  <ul>
+    <li>11 月小量產跳票（11–12 月營收與公司公告）。</li>
+    <li>毛利率連兩季低於 25%（3Q26、4Q26 財報）——折舊注雖然你只給 W3.9，開獎窗口就在眼前。</li>
+    <li>唯一大型 CSP 訂單被台達奪走——你 I=90 的空方注兌現。</li>
+  </ul>
+</div>
+
+<!-- ══════════ 09 台達電 ══════════ -->
+<div class="slide" style="border-top:4px solid var(--dt)">
+  <div class="kick" style="color:var(--dt)">第九章 ・ 個股解析 4/4</div>
+  <h2>台達電（2308）</h2>
+  <p class="sub">台灣證交所 ｜ 電源＋散熱全鏈龍頭 ｜ 你的淨傾向 +8.6（四檔最小）</p>
+  <div class="stat">
+    <div><b class="num">NT$1,885</b><span>8/14 收盤<br>市值約 4.90 兆・一年 +181%</span></div>
+    <div><b class="num">32.0×</b><span>預期本益比<br>現價 ÷ 2027 共識 59</span></div>
+    <div><b class="num">35.6%</b><span>2Q26 毛利率；EPS 9.68 創高</span></div>
+    <div><b class="num">>25%</b><span>AI 佔營收（年初指引 20%）；液冷 >12%</span></div>
+  </div>
+
+  <h3>賣什麼＋觀察重點</h3>
+  <table>
+    <tr><th style="width:110px">項目</th><th>內容</th></tr>
+    <tr><td>產品</td><td>伺服器電源、電力櫃、液冷、BBU、固態變壓器到微電網——NVIDIA 生態系裡產品線最完整；天下報導：正以固態變壓器打進 Vertiv 的機電主場</td></tr>
+    <tr><td>時程原話</td><td>鄭平：「400V、800V 產品第三季開始量產，第四季出貨量有限，<b>明顯放量可能最快要到明年</b>」；4Q25 法說已預告 HVDC 主要貢獻自 2027 起——公司口徑前後一致</td></tr>
+    <tr><td>基本盤</td><td>2Q26 營收 1,832 億（+48%）；1H26 EPS 17.59 超過去任何一年全年；7 月營收 +47.75% 創新高；資本支出上修至 700 億（折舊年化約 440 億的 1.6 倍）</td></tr>
+    <tr><td>股癌原話</td><td>EP686：「那是一個很強大很屌的公司，訂單超滿，那只是就是錢沒有在這裡」（筆記流傳版「買了套著也安全」逐字稿查無，不採用）</td></tr>
+    <tr><td>關鍵缺口</td><td>800V／HVDC 營收金額未單獨揭露——兌現只能用 AI 佔比與月營收間接對帳；外資實查 2027 滲透率約 20% vs SemiAnalysis 的 5% 遞延說並存</td></tr>
+  </table>
+
+  <h3>你的評分（2026-08-17）</h3>
+  <table class="pt">
+    <tr><th>方向</th><th style="text-align:left">賭注</th><th>L×F×I</th><th>W</th><th>Δ</th></tr>
+    <tr><td>多</td><td style="text-align:left">800V Q3 量產、2027 放量且滲透率兩成、價值量升 5 倍</td><td class="num">90×85×15</td><td class="num hi">11.5</td><td class="num">+3pp</td></tr>
+    <tr><td>空</td><td style="text-align:left">800V 放量遞延、2027 共識 EPS 59 落空</td><td class="num">80×10×85</td><td class="num">6.8</td><td class="num">−8pp</td></tr>
+    <tr><td>多</td><td style="text-align:left">AI 佔比續升向四成、CSP 2027 資本支出續增</td><td class="num">80×75×10</td><td class="num">6.0</td><td class="num">−3pp</td></tr>
+    <tr><td>空</td><td style="text-align:left">傳統事業（EV、自動化）持續虧損拖累</td><td class="num">60×70×5</td><td class="num">2.1</td><td class="num">無法計算</td></tr>
+  </table>
+  <div class="quote">多方的事我認為大多會發生（L90×F85），但四注的影響幅度全壓在 5–15——好消息都是真的，也都已經是市場的預設。淨傾向 +8.6 全場最小，跟初判「中」一致。這檔的主軸是兌現與定價的差距，而非會不會兌現。<i>——祖曜筬評分紀錄摘要，2026-08-17。與查證資料的衝突：無</i></div>
+
+  <h3>目標價區間（分母：2027 共識 EPS 59，FactSet 中位）</h3>
+  <table class="pt">
+    <tr><th style="width:190px">情境</th><th>悲觀</th><th>合理</th><th>樂觀</th></tr>
+    <tr><td>倍數</td><td class="num">24×</td><td class="num hi">32×</td><td class="num">40×</td></tr>
+    <tr><td>倍數依據</td>
+      <td style="font-size:11.5px;text-align:left;color:#7E786F">遞延注兌現，降回機電可比組（ABB／Schneider 上緣）</td>
+      <td style="font-size:11.5px;text-align:left;color:#7E786F">維持現在市場對 2027 付的 32 倍</td>
+      <td style="font-size:11.5px;text-align:left;color:#7E786F">賣方目標中位 2,565 隱含 43.5 倍的下緣；HVDC 市場 24 倍擴張兌現</td></tr>
+    <tr><td><b>2027 目標價</b></td><td class="num">NT$1,416</td><td class="num hi">NT$1,888</td><td class="num">NT$2,360</td></tr>
+    <tr><td>對現價 NT$1,885</td><td class="num" style="color:#B08079">−25%</td><td class="num">0%</td><td class="num" style="color:#849A5C">+25%</td></tr>
+  </table>
+  <div class="box"><b>對照賣方：</b>21 位中位 2,565（7/31 下修 3.2%）、最高 4,500、最低 1,860；20 買 1 保守。<b>合理情境剛好等於現價</b>——現價已隱含「2026 EPS +70%、2027 再 +50% 連兩年兌現」。你的評分（I 全低）跟這個讀法互相印證：兌現在價內，超額要靠上修。驗算：1,416＝59×24；1,888＝59×32；2,360＝59×40。</div>
+
+  <h3>什麼會讓這個判斷錯掉</h3>
+  <ul>
+    <li>2027/1 法說未確認 800V 放量、或下修口徑——你唯一 F 給到 85 的注被打斷。</li>
+    <li>任一大型 CSP 下修 2027 資本支出（2026/10–2027/2 財報季）——四檔共用的總開關。</li>
+    <li>AI 佔比連兩季停在 25% 不再上行。</li>
+  </ul>
+</div>
+<!-- ══════════ 10 並排＋互動 ══════════ -->
+<div class="slide">
+  <div class="kick">第十章 ・ 總表與互動區</div>
+  <h2>四檔並排：三檔的合理情境幾乎等於現價，分歧全在「無法定價的注」</h2>
+  <table class="pt">
+    <tr><th>檔</th><th>現價（8/14）</th><th>明年共識 EPS</th><th>悲觀</th><th>合理</th><th>樂觀</th><th>你的淨傾向</th><th>你最重的注</th></tr>
+    <tr><td style="color:var(--vr)"><b>Vertiv</b></td><td class="num">$293.84</td><td class="num">$8.55</td><td class="num">$214（−27%）</td><td class="num hi">$291（−1%）</td><td class="num">$342（+16%）</td><td class="num">+61.6</td><td style="font-size:12px">訂單動能 W37.4</td></tr>
+    <tr><td style="color:var(--mp)"><b>MPWR</b></td><td class="num">$1,402.01</td><td class="num">$31.06</td><td class="num">$1,025（−27%）</td><td class="num hi">$1,398（0%）</td><td class="num">$1,820（+30%）</td><td class="num">+53.9</td><td style="font-size:12px">800V 插槽 W34.3・無法定價</td></tr>
+    <tr><td style="color:var(--lo)"><b>光寶科</b></td><td class="num">NT$267</td><td class="num">12.06</td><td class="num">217（−19%）</td><td class="num hi">289（+8%）</td><td class="num">362（+36%）</td><td class="num">+26.8</td><td style="font-size:12px">BBU 標配化 W39.0・無法定價</td></tr>
+    <tr><td style="color:var(--dt)"><b>台達電</b></td><td class="num">NT$1,885</td><td class="num">59</td><td class="num">1,416（−25%）</td><td class="num hi">1,888（0%）</td><td class="num">2,360（+25%）</td><td class="num">+8.6</td><td style="font-size:12px">800V 如期 W11.5・I 僅 15</td></tr>
+  </table>
+  <p class="note">分母全部用「明年」共識（美股 FY2027、台股 2027 日曆年）；MPWR 的 FY27 為財報前口徑、10 月底財報後要換分母重算。倍數依據見各檔章節，驗算式都附在對照賣方框裡。</p>
+
+  <h3>組合層三條註記</h3>
+  <ul>
+    <li><b>共用證偽訊號：</b>四檔全掛在「巨頭資本支出＋NVIDIA 平台節奏」同一個總開關上。7 月報告的規矩——共用故事的部位合併計算 40% 額度——適用於四檔加總。</li>
+    <li><b>內部對沖：</b>同時持有光寶與台達，等於把光寶那張 I=90 的台達競爭空方注部分自我對沖。結構事實，非建議。</li>
+    <li><b>驗證窗口集中：</b>裁判擠在 2026/10 下旬–2027/1。這之前，兩個「無法定價」的頭號賭注不會有新事實。</li>
+  </ul>
+
+  <h3>倍數自己拉：現場改數字</h3>
+  <p class="note">滑桿選倍數，右邊即時算「倍數 × 明年共識 EPS」對照現價。預設停在各檔的合理情境。</p>
+  <div class="sl"><span style="color:var(--dt);font-weight:700">台達電 ×59</span><input type="range" id="sl-dt" min="12" max="65" step="1" value="32"><output id="out-dt"></output></div>
+  <div class="sl"><span style="color:var(--lo);font-weight:700">光寶科 ×12.06</span><input type="range" id="sl-lo" min="8" max="45" step="1" value="24"><output id="out-lo"></output></div>
+  <div class="sl"><span style="color:var(--vr);font-weight:700">Vertiv ×8.55</span><input type="range" id="sl-vr" min="15" max="55" step="1" value="34"><output id="out-vr"></output></div>
+  <div class="sl"><span style="color:var(--mp);font-weight:700">MPWR ×31.06</span><input type="range" id="sl-mp" min="20" max="70" step="1" value="45"><output id="out-mp"></output></div>
+  <div class="readout" id="readout"></div>
+</div>
+
+<!-- ══════════ 11 對帳日曆 ══════════ -->
+<div class="slide">
+  <div class="kick">第十一章 ・ 風險與對帳</div>
+  <h2>每個判斷都有開獎日</h2>
+  <table>
+    <tr><th style="width:120px">時點</th><th>事件</th><th style="width:230px">開的是哪一注</th></tr>
+    <tr><td class="num">8–10 月</td><td>光寶 800V 樣品 13 週測試進行中；台達逐月營收（每月 10 日前）</td><td>光寶時程（你 +15pp 那注）、台達 AI 佔比</td></tr>
+    <tr><td class="num">10 月下旬</td><td><b>VRT 3Q26 財報</b>：backlog 恢復揭露與否、營收是否重回超標</td><td>VRT 頭號注＋見頂空方注，一次開兩注</td></tr>
+    <tr><td class="num">10 月底</td><td><b>MPWR 3Q26 財報</b>（ED 是否 ≥ 約 $440M、800V 有無時點）；<b>光寶 3Q 法說</b>（毛利率 25%、BBU 是否首次單獨揭露）</td><td>MPWR 兩注；光寶 BBU 注（W39.0）的第一個窗口</td></tr>
+    <tr><td class="num">11–12 月</td><td><b>光寶 11 月小量產公告</b>；台達 Q4 出貨口徑；VRT 800V 首批出貨確認（12 月底前）</td><td>光寶時程注直接開獎；台達如期注前半</td></tr>
+    <tr><td class="num">2027/1–2</td><td><b>台達 Q4 法說</b>（800V 放量指引）；VRT／MPWR 全年指引；CSP 資本支出指引密集期</td><td>台達兩注；四檔共用的總開關</td></tr>
+    <tr><td class="num">2027/4–5</td><td>光寶 2027Q1 規模量產驗證；台達 1Q 法說</td><td>光寶時程注後半、台達放量斜率</td></tr>
+    <tr><td class="num">2027 年中</td><td>MPWR 800V 量產時點死線；Navitas sidecar 放量對照組</td><td>MPWR 頭號注（W34.3）的最後期限</td></tr>
+    <tr><td class="num">隨時</td><td>Rubin 世代供應商名單通路報導；台達 vs 光寶／Vertiv 搶單訊息</td><td>MPWR 換代注（你 +9pp）、光寶台達競爭注（W23.3）、VRT 競爭注</td></tr>
+  </table>
+  <div class="box warn"><b>回看時點定兩個：2026/11 中</b>（三家財報＋光寶小量產開獎後）、<b>2027/4–5</b>（放量開獎後）。用 JSON 存底對帳，不用回憶。</div>
+</div>
+
+<!-- ══════════ 12 留檔＋附錄 ══════════ -->
+<div class="slide">
+  <div class="kick">第十二章 ・ 判斷留檔與附錄</div>
+  <h2>判斷留檔＋帶走三句話</h2>
+  <h3>留檔（供 performance-attribution-review 對帳）</h3>
+  <table>
+    <tr><th style="width:150px">時點</th><th>內容</th></tr>
+    <tr><td class="num">2026-08-16 初判</td><td>最賺段＝BBU 與儲能；三檔＝VRT（高）、MPWR（高）、台達電（中）；經對照後定案四檔（加光寶科）</td></tr>
+    <tr><td class="num">2026-08-17 評分</td><td>淨傾向 VRT +61.6 ＞ MPWR +53.9 ＞ 光寶 +26.8 ＞ 台達 +8.6，與初判排序一致；十六注無一觸發 ±20pp 說明關卡；四份 JSON 存於 05_800VDC，不再修改</td></tr>
+    <tr><td>對帳優先序</td><td>①兩個無法定價的最重注（光寶 BBU、MPWR 800V）——官方口徑出現後對 F 分數 ②台達的 I 判斷（若報酬與他檔明顯分歧，檢討 I 不是 L）③光寶 +15pp 時程分歧——11 月直接開獎</td></tr>
+  </table>
+
+  <div class="box hl">
+    <b>帶走三句話</b><br>
+    一、800V 是物理逼的：同功率下電流差 15 倍沒有談判空間，能吵的只有時程——改裝件 2H26 出貨、原生大浪 2027。<br>
+    二、市場沒有睡著：台達、Vertiv、MPWR 的合理情境都幾乎等於現價；你的超額報酬宣稱集中在兩個市場無法定價的賭注（光寶 BBU、MPWR 800V 插槽），它們 10 月底之後才開始開獎。<br>
+    三、裁判擠在 10 月下旬到明年 1 月：五個開獎日決定十六注的大半，對帳日曆比預測重要。
+  </div>
+
+  <h3>附錄 A・待技術分析模組（估值位階與價格位置論述，原文保留、不進正文）</h3>
+  <p class="note">納蘭雪敏（8/11）：台達 P/E 約 58 vs 鴻海約 14、自由現金流回本期 55–90 年、市值遭鴻海超車｜蔡昀庭（6/22）：「價格是對未來的預支」、2800 目標價應對照歷史均值｜艾蜜莉（5/12）：「身價翻倍快過公司轉變」｜Zephyr（3/25）：外資測算 GB200 增量 EPS 僅 0.2–0.5 元故倒貨｜UmiCrypto（8/14）：「在 65 倍的股票上，需求放緩的第一季看起來就是 timing」｜Seeking Alpha：〈Why I'm Selling The Best Quarter〉〈Robust Growth, But Price Is Stretched〉〈When Even A Great Quarter Isn't Enough〉｜股癌 EP686 時點語錄：「DTA……線型走爛了。那一樣啦，我們都不會因為人家線型爛就說人家是爛公司」、「前面光先修、後來光先上嘛……那會不會一樣的道理就是 power」、另有筆記版「等族群中有股票率先突破歷史新高再認領跑者」（⚠️依摘要、逐字稿未核得）。</p>
+
+  <h3>附錄 B・數字口徑對照</h3>
+  <table>
+    <tr><th>主題</th><th>口徑一</th><th>口徑二</th><th>差在哪</th></tr>
+    <tr><td>省銅</td><td>−94%（7 月報告；48V 基準、單櫃匯流排）</td><td>−45%（NVIDIA；全廠端到端）</td><td>一條銅排 vs 整座廠</td></tr>
+    <tr><td>電流倍數</td><td>÷17（48V→800V）</td><td>÷15（54V→800V）；EP688 實算 6.1kA→0.4kA</td><td>基準電壓不同</td></tr>
+    <tr><td>單櫃功率半導體含量</td><td>$9,500→$115,000（12×）</td><td>$50k→$100k（1MW 櫃口徑）</td><td>世代定義不同（皆 onsemi 口徑）</td></tr>
+    <tr><td>市場規模</td><td>亞系 HVDC：2026 $7.5 億→2028 $180 億</td><td>SemiAnalysis：sidecar 2028 約 $110 億＋固態變壓器 2030 約 $320 億；Diligence Stack $300–450 億</td><td>整體 TAM vs 單一環節 vs 電源價值集合</td></tr>
+    <tr><td>每 MW 內容價值</td><td>Vertiv $3.25M–3.75M（整套系統）</td><td>SemiAnalysis sidecar 約 $50 萬；Navitas $2.5–3.5 萬（元件）</td><td>三個數字量三層：系統／電力櫃／晶片</td></tr>
+    <tr><td>滲透率</td><td>SemiAnalysis「未來一年 5%」</td><td>外資實查台達 2027 約 20%</td><td>時間窗與母數不同，可同時為真</td></tr>
+  </table>
+
+  <h3>附錄 C・來源</h3>
+  <p class="src">NVIDIA 官方×4（部落格、技術部落格×2、生態系頁；白皮書《800 VDC Architecture for Next-Generation AI Infrastructure》）｜公司一手：台達 7/30 法說＋月營收、光寶 7/31 法說（富果備忘錄）、Vertiv 2Q26 新聞稿＋法說逐字稿＋4Q25、MPWR 2Q26 新聞稿＋法說逐字稿＋10-K、Infineon Q3 FY26、TI 3/16、onsemi／STM／POWI／Innoscience／Navitas／Eaton 新聞稿｜股癌逐字稿（vocus 鏡像）：EP671、EP686、EP688 全文核對，EP672–685、687 掃描｜Substack：SemiAnalysis 5/26、Diligence Stack 3/31、Stock Crock 4/26、Nutty 5/26、9 Ventures 4/18、天下英文版（陳良榕）6/19・6/22・6/26、Riccardo Tinivella 6/26、Zephyr 3/25｜共識：FactSet（經鉅亨）、stockanalysis.com（8/14 收盤）、Zacks、WallStreetZen、MarketBeat、TWSE｜查證：Lead Wealth＝領裕國際（港交所公告 2022-03-29）｜完整 URL 清單見前版報告《800VDC對內報告_2026-08-17.html》附錄 C。</p>
+</div>
+
+</div><!-- /wrap -->
+<footer>
+台大控股社團內部研究，非投資建議。信心分數為使用者 2026-08-17 親評之個人信念留檔（四份 JSON 不再修改）。報價截至 2026-08-14 收盤、資料截至 2026-08-17。本報告不含技術分析、不判斷進出場時點、不以估值高低作為多空理由（相關素材見附錄 A）；目標價區間為「情境倍數 × 明年共識 EPS」的算術，倍數依據與驗算式均已標示。流程：stock-research-pipeline Phase 1–4＋valuation-method-selector；Phase 5 對外文章未啟動。前版完整判定書與查證細節：05_800VDC／800VDC對內報告_2026-08-17.html。
+</footer>
+<script>
+const CFG={dt:{eps:59,px:1885,cur:"NT$"},lo:{eps:12.06,px:267,cur:"NT$"},vr:{eps:8.55,px:293.84,cur:"$"},mp:{eps:31.06,px:1402.01,cur:"$"}};
+const NM={dt:"台達電",lo:"光寶科",vr:"Vertiv",mp:"MPWR"};
+function fmt(n){return n>=1000?n.toLocaleString("en-US",{maximumFractionDigits:0}):n.toFixed(0)}
+function upd(){
+  let lines=[];
+  for(const k of ["dt","lo","vr","mp"]){
+    const m=+document.getElementById("sl-"+k).value, c=CFG[k];
+    const tp=m*c.eps, pct=(tp/c.px-1)*100;
+    document.getElementById("out-"+k).textContent=m+"× → "+c.cur+fmt(tp);
+    lines.push(NM[k]+"　"+m+"× × "+c.eps+" ＝ <b>"+c.cur+fmt(tp)+"</b>（對現價 "+(pct>=0?"+":"")+pct.toFixed(0)+"%）");
+  }
+  document.getElementById("readout").innerHTML=lines.join("<br>");
+}
+["dt","lo","vr","mp"].forEach(k=>document.getElementById("sl-"+k).addEventListener("input",upd));
+upd();
+</script>
+</body>
+</html>
