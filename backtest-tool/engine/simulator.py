@@ -11,14 +11,21 @@
    - stop_above  ：漲到觸發價買（突破加碼）。開盤高於觸發價 → 開盤價成交；
                    否則最高價碰到 → 觸發價成交。
 3. 出場（每一筆獨立看自己的停損停利）：
-   - 停損：開盤低於停損價 → 開盤價出（跳空不會停在停損價）；否則最低價碰到 → 停損價出。
-   - 停利：開盤高於停利價 → 開盤價出；否則最高價碰到 → 停利價出。
-   - 同一天停損停利都碰到、順序無法得知 → 預設當作先碰到停損（ambiguous="worst"；
-     可改 "best" 做敏感度對照，但報告一律以 worst 為準）。
-4. 當天才進場的那一筆，同一天也檢查出場（保守）：
-   停損成交價 = min(進場價, 停損價)；停利成交價 = max(進場價, 停利價)。
+   - 開盤價先看：開盤已高於停利價 → 停利單必在開盤成交，用開盤價出，不管盤中
+     有沒有碰到停損；開盤已低於停損價 → 同理，開盤價停損出場。跳空照實吃。
+   - 開盤價落在停損與停利之間，才有「順序無法得知」的問題：
+     盤中只碰到一邊 → 用那一邊的價位出場；兩邊都碰到 → 預設當作先碰到停損
+     （ambiguous="worst"；可改 "best" 做敏感度對照，但報告一律以 worst 為準）。
+4. 當天才進場的那一筆，同一天也檢查出場，用「進場價」代替開盤價做上面的先看：
+   進場價已高於停利 → 立即停利在進場價；已低於停損 → 立即停損在進場價。
+   之後的認定按模式取邊界：worst 是下界——停損用全日最低價認定（就算最低點
+   可能發生在進場前，也從寬認賠），停利卻要收盤價站上停利價才算（收盤一定在
+   進場之後）；best 是上界——反過來，停利用全日最高價認定、停損要收盤跌破才算。
+   兩個模式夾出同日進出的真實結果範圍。
 5. 交易成本單邊 0.05%。買進付 資金×(1+0.0005)，賣出收 市值×(1−0.0005)。
 6. 不開槓桿、現金不得為負：現金不夠的加碼筆直接跳過，記成一條違規訊息，不是報錯。
+   注意：跳過是「永久的」——那一筆整段回測不再嘗試進場，即使之後停損出場讓現金
+   回籠、觸發價又再碰到也一樣。要重試的話請把它拆成另一個情境來比。
 7. 股數允許小數（美股可買碎股）；每一筆的股數 = 投入金額 ÷ 成交價。
 8. 檢查完出場才檢查進場（同一天先出後進，出場釋放的現金當天可用於加碼）。
 9. 回測期間結束時還沒出場的筆，用最後一根收盤價平倉，出場原因記「期末平倉」。
@@ -110,13 +117,34 @@ def _entry_fill(tranche, bar, is_first_bar):
 
 
 def _exit_check(t, bar, entered_today, entry_price, ambiguous):
-    """回傳 (出場價, 原因) 或 (None, None)。
+    """回傳 (出場價, 原因) 或 (None, None)。實作 docstring 規則 3、4。
 
-    entered_today=True 時不能用開盤價當跳空出場價（進場發生在盤中），
-    改用第 4 條規則：停損 min(進場價, 停損價)、停利 max(進場價, 停利價)。
+    起手價（隔日持倉＝開盤價；當天進場＝進場價）已經穿過其中一邊時，
+    順序不是未知——那一邊必定先成交，ambiguous 根本輪不到上場。
+    只有起手價落在兩價之間，才交給 ambiguous 裁決。
     """
-    stop_hit = t.stop_loss is not None and bar.low <= t.stop_loss
-    tp_hit = t.take_profit is not None and bar.high >= t.take_profit
+    has_stop = t.stop_loss is not None
+    has_tp = t.take_profit is not None
+    ref = entry_price if entered_today else bar.open
+
+    # 起手價已穿過某一邊 → 該邊立即成交（跳空／進場瞬間），照實吃。
+    if has_tp and ref >= t.take_profit:
+        return ref, "停利"
+    if has_stop and ref <= t.stop_loss:
+        return ref, "停損"
+
+    if entered_today:
+        # 全日高低點可能發生在進場之前。worst＝下界：停損從寬（全日低點）、
+        # 停利從嚴（要收盤站上）；best＝上界：反過來。
+        if ambiguous == "worst":
+            stop_hit = has_stop and bar.low <= t.stop_loss
+            tp_hit = has_tp and bar.close >= t.take_profit
+        else:
+            stop_hit = has_stop and bar.close <= t.stop_loss
+            tp_hit = has_tp and bar.high >= t.take_profit
+    else:
+        stop_hit = has_stop and bar.low <= t.stop_loss
+        tp_hit = has_tp and bar.high >= t.take_profit
 
     if stop_hit and tp_hit:
         first = "stop" if ambiguous == "worst" else "tp"
@@ -126,15 +154,9 @@ def _exit_check(t, bar, entered_today, entry_price, ambiguous):
         first = "tp"
     else:
         return None, None
-
     if first == "stop":
-        if entered_today:
-            return min(entry_price, t.stop_loss), "停損"
-        return (bar.open, "停損") if bar.open <= t.stop_loss else (t.stop_loss, "停損")
-    else:
-        if entered_today:
-            return max(entry_price, t.take_profit), "停利"
-        return (bar.open, "停利") if bar.open >= t.take_profit else (t.take_profit, "停利")
+        return t.stop_loss, "停損"
+    return t.take_profit, "停利"
 
 
 def simulate(symbol, bars, tranches, initial_capital, ambiguous="worst",
@@ -142,6 +164,9 @@ def simulate(symbol, bars, tranches, initial_capital, ambiguous="worst",
     """跑一個交易計畫。bars 必須已切好回測區間、日期升冪。"""
     if ambiguous not in ("worst", "best"):
         raise ValueError("ambiguous 只能是 'worst' 或 'best'")
+    for t in tranches:
+        if not (t.capital > 0):
+            raise ValueError(f"{t.label}：投入金額必須是正數（收到 {t.capital}）")
     res = SimResult(symbol=symbol, initial_capital=initial_capital)
     cash = initial_capital
     lives = [_Live(t) for t in tranches]
@@ -230,7 +255,7 @@ def _close(lv, date, price, reason, cost_rate):
 
 # ────────────────────────── 假設路徑 ──────────────────────────
 
-def synthetic_bars(anchor_prices, tranches, start_label="D"):
+def synthetic_bars(anchor_prices, tranches):
     """把一條假想路徑（錨點價格序列）攤成合成 K 棒。
 
     兩個錨點之間，把所有會被路過的關鍵價位（各筆的觸發價、停損、停利）
@@ -253,7 +278,8 @@ def synthetic_bars(anchor_prices, tranches, start_label="D"):
         path.append(b)
     if len(anchor_prices) == 1:
         path = [anchor_prices[0]]
-    return [Bar(date=f"{start_label}{i:04d}", open=p, high=p, low=p, close=p, volume=0)
+    # 標籤與網頁 JS 版一致（「第N步」），跨引擎對帳時日期欄才對得上。
+    return [Bar(date=f"第{i}步", open=p, high=p, low=p, close=p, volume=0)
             for i, p in enumerate(path)]
 
 

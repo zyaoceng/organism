@@ -1,0 +1,8 @@
+{
+  "_說明": "示範計畫：搭配 python3 explain_trade.py --symbol MU --start 2026-01-02 --capital 101000 --plan examples/plan_mu.json。價位是以 2026 年初 MU 約 295 起漲的行情設的，換區間請自己改。",
+  "tranches": [
+    {"label": "首筆",  "trigger": "open",        "capital": 40000, "stop_loss": 260, "take_profit": 480},
+    {"label": "加碼一", "trigger": "limit_below", "trigger_price": 280, "capital": 30000, "stop_loss": 255, "take_profit": 450},
+    {"label": "加碼二", "trigger": "stop_above",  "trigger_price": 330, "capital": 30000, "stop_loss": 300, "take_profit": 520}
+  ]
+}

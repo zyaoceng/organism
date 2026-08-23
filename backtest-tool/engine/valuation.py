@@ -24,7 +24,8 @@ def eps_pe_grid(eps_scenarios, pe_points, current_price, shares=0.0, avg_cost=No
     """
     if current_price is None or current_price <= 0:
         raise ValueError("現價必須是正數")
-    base_cost = avg_cost if avg_cost is not None else current_price
+    # 0 或負的成本視同沒填、退回用現價——與網頁 JS 版同一個判斷。
+    base_cost = avg_cost if (avg_cost is not None and avg_cost > 0) else current_price
     rows = []
     for sc in eps_scenarios:
         eps = float(sc["eps"])

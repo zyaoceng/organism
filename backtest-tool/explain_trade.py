@@ -3,8 +3,9 @@
 """逐筆追蹤器：把一個情境逐日重播給你看，並用獨立算術對帳。
 
 用法：
-    python3 explain_trade.py --symbol MU --start 2025-01-02 --capital 100000 \
+    python3 explain_trade.py --symbol MU --start 2026-01-02 --capital 101000 \
         --plan examples/plan_mu.json
+（examples/plan_mu.json 是附的範例；換成你自己的計畫 JSON 即可。）
 
 四個階段：
   一、計畫內容——每一筆的進場方式、金額、停損、停利。
@@ -123,8 +124,8 @@ def main():
         ok = False
     print(f"  {'✓ 對帳一致' if ok else '✗ 對帳不一致，引擎有 bug，不要使用結果'}")
     print()
-    print(f"  夏普值級距：{result['sharpe_band']}"
-          f"（原始值 {result['sharpe'] if result['sharpe'] is None else round(result['sharpe'], 2)}，僅供參考）")
+    raw_sp = "—（樣本不足）" if result["sharpe"] is None else f"{result['sharpe']:.2f}"
+    print(f"  夏普值級距：{result['sharpe_band']}（原始值 {raw_sp}，僅供參考）")
     print(f"  最大回檔：{result['max_dd']:.1%}｜總報酬：{result['total_return']:.1%}")
     for n in result["notes"]:
         print(f"  註：{n}")

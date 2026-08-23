@@ -123,6 +123,51 @@ class TestFills(unittest.TestCase):
         r = simulate("X", bars, t, 20000)
         self.assertAlmostEqual(r.tranches[0].pnl, -2 * COST_RATE * 10000, places=6)
 
+    def test_14_gap_above_tp_beats_ambiguous_stop(self):
+        """開盤跳空高於停利：停利單必在開盤成交，worst 模式也不准記成停損。"""
+        bars = [flat("2025-01-01", 100),
+                mk("2025-01-02", 120, 125, 90, 100)]   # 開盤 120 > 停利 110，盤中也殺到 90
+        t = [Tranche(label="首筆", trigger="open", capital=10000,
+                     stop_loss=95, take_profit=110)]
+        tr = simulate("X", bars, t, 20000).tranches[0]
+        self.assertEqual((tr.exit_reason, tr.exit_price), ("停利", 120.0))
+
+    def test_15_gap_below_stop_beats_ambiguous_tp(self):
+        """開盤跳空低於停損：best 模式也不准記出物理上不存在的停利。"""
+        bars = [flat("2025-01-01", 100),
+                mk("2025-01-02", 80, 112, 78, 100)]    # 開盤 80 < 停損 95，盤中反彈過停利
+        t = [Tranche(label="首筆", trigger="open", capital=10000,
+                     stop_loss=95, take_profit=110)]
+        tr = simulate("X", bars, t, 20000, ambiguous="best").tranches[0]
+        self.assertEqual((tr.exit_reason, tr.exit_price), ("停損", 80.0))
+
+    def test_16_same_day_tp_needs_close_evidence_in_worst(self):
+        """進場當天的停利：worst 要收盤站上停利價才算（全日高點可能發生在進場前）。"""
+        bars = [mk("2025-01-01", 111, 112, 94, 95.5),  # 高點 112 在盤中，limit 95 進場
+                flat("2025-01-02", 96)]
+        plan = lambda: [Tranche(label="首筆", trigger="limit_below", trigger_price=95,
+                                capital=10000, take_profit=110)]
+        worst = simulate("X", bars, plan(), 20000).tranches[0]
+        best = simulate("X", bars, plan(), 20000, ambiguous="best").tranches[0]
+        self.assertEqual(worst.exit_reason, "期末平倉")          # 收盤 95.5 沒站上 110
+        self.assertEqual((best.exit_reason, best.exit_price),
+                         ("停利（進場當天）", 110.0))            # 上界才准用全日高點
+
+    def test_17_entry_above_tp_exits_immediately_at_entry(self):
+        """突破加碼跳空進在停利價之上：立即停利在進場價，worst 也一樣。"""
+        bars = [mk("2025-01-01", 120, 121, 119, 120)]
+        t = [Tranche(label="加碼", trigger="stop_above", trigger_price=105,
+                     capital=10000, stop_loss=100, take_profit=110)]
+        tr = simulate("X", bars, t, 20000).tranches[0]
+        self.assertEqual((tr.exit_reason, tr.exit_price), ("停利（進場當天）", 120.0))
+        self.assertAlmostEqual(tr.pnl, -2 * COST_RATE * 10000, places=6)
+
+    def test_18_zero_capital_rejected(self):
+        """投入金額 0 是無效計畫：直接報錯，不是靜默算出除以零。"""
+        bars = [flat("2025-01-01", 100)]
+        with self.assertRaises(ValueError):
+            simulate("X", bars, [Tranche(label="首筆", trigger="open", capital=0)], 10000)
+
 
 class TestMetrics(unittest.TestCase):
     def test_08_sharpe_and_drawdown_hand_computed(self):
@@ -183,11 +228,22 @@ class TestHypotheticalPath(unittest.TestCase):
 
 class TestRealData(unittest.TestCase):
     def test_13_real_data_smoke(self):
-        """真實資料冒煙測試：MU 五年、買了就抱，跑得完、帳要平。"""
+        """真實資料冒煙測試：MU 五年、買了就抱，跑得完、帳要平。
+
+        資料品質檢查對「原始 CSV」做（load_bars 會鉗高低價，鉗完再驗是恆真式）：
+        需要鉗制的 K 棒必須低於 2%，超過代表資料來源有系統性問題。
+        """
+        import csv as _csv
+        from engine.data import DATA_DIR
+        with open(f"{DATA_DIR}/MU.csv", newline="", encoding="utf-8") as f:
+            raw = list(_csv.DictReader(f))
+        bad = sum(1 for row in raw
+                  if float(row["high"]) < max(float(row["open"]), float(row["close"]))
+                  or float(row["low"]) > min(float(row["open"]), float(row["close"])))
+        self.assertLess(bad / len(raw), 0.02,
+                        f"原始 CSV 有 {bad}/{len(raw)} 根 K 棒高低價不包含開收盤")
         bars = load_bars("MU")
         self.assertGreater(len(bars), 1000)
-        self.assertTrue(all(b.high >= max(b.open, b.close) and
-                            b.low <= min(b.open, b.close) for b in bars))
         r = buy_and_hold("MU", bars, 100000)
         self.assertEqual(r["tranches"][0].status, "filled")
         pnl_sum = sum(t.pnl for t in r["tranches"] if t.status == "filled")

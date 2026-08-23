@@ -34,11 +34,12 @@ def load(sym):
             oo, hh, ll, cc = (float(row["open"]), float(row["high"]),
                               float(row["low"]), float(row["close"]))
             # 與 engine/data.py 相同的鉗制：高低價至少要包含開收盤。
+            # 不做捨入——內嵌值要和 CSV 逐位元一致，跨引擎才能對帳到底。
             d.append(row["date"])
-            o.append(round(oo, 4))
-            h.append(round(max(hh, oo, cc), 4))
-            l.append(round(min(ll, oo, cc), 4))
-            c.append(round(cc, 4))
+            o.append(oo)
+            h.append(max(hh, oo, cc))
+            l.append(min(ll, oo, cc))
+            c.append(cc)
     return {"d": d, "o": o, "h": h, "l": l, "c": c,
             "meta": META.get(sym, {"name": sym, "currency": "USD", "note": ""})}
 
