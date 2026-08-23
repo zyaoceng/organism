@@ -5,6 +5,21 @@
 
 **用法**：直接開 `index.html`（資料已內嵌，不用伺服器、不用網路）。
 
+**要抓新標的的資料**，不用自己找日線貼上，兩種方式擇一：
+
+```bash
+python3 fetch_yahoo.py NVDA AMD 2330.TW   # 從 Yahoo Finance 抓，寫進 data/ 並更新網頁
+python3 fetch_yahoo.py --update           # 把現有的全部更新到最新
+```
+
+或開本機伺服器，在網頁上打代號就抓：
+
+```bash
+python3 serve.py        # 然後瀏覽器開 http://127.0.0.1:8765/
+```
+
+台股上市加 `.TW`、上櫃加 `.TWO`（`2330.TW`、`8299.TWO`），指數加 `^`（`^GSPC`）。
+
 ## 檔案分工表
 
 | 檔案 | 負責什麼 |
@@ -19,9 +34,12 @@
 | `explain_trade.py` | 逐筆追蹤器：四階段重播單一計畫並逐筆對帳（驗引擎用） |
 | `tests/test_engine.py` | 18 個單元測試，含「改掉未來 K 棒、前半段決定必須一字不差」 |
 | `tests/test_js_mirror.py` | 跨引擎對拍：抽出網頁 JS 引擎，與 Python 跑同一批情境逐格比對（需要 node） |
+| `tests/test_fetch_yahoo.py` | 抓取程式的測試，用本機假伺服器重放真實回應結構，不連外網 |
 | `examples/plan_mu.json` | explain_trade.py 的示範計畫 |
+| `fetch_yahoo.py` | 從 Yahoo Finance 抓日線 → `data/*.csv` → 自動重新內嵌 |
+| `serve.py` | 本機伺服器：開網頁，並代網頁去 Yahoo 抓（瀏覽器不准網頁直接抓外站） |
 | `embed_data.py` | 把 `data/*.csv` 重新內嵌進 `index.html`（更新資料後跑一次） |
-| `data/*.csv` | 券商真實日線快取（date,open,high,low,close,volume） |
+| `data/*.csv` | 日線快取（date,open,high,low,close,volume）；`_meta.json` 記每檔的名稱、幣別、來源 |
 
 ## 成交規則（九條，兩個引擎共用）
 
@@ -59,8 +77,16 @@ python3 explain_trade.py --symbol MU --start 2026-01-02 --capital 101000 --plan 
 
 ## 更新資料
 
-用券商行情抓日線存成 `data/<代號>.csv`（date,open,high,low,close,volume、日期升冪），
-然後 `python3 embed_data.py`。網頁「說明與假設」分頁也可以臨時貼上自訂 CSV（只存在瀏覽器分頁裡）。
+平常用 `python3 fetch_yahoo.py --update` 就好。要手工放資料也可以：存成
+`data/<代號>.csv`（date,open,high,low,close,volume、日期升冪），再跑 `python3 embed_data.py`。
+網頁「說明與假設」分頁也可以臨時貼上 CSV（只存在瀏覽器分頁裡）。
+
+關於 Yahoo 的資料：取的是還原分割、沒還原股利的開高低收，和券商日線同一種口徑，
+也和引擎的假設一致（引擎不計股利）。日期用交易所自己的時區換算，亞洲市場才不會整批差一天；
+開高低收有空值的那天（停牌）整列丟掉並回報丟了幾天。
+
+**發佈成 Artifact 的網頁抓不到即時資料**——那個環境擋掉所有外部連線，
+頁面上看到的是內嵌的資料快照。要更新就在本機重抓後重新發佈。
 
 ## 誠實解讀（寫死在輸出裡，不是口號）
 
