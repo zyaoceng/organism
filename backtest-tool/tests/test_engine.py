@@ -162,6 +162,31 @@ class TestFills(unittest.TestCase):
         self.assertEqual((tr.exit_reason, tr.exit_price), ("停利（進場當天）", 120.0))
         self.assertAlmostEqual(tr.pnl, -2 * COST_RATE * 10000, places=6)
 
+    def test_19_breakout_entry_tp_touch_is_certain_even_in_worst(self):
+        """突破買進後碰到更高的停利，必然發生在進場之後——worst 也要認。"""
+        bars = [mk("2025-01-01", 101, 112, 101, 106),   # 開盤在觸發價下，盤中衝過停利
+                flat("2025-01-02", 90)]
+        t = [Tranche(label="加碼", trigger="stop_above", trigger_price=105,
+                     capital=10000, stop_loss=100, take_profit=110)]
+        tr = simulate("X", bars, t, 20000).tranches[0]
+        self.assertEqual((tr.exit_reason, tr.exit_price), ("停利（進場當天）", 110.0))
+
+    def test_20_open_fill_stop_touch_is_certain_even_in_best(self):
+        """開盤成交（整天都在進場後）盤中跌破停損——best 也要認賠。"""
+        bars = [mk("2025-01-01", 96, 96, 90, 96), flat("2025-01-02", 120)]
+        t = [Tranche(label="首筆", trigger="open", capital=10000,
+                     stop_loss=95, take_profit=110)]
+        tr = simulate("X", bars, t, 20000, ambiguous="best").tranches[0]
+        self.assertEqual((tr.exit_reason, tr.exit_price), ("停損（進場當天）", 95.0))
+
+    def test_21_dip_entry_stop_touch_is_certain_even_in_best(self):
+        """攤低買進後碰到更低的停損，必然發生在進場之後——best 也要認。"""
+        bars = [mk("2025-01-01", 111, 112, 88, 105), flat("2025-01-02", 100)]
+        t = [Tranche(label="加碼", trigger="limit_below", trigger_price=95,
+                     capital=10000, stop_loss=90)]
+        tr = simulate("X", bars, t, 20000, ambiguous="best").tranches[0]
+        self.assertEqual((tr.exit_reason, tr.exit_price), ("停損（進場當天）", 90.0))
+
     def test_18_zero_capital_rejected(self):
         """投入金額 0 是無效計畫：直接報錯，不是靜默算出除以零。"""
         bars = [flat("2025-01-01", 100)]

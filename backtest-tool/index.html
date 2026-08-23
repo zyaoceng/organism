@@ -352,14 +352,19 @@ function exitCheck(t, bar, enteredToday, entryPrice, ambiguous) {   // 規則 3�
   if (hasStop && ref <= t.stopLoss) return [ref, "停損"];
   let stopHit, tpHit;
   if (enteredToday) {
-    // 全日高低點可能發生在進場前：worst＝下界（停損看全日低點、停利要收盤站上）；
-    // best＝上界（反過來）。與 engine/simulator.py 規則 4 一致。
-    if (ambiguous === "worst") {
+    // 與 engine/simulator.py 規則 4 一致：看證據是不是「必然發生在進場之後」。
+    if (entryPrice === bar.o) {
+      // 開盤成交：整天都在進場之後，比照隔日持倉認定。
       stopHit = hasStop && bar.l <= t.stopLoss;
-      tpHit = hasTp && bar.c >= t.takeProfit;
-    } else {
-      stopHit = hasStop && bar.c <= t.stopLoss;
       tpHit = hasTp && bar.h >= t.takeProfit;
+    } else if (t.trigger === "stop_above") {
+      // 上漲途中進場：更高的停利被碰到必在進場後；下方停損可能在進場前。
+      tpHit = hasTp && bar.h >= t.takeProfit;
+      stopHit = hasStop && (ambiguous === "worst" ? bar.l <= t.stopLoss : bar.c <= t.stopLoss);
+    } else {
+      // 下跌途中進場：更低的停損被碰到必在進場後；上方停利要看模式。
+      stopHit = hasStop && bar.l <= t.stopLoss;
+      tpHit = hasTp && (ambiguous === "worst" ? bar.c >= t.takeProfit : bar.h >= t.takeProfit);
     }
   } else {
     stopHit = hasStop && bar.l <= t.stopLoss;
@@ -376,6 +381,8 @@ function exitCheck(t, bar, enteredToday, entryPrice, ambiguous) {   // 規則 3�
 function simulate(bars, tranches, initialCapital, opts) {
   const o = opts || {};
   const ambiguous = o.ambiguous || "worst";
+  if (ambiguous !== "worst" && ambiguous !== "best")
+    throw new Error("ambiguous 只能是 'worst' 或 'best'");   // 與 Python 版同一個防呆
   const costRate = (o.costRate != null) ? o.costRate : COST_RATE;
   const closeAtEnd = (o.closeAtEnd != null) ? o.closeAtEnd : true;
   for (const t of tranches)
@@ -1272,10 +1279,11 @@ function renderDoc() {
   <ul class="notes">
     <li>1. 逐日往後走，任何決定只用當天和更早的資料，絕不偷看未來（有專門的測試擋著）。</li>
     <li>2. 進場三種：起點開盤買進／跌到觸發價買／漲到觸發價買。跳空直接用開盤價成交，不假裝買在觸發價。</li>
-    <li>3. 停損停利先看開盤：開盤已高於停利（或低於停損），那一邊必在開盤成交，直接用開盤價出場。
+    <li>3. 停損停利先看開盤：開盤已達停利（或停損）價位——等於也算——那一邊必在開盤成交，直接用開盤價出場。
       只有開盤落在兩價之間、盤中又兩邊都碰到，順序才是未知——這時保守模式當作先停損（可切樂觀對照）。</li>
-    <li>4. 進場當天就觸發出場的：用進場價代替開盤價做上面的判斷。之後保守模式取下界
-      （停損看全日低點、停利要收盤站上才算）、樂觀模式取上界（反過來）——兩個模式夾出真實結果的範圍。</li>
+    <li>4. 進場當天就觸發出場的：用進場價代替開盤價做上面的判斷。之後看證據是否「必然發生在進場之後」：
+      開盤成交的，整天都算數；突破買進後碰到更高的停利、攤低買進後碰到更低的停損，必然在進場後，直接認；
+      其餘方向保守模式要收盤價當證據、樂觀模式用全日高低點——兩個模式夾出真實結果的範圍。</li>
     <li>5. 交易成本單邊 0.05%，買賣各收一次。</li>
     <li>6. 不開槓桿、現金不得為負：現金不夠的加碼直接跳過，並在結果表註明。
       跳過是<b>永久的</b>——之後現金回籠、觸發價再碰到也不會重試；要重試請拆成另一個情境來比。</li>

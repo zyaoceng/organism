@@ -66,6 +66,22 @@ def scenarios():
                 "tranches": [T(label="加碼", trigger="stop_above", triggerPrice=105,
                                stopLoss=100, takeProfit=110)],
                 "initialCapital": 20000, "ambiguous": "worst"})
+    # 跳空雙觸發的另外兩個方向、以及「證據必然在進場後」的三個收緊案例
+    out.append({"bars": gap_bars, "tranches": [T(stopLoss=95, takeProfit=110)],
+                "initialCapital": 20000, "ambiguous": "best"})
+    out.append({"bars": gap2, "tranches": [T(stopLoss=95, takeProfit=110)],
+                "initialCapital": 20000, "ambiguous": "worst"})
+    breakout = [mk("2025-01-01", 101, 112, 101, 106), flat("2025-01-02", 90)]
+    dipboth = [mk("2025-01-01", 111, 112, 88, 105), flat("2025-01-02", 100)]
+    for amb in ("worst", "best"):
+        out.append({"bars": breakout,
+                    "tranches": [T(label="加碼", trigger="stop_above", triggerPrice=105,
+                                   stopLoss=100, takeProfit=110)],
+                    "initialCapital": 20000, "ambiguous": amb})
+        out.append({"bars": dipboth,
+                    "tranches": [T(label="加碼", trigger="limit_below", triggerPrice=95,
+                                   stopLoss=90, takeProfit=110)],
+                    "initialCapital": 20000, "ambiguous": amb})
     nocash = [flat("2025-01-01", 100), mk("2025-01-02", 90, 95, 88, 92)]
     out.append({"bars": nocash,
                 "tranches": [T(capital=9995, stopLoss=90),

@@ -11,17 +11,19 @@
    - stop_above  ：漲到觸發價買（突破加碼）。開盤高於觸發價 → 開盤價成交；
                    否則最高價碰到 → 觸發價成交。
 3. 出場（每一筆獨立看自己的停損停利）：
-   - 開盤價先看：開盤已高於停利價 → 停利單必在開盤成交，用開盤價出，不管盤中
-     有沒有碰到停損；開盤已低於停損價 → 同理，開盤價停損出場。跳空照實吃。
+   - 開盤價先看：開盤已達停利價（等於也算）→ 停利單必在開盤成交，用開盤價出，
+     不管盤中有沒有碰到停損；開盤已達停損價 → 同理，開盤價停損出場。跳空照實吃。
    - 開盤價落在停損與停利之間，才有「順序無法得知」的問題：
      盤中只碰到一邊 → 用那一邊的價位出場；兩邊都碰到 → 預設當作先碰到停損
      （ambiguous="worst"；可改 "best" 做敏感度對照，但報告一律以 worst 為準）。
-4. 當天才進場的那一筆，同一天也檢查出場，用「進場價」代替開盤價做上面的先看：
-   進場價已高於停利 → 立即停利在進場價；已低於停損 → 立即停損在進場價。
-   之後的認定按模式取邊界：worst 是下界——停損用全日最低價認定（就算最低點
-   可能發生在進場前，也從寬認賠），停利卻要收盤價站上停利價才算（收盤一定在
-   進場之後）；best 是上界——反過來，停利用全日最高價認定、停損要收盤跌破才算。
-   兩個模式夾出同日進出的真實結果範圍。
+4. 當天才進場的那一筆，同一天也檢查出場，用「進場價」代替開盤價做上面的先看。
+   之後的認定，看證據是不是「必然發生在進場之後」：
+   - 開盤價成交的（起點買進、跳空成交）：整天都在進場之後，比照第 3 條認定。
+   - 漲到觸發價買的：碰到更高的停利必然在進場之後，直接認；下方的停損可能在
+     進場前就被碰過——worst 從寬認賠（全日低點）、best 要收盤跌破才認。
+   - 跌到觸發價買的：碰到更低的停損必然在進場之後，直接認；上方的停利——
+     worst 要收盤站上才認、best 用全日高點。
+   兩邊都成立時的順序仍交給 worst/best 裁決；兩個模式夾出同日進出的真實範圍。
 5. 交易成本單邊 0.05%。買進付 資金×(1+0.0005)，賣出收 市值×(1−0.0005)。
 6. 不開槓桿、現金不得為負：現金不夠的加碼筆直接跳過，記成一條違規訊息，不是報錯。
    注意：跳過是「永久的」——那一筆整段回測不再嘗試進場，即使之後停損出場讓現金
@@ -134,14 +136,22 @@ def _exit_check(t, bar, entered_today, entry_price, ambiguous):
         return ref, "停損"
 
     if entered_today:
-        # 全日高低點可能發生在進場之前。worst＝下界：停損從寬（全日低點）、
-        # 停利從嚴（要收盤站上）；best＝上界：反過來。
-        if ambiguous == "worst":
+        if entry_price == bar.open:
+            # 開盤成交：整天都在進場之後，觸價證據全部可信，比照隔日持倉。
             stop_hit = has_stop and bar.low <= t.stop_loss
-            tp_hit = has_tp and bar.close >= t.take_profit
-        else:
-            stop_hit = has_stop and bar.close <= t.stop_loss
             tp_hit = has_tp and bar.high >= t.take_profit
+        elif t.trigger == "stop_above":
+            # 上漲途中進場：更高的停利被碰到必在進場後（確定證據）；
+            # 下方的停損可能在進場前被碰過——worst 從寬、best 要收盤證據。
+            tp_hit = has_tp and bar.high >= t.take_profit
+            stop_hit = has_stop and (bar.low <= t.stop_loss if ambiguous == "worst"
+                                     else bar.close <= t.stop_loss)
+        else:
+            # 下跌途中進場（limit_below）：更低的停損被碰到必在進場後；
+            # 上方的停利——worst 要收盤站上、best 用全日高點。
+            stop_hit = has_stop and bar.low <= t.stop_loss
+            tp_hit = has_tp and (bar.close >= t.take_profit if ambiguous == "worst"
+                                 else bar.high >= t.take_profit)
     else:
         stop_hit = has_stop and bar.low <= t.stop_loss
         tp_hit = has_tp and bar.high >= t.take_profit
