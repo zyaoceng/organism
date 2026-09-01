@@ -1,0 +1,406 @@
+<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>800VDC 電源革命 對內報告 2026-08-17</title><style>
+:root{--ink:#23211c;--sub:#6f6a5e;--line:#e7e1d6;--bg:#f5f2ec;--card:#fffdf9;--acc:#c96f2b;--green:#5a7d4a;--red:#c9302b;--blue:#5e6f82;}
+*{box-sizing:border-box}
+body{font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--ink);margin:0;padding:34px 18px;line-height:1.75;}
+.wrap{max-width:1030px;margin:0 auto;}
+.kicker{letter-spacing:3px;font-size:12px;color:var(--acc);font-weight:700;}
+h1{font-size:28px;margin:6px 0;}
+.meta{color:var(--sub);font-size:13px;margin-bottom:12px;}
+.badge{display:inline-block;background:#2e2a22;color:#ead9b8;border-radius:20px;padding:3px 12px;font-size:12px;margin:0 6px 4px 0;}
+h2{font-size:21px;margin:40px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--ink);}
+h2 .no{color:var(--acc);font-size:13px;letter-spacing:2px;margin-right:8px;}
+h3{font-size:15.5px;margin:16px 0 8px;}
+h4{font-size:14px;margin:12px 0 6px;color:var(--sub);}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin:12px 0;}
+.story{background:linear-gradient(135deg,#2e2a22,#4a4030);color:#f4ead4;border-radius:14px;padding:22px 26px;font-size:17px;line-height:1.9;margin:14px 0;}
+.story small{display:block;color:#cfa96b;font-size:12px;letter-spacing:3px;margin-bottom:8px;}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0;}
+th{background:#efe9dd;text-align:left;padding:7px 9px;border:1px solid var(--line);font-weight:700;}
+td{padding:7px 9px;border:1px solid var(--line);vertical-align:top;line-height:1.6;}
+tr.hl td{background:#f4f9e8;font-weight:600;}
+ul{margin:6px 0;padding-left:22px;line-height:1.8;}
+li{margin:4px 0;}
+.k{color:var(--green);font-weight:700;} .r{color:var(--red);font-weight:700;} .y{color:#b07d00;font-weight:700;}
+.note{font-size:12px;color:var(--sub);line-height:1.7;margin-top:7px;}
+.src{font-size:11px;color:#948d7f;line-height:1.85;word-break:break-all;}
+.pill{display:inline-block;border-radius:18px;padding:3px 11px;font-size:12px;font-weight:700;margin:2px 6px 2px 0;}
+.pill.g{background:#e7f0df;color:#3f5c33;} .pill.r{background:#fbe9e7;color:#a33;} .pill.y{background:#fdf3d8;color:#8a6d00;} .pill.b{background:#e4e9ef;color:#44546a;}
+.quote{background:#fdf6e3;border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:10px 14px;font-size:13px;color:#6a5410;margin:8px 0;line-height:1.8;}
+.warn{background:#fbe9e7;border:1px solid #e3b8b3;border-radius:10px;padding:10px 14px;font-size:13px;margin:8px 0;}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:stretch;margin:10px 0;}
+.fbox{flex:1;min-width:118px;border-radius:9px;padding:9px 10px;color:#fff;font-size:12.5px;line-height:1.5;}
+.fbox b{display:block;font-size:13.5px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:13px;}
+@media(max-width:820px){.grid2{grid-template-columns:1fr;}}
+.kv{font-size:13.5px;line-height:1.9;}
+</style></head><body><div class="wrap">
+<div class="kicker">台大控股・對內報告</div>
+<h1>800VDC 電源革命：從功率半導體到整條電力路徑</h1>
+<div class="meta"><span class="badge">2026-08-17</span><span class="badge">報價：8/14 收盤</span><span class="badge">個股評分：使用者 2026-08-17 親評（四張採信度盤）</span><span class="badge">本報告不含技術分析與進出場判斷</span></div>
+
+<div class="story"><small>ONE-LINE STORY</small>NVIDIA 把資料中心配電從 54V 交流體系改成 800V 直流，機櫃功耗從一百多 kW 往 600kW–1MW 走的物理限制逼出整條電力路徑的換代——改裝件 2H26 出貨、原生大浪 2027，受惠環節從功率半導體一路延伸到電源櫃、BBU、連接器與機電系統。</div>
+
+<div class="card"><b>這份報告跟 7 月功率半導體報告的分工：</b>那份報告的「證據一：800V 革命」是晶片視角（SiC 前端、GaN 中段、單櫃功率半導體含量 $9,500→$115,000）。本報告把範圍擴到整條電力路徑，晶片段只補新資訊、不重講。個股部分照 stock-research-pipeline 流程：查證由我做、信心分數全部由你在 2026-08-17 親自評，我沒有動過任何一支滑桿。</div>
+
+<h2><span class="no">壹</span>基本介紹——800VDC 物理上在解決什麼</h2>
+
+<div class="card">
+<h3>一句話</h3>
+<p style="margin:4px 0"><b>把資料中心「送電用的電壓」從機櫃現行的 54V 拉高到 800V，同時把交流配電改成直流配電。</b>市場這一輪炒作的起點是 NVIDIA 的 800VDC 白皮書《800 VDC Architecture for Next-Generation AI Infrastructure》（2025/10 OCP 峰會發布、2026 年陸續補規格）。股癌 EP688（8/15）開場就說：「過去的一陣子……所有的這個投資交易圈的人士呢，都在傳一個 NVIDIA 的 800VDC 的一個白皮書」——你要做這份對內報告的時點，正是白皮書從技術圈擴散到交易圈的時點。</p>
+<h3>為什麼物理上非改不可：三個理由</h3>
+<ul>
+<li><b>① 電流是一切麻煩的來源。</b>功率＝電壓×電流。機櫃耗電從 GB300 的一百多 kW，往 Kyber（2027，一櫃 576 顆 Rubin Ultra GPU）的 600kW–1MW 走。電壓不動、電流就得等比例暴增。股癌 EP688 用 330kW 機櫃算給你聽：「如果今天是 54V 的話，它是 6.1kA 左右；那如果今天是 800V 的話，它就變成是 0.4kA」——差 15 倍。導線發熱跟電流的平方成正比，電流降 15 倍、同一條銅排的發熱降 200 倍以上。反過來說，54V 要撐 1MW，NVIDIA 官方口徑是每櫃約 200 公斤銅排，粗到塞不下、熱到散不掉。</li>
+<li><b>② 電源設備吃掉運算空間。</b>54V 架構下 GB300 一櫃要 8 層電源（power shelf）；同樣做法放大到 1MW 級，NVIDIA 估光電源要佔 64U——整櫃都是電源，GPU 沒位置放。所以 800V 同時是空間改革：把「交流轉直流」搬出機櫃，先搬到櫃旁的 sidecar 電力櫃，之後集中成每排共用的 row power center。Kyber 世代用單級 64:1 LLC 轉換器，體積比多級方案省 26%（NVIDIA 技術部落格）。</li>
+<li><b>③ 轉換次數變少＝效率變高。</b>舊路徑：市電交流→UPS→配電→每櫃電源供應器轉 54V 直流→板上再降到 GPU 吃的 1V 以下，每轉一手漏一點電。新路徑：在資料中心邊緣一次把中壓交流轉成 800V 直流→直流母線拉到每櫃→櫃內只剩直流降直流。NVIDIA 官方數字：端到端效率最多 +5%、銅用量 −45%、維護成本 −70%、總持有成本 −30%；同線徑下 800VDC 比 415VAC 多送 157% 功率。5% 聽起來小，對 1GW 的 AI 工廠就是 50MW——夠餵幾萬顆 GPU。</li>
+</ul>
+<div class="note">數字口徑提醒：你 7 月報告寫「銅 −94%、電流 ÷17」（48V 基準、單櫃匯流排口徑），本報告寫「−45%、÷15」（NVIDIA 全廠口徑、54V 基準）。兩套都對，口徑不同，對照表見附錄 B。</div>
+</div>
+
+<div class="card">
+<h3>儲能為什麼跟著升級（你初判押的段落）</h3>
+<p style="margin:4px 0">AI 訓練的負載是同步的：幾萬顆 GPU 同一毫秒一起加速、一起停，電網端看到的是巨幅擺盪。NVIDIA 白皮書因此把儲能寫成雙層標配：<b>毫秒到秒級</b>用機櫃邊的電容與超級電容吸震；<b>秒到分鐘級</b>用廠級電池在電網介接點削峰。BBU 的角色從「停電備援的選配」變成「電力品質的標配」——股癌 EP688：「其中以 BBU 來講的話，它又會再去拆成幾個 spec，像有些就是會使用 BBU、有些不會去使用」；光寶科法說（7/31）：BBU 已佔其雲端營收 20–25%，高壓直流架構普及後可望成標配。</p>
+</div>
+
+<div class="card">
+<h3>時程——為什麼是「現在」炒</h3>
+<table>
+<tr><th>時點</th><th>事件</th><th>性質</th></tr>
+<tr><td>2025/10</td><td>NVIDIA 於 OCP 峰會發布 800VDC 方向＋白皮書＋首批夥伴名單（18 家）</td><td>一手・官方</td></tr>
+<tr><td>2026/3</td><td>OCP 白皮書更新；TI 發布完整 800V 晶片組（GTC 2026）；台達 GTC 展全套方案</td><td>一手・官方</td></tr>
+<tr><td>2026/7</td><td>OCP 固態變壓器規格 v0.3</td><td>一手・官方</td></tr>
+<tr><td>2H26</td><td>Power Rack 改裝方案出貨（不動既有建築電力）：Vertiv 800V 組合上市、台達 Q3 量產、光寶 11 月小量產</td><td>公司口徑</td></tr>
+<tr class="hl"><td>2027</td><td>Row Power Center＋Kyber 量產＝原生 800V 放量；台達「明顯放量最快明年」、光寶 2027Q1 規模量產、Navitas sidecar 放量 2027 年中</td><td>公司口徑</td></tr>
+<tr><td>2028–30</td><td>設施級直流：集中式整流器、DC UPS、固態變壓器、Busway（股癌 EP688 自己猜的區間；SemiAnalysis 估固態變壓器 2030 年市場約 US$320 億）</td><td>推估</td></tr>
+</table>
+<div class="note">遞延雜音同場記錄：SemiAnalysis 說原生 800V 要等 2027/28 Kyber、「未來一年滲透率 5%」（股癌 EP671 引述、EP688 重提）；美國電工法規 NEC 2029 年版才完整支援直流配電。多空雙方的時程表都在，見貳之四。</div>
+</div>
+
+<h2><span class="no">貳</span>族群概況——整條電力路徑上到下游</h2>
+
+<div class="card">
+<h3>一、電從電網到 GPU 的路，跟錢的位置</h3>
+<div class="flow">
+<div class="fbox" style="background:#6f6a5e"><b>市電／電網</b>中壓交流</div>
+<div class="fbox" style="background:#a45718"><b>邊緣整流</b>AC→800V DC<br>sidecar／Power Rack／2027 起 Row Power Center</div>
+<div class="fbox" style="background:#c96f2b"><b>800V 直流母線</b>busway・線纜・連接器</div>
+<div class="fbox" style="background:#d98e4a"><b>櫃內降壓</b>800V→54V shelf→板端 &lt;1V<br>SiC／GaN／DrMOS</div>
+<div class="fbox" style="background:#5a7d4a"><b>儲能雙層</b>電容・超級電容（毫秒）<br>BBU・廠級電池（秒）</div>
+<div class="fbox" style="background:#23211c"><b>GPU</b>Kyber 576 顆<br>600kW–1MW／櫃</div>
+</div>
+<p style="margin:6px 0">你 7 月報告的口訣照用：<b>越靠電網的新插槽賺新單價，越靠 GPU 的老位置賺顆數。</b>這次的差別是「新插槽」從晶片擴大到整櫃系統——sidecar 電力櫃、800V PSU、BBU、母線都是以前不存在或規格暴增的位置。股癌 EP686 講美系客戶提早轉 800V 那段的原話：「你裡面要用到的各種的 components……都會有更大的用量需求跟規格的提升，那它的規格提升甚至是會讓它的 ASP 是跑到數倍以上。」</p>
+</div>
+
+<div class="card">
+<h3>二、五個環節 × 誰在名單上（NVIDIA 官方生態系 29 家＋台股映射）</h3>
+<table>
+<tr><th style="width:14%">環節</th><th>NVIDIA 官方名單成員</th><th>台股可投資對應</th><th>受惠階段</th></tr>
+<tr><td><b>功率半導體</b>（晶片）</td><td>Infineon、TI、ST、onsemi、ADI、Renesas、ROHM、MPS、Navitas、Power Integrations、Innoscience、EPC、AOS、立錡（聯發科旗下，未上市）</td><td>直接對應少；間接：漢磊（SiC 代工，天下報導點名）、功率台廠吃的是漲價潮（你 7 月報告主軸），與 800V 是兩個引擎</td><td>第一階段就有（PSU 內含），大宗在 2027 後原生世代</td></tr>
+<tr class="hl"><td><b>電源供應器／電力櫃</b></td><td>台達電、光寶科、Flex、Megmeet（陸）、Lead Wealth（領裕，深圳比亞迪電子體系，未上市）</td><td>台達電 2308、光寶科 2301</td><td>第一階段主角（2026–27）：AC→800V PSU、800V→54V shelf</td></tr>
+<tr class="hl"><td><b>BBU／儲能</b></td><td>台達、光寶（內建）；Eaton（超級電容參考架構）</td><td>AES-KY 6781（7 月營收 +28% 創高）、順達 3211（全年 BBU 目標 70–80 億）、加百裕 3323（連 6 月衰退，訂單分配不均的證據）</td><td>第一階段（選配→標配進行中）</td></tr>
+<tr><td><b>連接器／母線／線纜</b></td><td>BizLink 貿聯-KY</td><td>貿聯-KY 3665（7 月營收 +59.6% 創高；800V 佔比未拆分揭露）</td><td>第一階段（電容、連接器在股癌 EP688 受惠清單內）</td></tr>
+<tr><td><b>機電系統／重電</b></td><td>Vertiv、Eaton、Schneider、ABB、Siemens、GE Vernova、日立能源、三菱電機、Heron Power（新創）</td><td>無直接對應（重電台廠吃的是電網端另一條線）</td><td>跨兩階段；設施級（集中整流、DC UPS、固態變壓器）壓在 2028–30</td></tr>
+</table>
+<div class="warn"><b>查證警示：</b>Lead Wealth 有台媒誤傳為台廠。查證結果：領裕國際，深圳註冊、比亞迪電子（0285.HK）體系、本身未上市（依港交所公告與公司官網）。名單上看到它不等於台股受惠。</div>
+<div class="note">你 7 月報告的六檔在名單上的位置：IFX／ON／STM／MPWR／AOSL 全數在晶片段（WOLF 不在名單，但 SiC 供給端受惠——天下報導把 800V 寫成「讓過剩 SiC 業翻身」的需求來源）。</div>
+</div>
+
+<div class="card">
+<h3>三、股癌脈絡（EP671→EP686→EP688，逐字稿為準）</h3>
+<table>
+<tr><th style="width:16%">集數</th><th>他說了什麼（原話）</th><th>讀法</th></tr>
+<tr><td><b>EP671</b><br>6/17</td><td>「SemiAnalysis 去講說 800V DC 可能會有遞延……可能你在明年就只會看到一個 5% 的 penetration rate」；「不管你是走哪一種 approach……不管是在 PSU 端或在板端，你會用到的功率元件的數量都是大幅的上升」</td><td>他第一次處理 800V 就把遞延和用量增長拆開：時程可以吵，用量方向沒得吵</td></tr>
+<tr><td><b>EP686</b><br>8/8</td><td>「（美系客戶）data center 呢可能會比較比同業來說提早地往 800V 的方向去走……ASP 是跑到數倍以上」；「光寶它開完之後直接就射出去嘛……甚至最後面連大哥台達電都跟著動？」；台達電：「那是一個很強大很屌的公司，訂單超滿，那只是就是錢沒有在這裡」</td><td>態度轉積極的一集：光寶法說被他當成電源族群的啟動訊號；台達電他給的是「公司強、資金未到」的分離判斷</td></tr>
+<tr class="hl"><td><b>EP688</b><br>8/15</td><td>整段 800V 專題。第一階段受惠：「AC 到 800V PSU、800V 再到 54V 的轉換、電容、連接器、BBU」；第二階段（他自猜 2028–2030）：「集中式整流器，然後 IGBT」「DC 的 UPS……BESS、SCADA」；「SiC 跟 GaN 呢，特別是 GaN，甚至有一些公司派是出來承認說啊這個超乎自己的想像」；散熱連動：「全部東西都要使用水冷，power 本身它也變成是熱源」</td><td>從觀察升級為結構專題；兩階段受惠清單跟 NVIDIA 官方時程對得上；全集未點名台股個股——媒體的「HVDC 概念股清單」屬延伸，非他親口</td></tr>
+</table>
+<div class="note">EP671–680 為逐字稿全文（vocus 鏡像）；EP686、EP688 引句已用 vocus 逐字稿核對過原文。第三方筆記版本與逐字稿有出入處（例如 EP686 傳言版「買了套著也安全」），一律以逐字稿為準、筆記版不採用。他的輪動時點語錄屬進出場判斷，照流程放附錄 A。</div>
+</div>
+
+<div class="card">
+<h3>四、Substack 多空對照（要吵架去找一手出處）</h3>
+<div class="grid2">
+<div>
+<h4>多方最強論點</h4>
+<ul>
+<li>物理面幾乎無反駁：600kW–1MW 機櫃下 54V 銅重與損耗不可行（SemiAnalysis 5/26、NVIDIA 白皮書）</li>
+<li>價值量跳升有量化：每櫃電源價值量 GB200→Rubin 約 4 倍→Rubin Ultra 約 11.5 倍（Diligence Stack 3/31）；sidecar 市場 2028 年高峰約 US$110 億、約 US$50 萬/MW（SemiAnalysis）</li>
+<li>生態已落地：29 家夥伴、Vertiv／台達 2H26 出貨、TI 晶片組成套（各官方新聞稿）</li>
+<li>效率帳算得出來：全鏈效率 82%→87.4%（SemiAnalysis）；GaN/SiC 資料中心功率半導體市場 2026 約 US$34.5 億→2035 約 US$477.5 億（Stock Crock 4/26）</li>
+</ul>
+</div>
+<div>
+<h4>空方最強論點</h4>
+<ul>
+<li>時程：2026 只有改裝件，原生 800V 等 2027/28 Kyber；改裝可及量從 42GW 下修至 8–15GW（Diligence Stack）</li>
+<li>法規：美國電工法規 NEC 2029 年版才完整支援、直流電弧防護無標準——非超大規模業者導入慢（SemiAnalysis）</li>
+<li>工程：固態變壓器內的高頻隔離變壓器絕緣壽命被低估（100kHz 下局部放電重複率增約 12 倍）（Riccardo Tinivella 6/26）</li>
+<li>估值先行且插槽每代洗牌：Navitas 需約 5GW 出貨才撐得起市值（9 Ventures 4/18）；護城河每 12–18 個月重新投票（Stock Crock）</li>
+</ul>
+</div>
+</div>
+<div class="note">天下（陳良榕）兩篇是台股視角的關鍵外部觀點：〈Why Nvidia's Push for 800VDC Could Revive an Industry TSMC Walked Away From〉（SiC 翻身，點名 Wolfspeed、ROHM、漢磊）＋〈Beyond 800VDC〉（台達以固態變壓器與燃料電池打進 Vertiv 主場）——後者就是你 VRT 空方賭注的出處。</div>
+</div>
+<h2><span class="no">參</span>個股分析——四檔，篇幅與順序照你的評分權重排</h2>
+<div class="note" style="margin-bottom:10px">排序依你四張採信度盤的淨傾向：VRT +61.6 → MPWR +53.9 → 光寶 +26.8 → 台達電 +8.6。每檔的賭注表就是你 2026-08-17 評的原始分數，我未改動；查證與市場基準是我的工作，分數是你的。四檔的〈與查證資料的衝突〉皆為：無。</div>
+
+<!-- ============ VRT ============ -->
+<h3 style="font-size:18px;border-bottom:1.5px solid var(--line);padding-bottom:6px"><span class="pill b">淨傾向 +61.6</span>Vertiv（VRT）｜$293.84（8/14 收）｜市值 $1,131 億</h3>
+<div class="card">
+<h3>產品速覽</h3>
+<ul>
+<li><b>賣什麼：</b>資料中心電力與散熱系統——不斷電系統、配電、精密空調、液冷，加上 800VDC 世代的集中整流器、DC busway、櫃級 DC-DC 與直流備援。約八成營收綁資料中心（TheValueist 口徑）。</li>
+<li><b>獨特之處：</b>系統整合＋現場服務——5,000 名以上現場工程師、數十年機電運維紀錄，這是台達短期補不上的部分（連空方陳良榕都承認）。</li>
+<li><b>基本盤數字：</b>2Q26 營收 $32.7 億（有機 +17.8%）、調整後 EPS $1.52（+60%）；全年指引中值營收 $140 億（有機 +30–32%）、EPS $6.70、調整後自由現金流 $2.4–2.6B。毛利率 37.7%，在機電同業（Eaton 電氣、Schneider）屬中上；調整後營益率 22.6%。</li>
+</ul>
+<h3>你的賭注評分（2026-08-17）</h3>
+<table>
+<tr><th>#</th><th>方向</th><th>賭注</th><th>L×F×I</th><th>W</th><th>Δ vs 市場</th></tr>
+<tr class="hl"><td>1</td><td class="k">多</td><td>訂單與備貨動能延續——backlog $15B（+109%）與遞延收入半年倍增支撐 FY27 共識 +28%</td><td>72×80×65</td><td><b>37.4</b></td><td>0pp</td></tr>
+<tr><td>2</td><td class="k">多</td><td>800VDC 組合 2H26 出貨、2027 隨 Rubin Ultra 部署，每 MW 內容價值 $3.25M–3.75M 區間高端</td><td>70×75×65</td><td>34.1</td><td>+5pp</td></tr>
+<tr><td>3</td><td class="r">空</td><td>動能見頂——Q2 營收 miss＋連兩季停止揭露 backlog 是需求放緩的領先訊號</td><td>25×25×90</td><td>5.6</td><td>−3pp</td></tr>
+<tr><td>4</td><td class="r">空</td><td>台達電等亞洲電源廠切走系統價值（白區攻入灰區）</td><td>25×20×85</td><td>4.3</td><td>−3pp</td></tr>
+</table>
+<div class="kv">讀法：你的頭號賭注是訂單動能，跟市場零分歧（Δ 0pp）——四檔裡你在 VRT 的立場最貼共識，優勢宣稱最少、共識依賴最高。兩個空方你都給了「低可發生 × 高殺傷」的形狀：你認為大概率不發生，但發生就砸穿論述（I 85–90）。</div>
+<h3>查證重點（成立的事實）</h3>
+<ul>
+<li>backlog $15.0B（2025/12/31，+109%）、4Q25 有機訂單 +252%、book-to-bill 約 2.9——之後連兩季未再揭露（4Q25 新聞稿；1Q/2Q26 新聞稿與法說無此項）。「揭露轉暗」本身是查證過的事實，空方拿它當訊號是觀點。</li>
+<li>2Q26 營收低於共識（$3.27B vs 約 $3.37B）、財報日單日 −17.26%；同一份財報裡遞延收入半年 $1.815B→$3.634B、存貨 +73%——同組數字，多空各拿一半，這正是賭注 1 與賭注 3 的分界。</li>
+<li>800VDC 時程為公司原話：「2026 年客戶驗證中，2027 年部署」；與 VisionBay.ai 在台灣做全球首座 rack/pod 級 800VDC AI 資料中心（2Q26 法說）。</li>
+<li>全年指引年內三度上修（2/11→4/22→7/29）。</li>
+</ul>
+<h3>市場基準與估值判定書（方法：Forward PE，沿用市場 DCF 假設分支）</h3>
+<div class="kv">
+<b>排除：</b>重建 DCF（800VDC 屬產品組合換代，尚未改寫商業模式；若 UPS 邊緣化成真，2027 需重驗）；EV/EBITDA（併購頻繁但調整後盈餘與現金流可用，不需退層）；EV/Sales、PB（獲利健全）。<br>
+<b>三道檢查：</b>①循環位置——調整後 EPS 2021–25：0.76／0.53／1.89／2.85／4.20，2023 出現 3.6 倍跳升，序列含翻倍級擺盪；性質是虧轉盈初期的營運槓桿，非景氣循環取樣，正常化盈餘無意義，改用前瞻共識，但 2022 成本衝擊那次 −30% 記為歷史彈性註記。②盈餘轉現金 b——FY26 指引調整後自由現金流 $2.4–2.6B 對調整後淨利約 $2.56B，b≈0.94–1.0，過關。③商業模式轉折——800VDC 是換代非轉折，暫不作廢既有倍數，但這正是你兩個空方賭注的落點。<br>
+<b>反推：</b>現價 $293.84 ÷ FY27 共識 EPS $8.55＝34.4 倍；目標價中位 $345＝40 倍；對 Eaton（30.2 倍）溢價 25%，六家機電可比中排第 2（次於 GEV）。<b>可證偽宣稱：這個溢價要成立，需要 FY27 +28% 兌現，且 3Q26 財報（10 月下旬）恢復訂單量化揭露或營收重回超標。</b><br>
+<b>倍數歸因：</b>一年 +122% 主要來自 g 上修（AI 訂單能見度），b 未變、r 未大動——是公司自己的故事，不是全市場給的。<br>
+<b>失效條件：</b>①3Q26 財報仍無 backlog／訂單量化揭露且營收再度低於共識（10 月下旬）②800V 組合 2H26 未出貨（12 月底前無公司確認）③台達拿下指標性 CSP 的系統級訂單（供應鏈新聞，隨時）。
+</div>
+<h3>部位上限判讀（不含進出場時點）</h3>
+<div class="kv">你的權重最高兩注都是多方、且與市場零到小分歧——這檔「能抱」的理由是訂單能見度與 800V 世代的系統層卡位，但按你自己的評分，超額報酬來源薄（你沒有比市場多信什麼）。原則：部位由賭注 1 撐起，上限受「與台達電、MPWR 共用巨頭資本支出證偽訊號」約束——你 7 月報告的 40% 故事額度規矩在組合層適用（見肆）。⚠️ 進出場時點本報告不判斷（技術分析模組待補）。</div>
+<h3>觀察點追蹤</h3>
+<table>
+<tr><th>賭注</th><th>證實它</th><th>推翻它</th><th>時點</th></tr>
+<tr><td>訂單動能（W37.4）</td><td>3Q26 恢復揭露且訂單／backlog 重新加速</td><td>連三季沉默或揭露出來的數字轉弱</td><td>10 月下旬財報</td></tr>
+<tr><td>800V 出貨（W34.1）</td><td>2H26 首批出貨公告＋$/MW 口徑重申</td><td>出貨延至 2027、或 $/MW 下修</td><td>12 月底前</td></tr>
+<tr><td>見頂訊號（W5.6）</td><td>Q3 營收再 miss＋現金流品質惡化</td><td>Q3 營收重回超標</td><td>10 月下旬</td></tr>
+<tr><td>台達切入（W4.3）</td><td>台達奪 CSP 系統級標案</td><td>Vertiv 續拿指標案（如 VisionBay 擴大）</td><td>隨時，法說追認</td></tr>
+</table>
+</div>
+
+<!-- ============ MPWR ============ -->
+<h3 style="font-size:18px;border-bottom:1.5px solid var(--line);padding-bottom:6px"><span class="pill b">淨傾向 +53.9</span>Monolithic Power（MPWR）｜$1,402.01（8/14 收）｜市值 $689 億</h3>
+<div class="card">
+<h3>產品速覽</h3>
+<ul>
+<li><b>賣什麼：</b>類比電源管理 IC 平台——資料中心的核心供電（DrMOS、多相控制、48V 垂直供電模組）為主力，車用、工控、消費為其餘。Enterprise Data（企業數據）部門 2Q26 佔營收 38.8%。</li>
+<li><b>獨特之處：</b>fabless 類比平台＋模組化——毛利率 55.6%（非 GAAP），在功率／類比同業（TXN、ADI、ON）中排最前段；淨現金約 $900M、零負債。</li>
+<li><b>基本盤數字：</b>2Q26 營收 $980.6M（+47.6% YoY、+21.9% QoQ）創高；ED 部門 $380.6M（+44.8% QoQ）；Q3 指引 $1.14–1.16B。ED 季營收五季連跳：144→191.5→233.5→262.8→380.6（$M）。</li>
+</ul>
+<h3>你的賭注評分（2026-08-17）</h3>
+<table>
+<tr><th>#</th><th>方向</th><th>賭注</th><th>L×F×I</th><th>W</th><th>Δ vs 市場</th></tr>
+<tr class="hl"><td>1</td><td class="k">多</td><td>800V 世代以自家 SiC＋自研 GaN 卡進 AC/DC 前端新插槽，擴大單機內容價值</td><td>70×70×70</td><td><b>34.3</b></td><td>無法計算</td></tr>
+<tr><td>2</td><td class="k">多</td><td>Enterprise Data 全年成長下限 130% 兌現且 2027 不失速</td><td>80×80×45</td><td>28.8</td><td>+3pp</td></tr>
+<tr><td>3</td><td class="r">空</td><td>NVIDIA 平台換代重新投票——Blackwell 配額事件在 Rubin 世代重演</td><td>35×26×85</td><td>7.7</td><td>+9pp</td></tr>
+<tr><td>4</td><td class="r">空</td><td>ED 高基期後 2027 減速幅度大於共識</td><td>13×13×90</td><td>1.5</td><td>−10pp</td></tr>
+</table>
+<div class="kv">讀法：你把最重的注押在<b>市場無法定價的東西</b>上——800V 插槽沒有營收、沒有量產時點、法說沒點名 NVIDIA，這注的對錯只有未來的官方口徑能裁。你的 MPWR 結構是「ED 付底價、800V 當選擇權」；而市場（51.2 倍）已經把底價付滿。換代風險你比市場多信 9pp——這是你四張盤裡對空方最大的正分歧，出處是你自己 7 月報告的原型風險條。</div>
+<h3>查證重點（成立的事實）</h3>
+<ul>
+<li>「85% 上調至 130%」為財務主管原話（“we are willing to raise floor for that particular end market from 85% for the year to 130%”，2Q26 法說）。</li>
+<li>800V 進度為法說原話：高壓 AC/DC 產品「開始送樣」、SiC 全用自家元件、GaN「will have a working device」——皆無時點、無金額。</li>
+<li>換代前科成立：2024/11 Edgewater 報告稱 B200/GB200 配額「大幅受限或歸零」、當日重挫（Yahoo 存檔）；2024 10-K 揭露一家 AI 電源間接客戶佔營收 17%。CEO 2Q26 口徑「we do not have any concentrated customers」與 10-K 的 17% 並存——口徑差異照列，不裁定。</li>
+<li>Rubin 世代供應商名單：2026 年公開來源查無 MPWR 缺席或在列的可信報導（「not found」也是資訊）。</li>
+</ul>
+<h3>市場基準與估值判定書（方法：Forward PE）</h3>
+<div class="kv">
+<b>排除：</b>重建 DCF（ED 高成長但商業模式未變——同一個類比平台放大）；EV/EBITDA（資本支出僅折舊 0.3–0.7 倍、盈餘乾淨，不需退層）；EV/Sales、PB（獲利健全）。<br>
+<b>三道檢查：</b>①循環位置——非 GAAP EPS 2017–25：2.93→17.77 連年成長、無腰斬級回檔，平台成長股；2024–25 取樣在 AI 上升段，倍數判讀要記得這點。②b——五年合計自由現金流 ÷ 淨利約 1.15（2022 營運現金流為負屬單年營運資金異常；2024 淨利含一次性稅益，兩者互抵後整體大於 1），盈餘轉現金品質高，PE 適用性強。③轉折——無（800V 尚在送樣）。<br>
+<b>反推：</b>現價 ÷ FY26 共識 $27.39＝51.2 倍，六家可比排第 2（次於 VICR）、對 TXN／ADI 溢價約五成；目標價中位 $1,820 ≈ FY27（財報前口徑 $31.06）× 58.6 倍。<b>可證偽宣稱：現價要成立，需要 ED 130% 下限兌現＋2027 續高成長＋800V／新插槽至少一項落地；把 51.2 倍壓回類比同業 33 倍，需要 EPS 比共識再高約 55%。</b><br>
+<b>倍數歸因：</b>YTD +51.7% 主要 g 上修（ED 兩度上修）；b 本來就高、未變；r 未大動。<br>
+<b>失效條件：</b>①3Q26 ED 金額季減（10 月底財報）②Rubin 供應商名單出現 MPWR 被替換的可信通路報導（隨時）③800V 送樣至 2027 年中仍無量產時點（你頭號賭注的死線）。
+</div>
+<h3>部位上限判讀（不含進出場時點）</h3>
+<div class="kv">按你的權重，這檔的主角是一個無法逐季驗證的選擇權。原則：部位上限由賭注 2（ED，逐季可驗）單獨撐起；賭注 1 在首次官方量產口徑出現前，不給部位加成——它目前沒有任何可對帳的驗證窗口，加成沒有依據。與 NVDA／VRT／台達共用巨頭資本支出訊號（見肆）。⚠️ 進出場時點本報告不判斷。</div>
+<h3>觀察點追蹤</h3>
+<table>
+<tr><th>賭注</th><th>證實它</th><th>推翻它</th><th>時點</th></tr>
+<tr><td>800V 插槽（W34.3）</td><td>官方首次給出量產時點或設計案名單</td><td>2027 年中前無時點、或前端被 IDM 全拿</td><td>每季法說，死線 2027 年中</td></tr>
+<tr><td>ED 130%（W28.8）</td><td>3Q26 ED ≥ $440M（隱含全年下限軌道）</td><td>ED 季減或全年口徑下修</td><td>10 月底財報</td></tr>
+<tr><td>換代重演（W7.7）</td><td>通路調查報導配額被砍</td><td>Rubin 世代設計案獲官方或客戶端確認</td><td>隨時；GTC 2027 前後密度最高</td></tr>
+<tr><td>2027 減速（W1.5）</td><td>FY27 首次指引低於 +20%</td><td>FY27 指引 ≥ 共識 +28%</td><td>2027/2 Q4 法說</td></tr>
+</table>
+</div>
+
+<!-- ============ 2301 ============ -->
+<h3 style="font-size:18px;border-bottom:1.5px solid var(--line);padding-bottom:6px"><span class="pill b">淨傾向 +26.8</span>光寶科（2301）｜NT$267（8/14 收）｜市值約 6,184 億</h3>
+<div class="card">
+<h3>產品速覽</h3>
+<ul>
+<li><b>賣什麼：</b>電源管理為核心的電子零組件廠——雲端與物聯網部門（伺服器電源、BBU、機櫃電源方案）2Q26 佔營收 55%，其餘為光電（LED、感測）與資訊消費電子。</li>
+<li><b>獨特之處：</b>台達之外唯一同時做到「800V 電源櫃系統級出貨＋BBU 佔雲端營收 20–25%」的台廠；120kW CDU／sidecar 已於 Q2 量產。你的 BBU 初判在四檔裡由它承載。</li>
+<li><b>基本盤數字：</b>2Q26 營收 527 億（+30.4%）、毛利率 27.2%、營益率 15.6%、EPS 3.14——三率三升創高；1H26 EPS 4.80（+66%）。全年指引：AI 相關佔營收超過 30%、雲端年增超過 70%、毛利率目標約 25%、資本支出上修至 180 億。</li>
+</ul>
+<h3>你的賭注評分（2026-08-17）</h3>
+<table>
+<tr><th>#</th><th>方向</th><th>賭注</th><th>L×F×I</th><th>W</th><th>Δ vs 市場</th></tr>
+<tr class="hl"><td>1</td><td class="k">多</td><td>BBU 選配走向標配、雲端年增 >70%、「每家主要 CSP 長期 10 億美元」可信</td><td>80×75×65</td><td><b>39.0</b></td><td>無法計算</td></tr>
+<tr><td>2</td><td class="r">空</td><td>台達電以更完整系統方案壓縮光寶 800V 份額與價格，AI 增量獲利不如市場想像</td><td>74×35×90</td><td><b>23.3</b></td><td>−5pp</td></tr>
+<tr><td>3</td><td class="k">多</td><td>800V 電源櫃 8 月送樣→11 月小量產→2027Q1 規模量產如期</td><td>75×80×25</td><td>15.0</td><td>+15pp</td></tr>
+<tr><td>4</td><td class="r">空</td><td>資本支出翻 2.6 倍引發折舊侵蝕、25% 毛利率目標失守</td><td>35×15×75</td><td>3.9</td><td>−5pp</td></tr>
+</table>
+<div class="kv">讀法：這是四張盤裡唯一「多空同桌」的一張——你最重的多方注（BBU，W39）又是無法定價的那種，而你放了全場最重的空方注在台達競爭上（W23.3，L74 代表你認為因果鏈大致成立，只是短期內未必發生）。時程那注你比市場多信 15pp，是你全部十六注裡最大的正分歧，差 5pp 就會觸發評分表的差距說明關卡。</div>
+<h3>查證重點（成立的事實）</h3>
+<ul>
+<li>時程為公司原話：8 月送樣（13 週測試）→11 月小量產→2027Q1 規模量產；現為 1 家大型 CSP 設計出貨、新增 2 家接洽（7/31 法說＋台視財經 8/3）。公司同場自留但書：2027 實際需求與營收貢獻「尚未完全明朗」。</li>
+<li>BBU 佔雲端營收 20–25% 為法說口徑；金額未單獨揭露——你頭號賭注目前沒有逐季對帳的窗口，這是事實，不是評語。</li>
+<li>vocus 整理文的「Q3 量產、2027 下半年大規模採用」為部落客推論，與公司原話（11 月小量產、2027Q1 放量）不同——採公司版。</li>
+<li>同族群訂單分配不均成立：AES-KY 7 月 +28% 創高 vs 加百裕連 6 月衰退、順達 Q2 拉貨雜音後恢復。</li>
+<li>賣方分歧極大成立：大摩中立 TP 170（5/9）vs 最樂觀投顧 370（8/4，2027 EPS 估 18.9）；目標價中位 250 已低於現價。</li>
+</ul>
+<h3>市場基準與估值判定書（方法：Forward PE）</h3>
+<div class="kv">
+<b>排除：</b>重建 DCF（800V 電源櫃是新產品線、仍同一商業模式；若 2027 系統級營收佔比站上兩成再重估）；EV/EBITDA（資本支出擴至 2025 的 2.6 倍、擴產期折舊是真成本）；EV/Sales、PB（獲利健全）。<br>
+<b>三道檢查：</b>①循環位置——EPS 2018–25：3.42／4.03／4.31／6.01／6.19／6.36／5.21／6.64，2024 回檔 −18% 屬弱循環、無腰斬級擺盪；2025 起的加速全來自雲端一條腿。②b——2025：自由現金流（197−68.5＝128.5 億）÷ 淨利 151 億 ≈ 0.85；2021–24 資本支出細項免費來源鎖住（資料缺口如實記）；1H26 資本支出 66.7 億已近 2025 全年，b 進入受壓期。③轉折——無需重建。<br>
+<b>反推：</b>現價 267 ÷ 2026 共識 8.8＝30.3 倍（四家可比排第 3，對台達 48.0 倍折價 37%）；÷ 2027 共識 12.06＝22.1 倍。現價已高於目標價中位 250——市場價格跑在賣方前面，8/3–8/4 連兩根漲停消化法說。<b>可證偽宣稱：現價要成立，需要 2027 EPS +37% 兌現＋雲端 >70% 不失速，靠山是 11 月小量產與 2027Q1 放量兩個三～八個月內就會開獎的時點。</b><br>
+<b>倍數歸因：</b>YTD +59.9% 主要 g 上修（雲端／800V）；b 的資本支出疑慮市場暫未計價（你也只給它 W3.9）。<br>
+<b>失效條件：</b>①11 月小量產跳票（11–12 月營收與公司公告）②毛利率連兩季低於 25%（3Q26、4Q26 財報）③唯一大型 CSP 訂單被台達奪走（法說或供應鏈證實，隨時）。
+</div>
+<h3>部位上限判讀（不含進出場時點）</h3>
+<div class="kv">你的多空結構決定原則：這檔能抱的前提是「觀察點逐季通過」，因為你自己放了 I=90 的台達競爭注在旁邊——任何搶單證據出現，這注會直接咬進論點。部位由賭注 1（BBU 標配化）撐起，但該注無法逐季對帳，所以實際的對帳代理是：雲端部門營收季增率＋BBU 是否首次被單獨量化揭露。⚠️ 進出場時點本報告不判斷。</div>
+<h3>觀察點追蹤</h3>
+<table>
+<tr><th>賭注</th><th>證實它</th><th>推翻它</th><th>時點</th></tr>
+<tr><td>BBU 標配化（W39.0）</td><td>法說首次單獨揭露 BBU 金額且季增；EP688 標配說被 CSP 規格書證實</td><td>BBU 佔比口徑下修、或標配化被大客戶規格排除</td><td>10 月底 3Q 法說起逐季</td></tr>
+<tr><td>台達競爭（W23.3）</td><td>台達奪其 CSP 訂單或 800V 櫃報價戰</td><td>光寶新增第 2 家 CSP 落地</td><td>隨時；法說追認</td></tr>
+<tr><td>時程如期（W15.0）</td><td>11 月小量產公告、12 月營收現形</td><td>小量產延期公告</td><td>2026/11–12</td></tr>
+<tr><td>折舊侵蝕（W3.9）</td><td>3Q26 毛利率跌破 25%</td><td>連兩季站穩 25% 以上</td><td>10 月底、2027/2</td></tr>
+</table>
+</div>
+
+<!-- ============ 2308 ============ -->
+<h3 style="font-size:18px;border-bottom:1.5px solid var(--line);padding-bottom:6px"><span class="pill b">淨傾向 +8.6</span>台達電（2308）｜NT$1,885（8/14 收）｜市值約 4.90 兆</h3>
+<div class="card">
+<h3>產品速覽</h3>
+<ul>
+<li><b>賣什麼：</b>電源與散熱的全鏈玩家——伺服器電源、電力櫃、液冷、BBU、固態變壓器到微電網。電源及零組件佔 7 月營收 57%；AI 相關產品佔整體營收超過 25%（財務長口徑，年初指引 20%）。</li>
+<li><b>獨特之處：</b>NVIDIA 800VDC 生態系裡產品線最完整的公司——從櫃內 PSU 到設施級固態變壓器都有，天下報導稱其正以固態變壓器打進 Vertiv 的機電主場。液冷佔營收超過 12%。</li>
+<li><b>基本盤數字：</b>2Q26 營收 1,832 億（+48%）、毛利率 35.6%、EPS 9.68；1H26 EPS 17.59 已超過去任何一年全年。7 月營收 670.7 億（+47.75%）創新高。2026 資本支出上修至約 700 億（2025：461 億）。</li>
+</ul>
+<h3>你的賭注評分（2026-08-17）</h3>
+<table>
+<tr><th>#</th><th>方向</th><th>賭注</th><th>L×F×I</th><th>W</th><th>Δ vs 市場</th></tr>
+<tr class="hl"><td>1</td><td class="k">多</td><td>800V 系統級 Q3 量產、2027 明顯放量且滲透率達兩成、單位價值量升約 5 倍</td><td>90×85×15</td><td><b>11.5</b></td><td>+3pp</td></tr>
+<tr><td>2</td><td class="r">空</td><td>800V 放量遞延——2027 滲透率遠低於兩成、2027 共識 EPS 59 落空</td><td>80×10×85</td><td>6.8</td><td>−8pp</td></tr>
+<tr><td>3</td><td class="k">多</td><td>AI 佔比續升向四成、CSP 2027 資本支出續增、2027 共識可兌現甚至上修</td><td>80×75×10</td><td>6.0</td><td>−3pp</td></tr>
+<tr><td>4</td><td class="r">空</td><td>傳統事業（EV、自動化）持續虧損或疲弱，拖累獲利品質</td><td>60×70×5</td><td>2.1</td><td>無法計算</td></tr>
+</table>
+<div class="kv">讀法：四檔裡淨傾向最小的一張（+8.6），而且結構特殊——多方的事你認為大多會發生（L90×F85、L80×F75），但你把全部四注的影響幅度壓在 5–15。翻成白話：<b>你認為台達電的好消息都是真的，也都已經是市場的預設。</b>這跟你 8/16 初判給台達電「中」信心完全一致。所以這一章的主軸是兌現與定價的差距，而非會不會兌現。</div>
+<h3>查證重點（成立的事實）</h3>
+<ul>
+<li>時程為董事長原話：「400V、800V 產品第三季開始量產，第四季出貨量有限，明顯放量可能最快要到明年」；部分客戶專案因施工與缺料延後但需求未變（7/30 法說）。4Q25 法說已預告 HVDC 主要貢獻自 2027 起——公司口徑前後一致，市場的 2026 期待本來就該低。</li>
+<li>外資供應鏈實查給 2027 滲透率約 20%、新一代 sidecar 整合 BBU 與雙向 DC/DC（TechNews 7/23）；亞系外資 HVDC 市場規模 2026 US$7.5 億→2028 US$180 億（經濟日報 5/7）。</li>
+<li>股癌 EP686 原話（逐字稿核對版）：「那是一個很強大很屌的公司，訂單超滿，那只是就是錢沒有在這裡」——公司品質與資金位置分開講；第三方筆記流傳的「買了套著也安全」在逐字稿中查無此句，不採用。</li>
+<li>800V／HVDC 營收金額或佔比：公司未單獨揭露（查不到）——這檔的 800V 兌現目前只能用整體 AI 佔比與月營收間接對帳。</li>
+<li>AI 設備折舊年限 5 年縮至 3 年（2026/4 起）：獲利品質的會計面利空、需求急迫的訊號面利多，兩面並存照列。</li>
+</ul>
+<h3>市場基準與估值判定書（方法：Forward PE，沿用市場 DCF 假設分支）</h3>
+<div class="kv">
+<b>排除：</b>重建 DCF（800V 是既有電源本業的量價升級，商業模式未變）；EV/EBITDA（資本支出 700 億 ≈ 折舊年化約 440 億的 1.6 倍、擴產折舊是真成本，EBITDA 會高估）；EV/Sales、PB（獲利健全）。<br>
+<b>三道檢查：</b>①循環位置——EPS 2018–25：7.00／8.90／9.81／10.32／12.58／12.86／13.56／23.14，連年成長無腰斬翻倍擺盪，非典型循環股；但 2025 +71% 跳升取樣在 AI 資本支出週期高段，前瞻共識比 trailing 可靠。②b——2021–25 自由現金流 ÷ 淨利約 0.07／0.64／1.11／0.92／0.75（投資現金流含併購，屬下限估計）；近三年 0.75–1.11 尚穩，2026 起 700 億資本支出會再壓 b。③轉折——無需重建。<br>
+<b>反推：</b>現價 1,885 ÷ 2027 共識 EPS 59＝32.0 倍——已達可比組對「當年度」盈餘的給法（28–38 倍），等於 2027 的 +50% 成長先收了大半；÷ 2026 共識 39.3＝48.0 倍，四家可比中最高。目標價中位 2,565 ≈ 2027 共識 × 43.5 倍。<b>可證偽宣稱：現價要成立，需要 2026 EPS +70%（23.14→39.3）與 2027 再 +50% 連兩年兌現、且屆時倍數守住 32；產業前提是 HVDC 市場照亞系口徑放大 24 倍。</b><br>
+<b>倍數歸因：</b>一年 +181% 主要 g 上修（AI 電源+液冷+800V 故事三合一）；b 反向受壓（資本支出升）；r 未大動——漲的是自己的 g，g 若晃動沒有緩衝。<br>
+<b>失效條件：</b>①2027/1 法說未確認 800V 放量或下修口徑 ②任一大型 CSP 下修 2027 資本支出指引（2026/10–2027/2 財報季）③AI 佔比連兩季停在 25% 不再上行（逐季法說）。
+</div>
+<h3>部位上限判讀（不含進出場時點）</h3>
+<div class="kv">按你的評分，這檔的可辨識優勢是四檔最小——論點成立（L 高）、但你認為兌現不改變故事（I 低）。原則：能抱的理由是「族群曝險的錨」——它是整條 800V 路徑上產品線最全、月營收月月可對帳的公司；但按你的權重，它撐不起以超額報酬為目的的重倉位。它與 VRT／MPWR 共用巨頭資本支出訊號（見肆）。⚠️ 進出場時點本報告不判斷。</div>
+<h3>觀察點追蹤</h3>
+<table>
+<tr><th>賭注</th><th>證實它</th><th>推翻它</th><th>時點</th></tr>
+<tr><td>800V 如期（W11.5）</td><td>Q4 出貨口徑成立、2027/1 法說給放量指引</td><td>Q4 零出貨、或 2027 口徑再往後推</td><td>11 月營收、2027/1 法說</td></tr>
+<tr><td>遞延（W6.8）</td><td>2027 滲透率口徑向 SemiAnalysis 的 5% 靠攏</td><td>外資供應鏈實查維持 20% 且出貨兌現</td><td>2027 逐季</td></tr>
+<tr><td>AI 佔比上行（W6.0）</td><td>法說口徑 25%→30%+；CSP 上修 2027 資本支出</td><td>佔比停滯＋任一 CSP 下修</td><td>逐季法說＋美股財報季</td></tr>
+<tr><td>傳統拖累（W2.1）</td><td>EV／自動化虧損擴大</td><td>自動化回損平以上兌現</td><td>逐季法說</td></tr>
+</table>
+</div>
+<h2><span class="no">肆</span>檢查總表＋組合層註記</h2>
+<div class="card">
+<table>
+<tr><th>檔</th><th>現價（8/14）</th><th>2026／2027 共識 EPS</th><th>Forward 倍數</th><th>你的淨傾向</th><th>你最重的注</th><th>最近的裁判</th></tr>
+<tr><td><b>VRT</b></td><td>$293.84</td><td>$6.70／$8.55</td><td>43.9×（FY26）／34.4×（FY27）</td><td class="k">+61.6</td><td>訂單動能（W37.4）</td><td>3Q26 財報，10 月下旬——backlog 揭露與否</td></tr>
+<tr><td><b>MPWR</b></td><td>$1,402.01</td><td>$27.39／$31.06（舊口徑）</td><td>51.2×（FY26）</td><td class="k">+53.9</td><td>800V 插槽（W34.3，無法定價）</td><td>3Q26 財報，10 月底——ED 金額＋800V 時點</td></tr>
+<tr><td><b>光寶科</b></td><td>NT$267</td><td>8.8／12.06</td><td>30.3×（2026）</td><td class="k">+26.8</td><td>BBU 標配化（W39.0，無法定價）</td><td>11 月小量產公告＋10 月底法說</td></tr>
+<tr><td><b>台達電</b></td><td>NT$1,885</td><td>39.3／59</td><td>48.0×（2026）／32.0×（2027）</td><td class="y">+8.6</td><td>800V 如期（W11.5，I 僅 15）</td><td>11 月營收＋2027/1 法說放量指引</td></tr>
+</table>
+<h3>組合層三條註記</h3>
+<ul>
+<li><b>共用證偽訊號：</b>四檔全部掛在「巨頭資本支出＋NVIDIA 平台節奏」同一個總開關上。你 7 月報告的規矩——共用故事的部位合併計算 40% 額度——在這裡適用於四檔加總，不是各算各的。</li>
+<li><b>內部對沖：</b>同時持有光寶與台達，等於把光寶那張 I=90 的台達競爭空方注部分自我對沖——台達真搶單時，一邊的損失對應另一邊的訂單。這是結構事實，不是建議。</li>
+<li><b>驗證窗口的分布：</b>四檔的裁判擠在 2026/10 下旬–2027/1（三家財報＋光寶小量產＋台達放量指引）。這段時間之前，兩個「無法定價」的頭號賭注（光寶 BBU、MPWR 800V）都不會有新事實——留檔的意義就在對帳這段。</li>
+</ul>
+</div>
+
+<h2><span class="no">伍</span>判斷留檔（供日後 performance-attribution-review 對帳）</h2>
+<div class="card">
+<h3>初判（2026-08-16，評分前）</h3>
+<div class="kv">最賺段：<b>BBU 與儲能</b>｜三檔：VRT（信心高）、MPWR（高）、台達電（中）｜經對照後定案四檔（加入光寶科）。</div>
+<h3>評分（2026-08-17，四張採信度盤）</h3>
+<div class="kv">淨傾向：VRT +61.6 ＞ MPWR +53.9 ＞ 光寶 +26.8 ＞ 台達電 +8.6——與初判的信心排序一致。十六注中無一觸發 ±20pp 差距說明關卡；最大正分歧 +15pp（光寶時程）、最大負分歧 −10pp（MPWR 2027 減速）。</div>
+<h3>對帳指引（回看時讀這段）</h3>
+<ul>
+<li><b>先對這兩注：</b>你把兩張盤的最重注都押在「市場無法定價」的賭注上（光寶 BBU W39.0、MPWR 800V 插槽 W34.3）。回看時第一件事：官方口徑（BBU 單獨揭露／800V 量產時點）出現了沒？出現後你的 F 分數對不對？</li>
+<li><b>再對台達電的形狀：</b>你評「會兌現、但不改變故事」（L 高 I 低）。若台達電後續報酬與其他三檔明顯分歧（不論方向），檢討的是 I 的判斷，不是 L。</li>
+<li><b>回看時點：</b>2026/11 中（三家財報＋光寶小量產開獎後）、2027/4–5（台達放量與光寶規模量產開獎後）。</li>
+<li><b>防事後改寫：</b>四份 JSON 存底不可修改；當時的市場基準（共識、倍數、目標價）都寫在各檔判定書裡，對帳時用當時數字，不用回憶。</li>
+</ul>
+</div>
+
+<h2><span class="no">陸</span>附錄</h2>
+<div class="card">
+<h3>附錄 A・待技術分析模組（估值位階與價格位置論述，原文保留、不進正文）</h3>
+<ul>
+<li>納蘭雪敏（vocus 8/11，台達電）：P/E 約 58 倍 vs 鴻海約 14 倍；自由現金流回本期 55–90 年；市值遭鴻海超車；「46 倍預估 P/E 隱含 2026 後獲利再翻倍」。</li>
+<li>蔡昀庭（CMoney 6/22，台達電）：2800 元目標價應對照歷史均值與同業檢驗；「價格是對未來的預支」；風險來自估值修正而非基本面。</li>
+<li>艾蜜莉（今周刊 5/12，光寶科）：「身價翻倍快過公司轉變」，漲幅已提前反映 2027–28。</li>
+<li>Zephyr（Substack 3/25，光寶科）：外資測算 GB200 增量 EPS 僅 0.2–0.5 元故倒貨。</li>
+<li>UmiCrypto（TOPONE 8/14，VRT）：「在 65 倍的股票上，需求放緩的第一季看起來就是 timing」。</li>
+<li>Seeking Alpha 標題（財報後）：MPWR〈Why I'm Selling The Best Quarter〉〈Robust Growth, But Price Is Stretched〉；VRT〈When Even A Great Quarter Isn't Enough〉。</li>
+<li>股癌 EP686 時點類語錄（逐字稿）：「那 DTA 其實現在你你也發現說那個線型走爛了。那一樣啦，我們都不會因為人家線型爛就說人家是爛公司」；「前面光先修、後來光先上嘛，然後後來散熱已經死很久，後來散熱上，那會不會一樣的道理就是 power」；另有第三方筆記版「等族群中有股票率先突破歷史新高再認領跑者」（⚠️依摘要、逐字稿未核得）。</li>
+</ul>
+<div class="note">以上論述以估值位階或價格位置為理由，按 stock-research-pipeline 規定不得進正文、不得當多空理由；待技術分析模組接上後再處理。</div>
+</div>
+
+<div class="card">
+<h3>附錄 B・數字口徑對照（兩套數字都對，量的東西不同）</h3>
+<table>
+<tr><th>主題</th><th>口徑一</th><th>口徑二</th><th>差在哪</th></tr>
+<tr><td>省銅</td><td>−94%（你 7 月報告；48V 基準、單櫃匯流排）</td><td>−45%（NVIDIA 官方；全廠端到端）</td><td>範圍：一條銅排 vs 整座廠</td></tr>
+<tr><td>電流倍數</td><td>÷17（48V→800V）</td><td>÷15（54V→800V）；EP688 實算 330kW：6.1kA→0.4kA</td><td>基準電壓不同</td></tr>
+<tr><td>單櫃功率半導體含量</td><td>$9,500→$115,000（12×，onsemi 執行長口徑）</td><td>$50k→$100k（onsemi 1MW 機櫃口徑）</td><td>世代定義不同（7 月報告已註）</td></tr>
+<tr><td>市場規模</td><td>亞系外資 HVDC 市場 2026 US$7.5 億→2028 US$180 億</td><td>SemiAnalysis：sidecar 2028 高峰約 US$110 億＋固態變壓器 2030 約 US$320 億；Diligence Stack US$300–450 億</td><td>母數不同：整體 TAM vs 單一環節 vs 電源價值集合</td></tr>
+<tr><td>每 MW 內容價值</td><td>Vertiv US$3.25M–3.75M/MW（整套電力系統）</td><td>SemiAnalysis sidecar 約 US$50 萬/MW；Navitas US$2.5–3.5 萬/MW（GaN/SiC 元件）</td><td>三個數字量三層：系統、電力櫃、晶片</td></tr>
+<tr><td>滲透率</td><td>SemiAnalysis／Dylan Patel「未來一年 5%」</td><td>外資供應鏈實查 2027 約 20%（台達）</td><td>時間窗與母數（全球既有 DC vs 新建 AI 機櫃）不同——兩者可同時為真</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3>附錄 C・來源清單</h3>
+<div class="src">
+<b>NVIDIA 官方：</b>blogs.nvidia.com/blog/800-vdc-power-architecture-ai-factory ｜ developer.nvidia.com/blog/nvidia-800-v-hvdc-architecture-will-power-the-next-generation-of-ai-factories ｜ developer.nvidia.com/blog/building-the-800-vdc-ecosystem-for-efficient-scalable-ai-factories（含白皮書《800 VDC Architecture for Next-Generation AI Infrastructure》摘要與 29 家名單）｜ nvidia.com/en-us/data-center/technologies/800-vdc-architecture<br>
+<b>公司一手（法說／新聞稿）：</b>台達電 7/30 法說（Newtalk 1050400、vocus 6a6c26e2）＋7 月營收（Newtalk 1052482）｜光寶科 7/31 法說（blog.fugle.tw/post/earnings-call-2301-2026-07-31、鉅亨 6554607）｜Vertiv 2Q26 新聞稿＋簡報＋法說逐字稿（prnewswire 302837598、investing.com 4824087）＋4Q25（backlog $15B）｜MPWR 2Q26 新聞稿（globenewswire 3336393）＋法說逐字稿（fool.com）＋2024 10-K｜Infineon infpr202608-125｜TI 2026-03-16 新聞稿｜onsemi、STM、POWI、Innoscience、Navitas、Eaton 官方新聞稿（見備料紀錄）<br>
+<b>股癌逐字稿（vocus 鏡像）：</b>EP671 6a5bc243｜EP686 6a76e2bd｜EP688 6a806cdb（EP672–680 全文、EP681–687 筆記交叉，備料紀錄存查）<br>
+<b>Substack／深度：</b>SemiAnalysis〈Inside the 800VDC Revolution – Part 1〉5/26｜The Diligence Stack〈800 VDC: The Inflection Point〉3/31｜Stock Crock〈Hidden Monopolies in 800V DC Power Semis〉4/26｜Nutty〈Reading NVIDIA's 800V Partner List〉5/26｜9 Ventures〈NVTS: The 800V Architecture Pure Play〉4/18｜天下英文版（陳良榕）6/19、6/22、6/26｜Riccardo Tinivella〈The Transformer Hidden Inside…〉6/26｜Zephyr 3/25<br>
+<b>共識與估值：</b>FactSet 經鉅亨（台達 6440141、6554155；光寶 6556143、6555638）｜stockanalysis.com（VRT、MPWR、ETN、GEV、TXN、ADI、ON、VICR，8/14 收盤）｜Zacks、WallStreetZen、MarketBeat｜TWSE 個股日成交資訊<br>
+<b>觀點文章（多空，正文與附錄已標作者）：</b>slowbrew allin、CMoney 官方、蔡昀庭、納蘭雪敏、敏捷投資的貓、理柴知道、艾蜜莉、CY Research、TheValueist、MarketBeat Johnson、UmiCrypto、Seeking Alpha ×3、Edgewater（2024 經 Yahoo）<br>
+<b>查證紀錄：</b>Lead Wealth＝領裕國際（港交所公告 20220329/10180214、公司官網 lead-wealth.com）
+</div>
+</div>
+
+<div class="card">
+<h3>免責聲明與流程註記</h3>
+<div class="kv">台大控股社團內部研究，非投資建議。個股信心分數為使用者 2026-08-17 親自評定的個人信念留檔，四份 JSON 不再修改。報價截至 2026-08-14 收盤、資料截至 2026-08-17。本報告不含技術分析、不判斷進出場時點、不以估值高低作為多空理由（相關素材見附錄 A）。流程：stock-research-pipeline Phase 1–4 完成（搜集→拆解查證→使用者評分→內部報告）；Phase 5 對外文章未啟動，需要時另行轉寫。</div>
+</div>
+
+<div class="note" style="margin-top:20px">有機體流程・800VDC 對內報告 2026-08-17｜評分表與 JSON 存於 台大控股／05_800VDC</div>
+</div></body></html>

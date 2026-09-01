@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>採信度盤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Noto+Serif+TC:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EDEAE4; --card:#F6F4F0; --ink:#33352F; --muted:#6E7168; --rule:#D6D2C8;
+  --long:#7B8C6F; --short:#A8746A; --market:#7E8A99; --flag:#B98A55;
+  --display:"Fraunces",Georgia,serif;
+  --body:"Noto Serif TC",serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);
+  font-size:15px;line-height:1.7;padding:0 0 140px}
+.wrap{max-width:840px;margin:0 auto;padding:0 20px}
+
+header{padding:44px 0 26px;border-bottom:1px solid var(--rule)}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--muted);
+  text-transform:uppercase}
+h1{font-family:var(--display);font-weight:600;font-size:38px;line-height:1.15;margin:10px 0 6px}
+h1 .tk{font-family:var(--mono);font-weight:600}
+.sub{color:var(--muted);font-size:13.5px}
+.howto{margin-top:22px;padding:16px 18px;background:var(--card);border-left:2px solid var(--market)}
+.howto p{margin:0 0 6px}
+.howto p:last-child{margin:0}
+.howto b{font-weight:600}
+
+.card{background:var(--card);border:1px solid var(--rule);margin:26px 0;padding:22px 22px 8px;
+  position:relative}
+.card[data-side="long"]{border-left:3px solid var(--long)}
+.card[data-side="short"]{border-left:3px solid var(--short)}
+.side{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase}
+.card[data-side="long"] .side{color:var(--long)}
+.card[data-side="short"] .side{color:var(--short)}
+.claim{font-family:var(--display);font-size:20px;line-height:1.4;margin:8px 0 4px}
+.src{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+
+.evid{display:grid;grid-template-columns:1fr 1fr;gap:0 26px;margin:18px 0 4px;
+  border-top:1px solid var(--rule);padding-top:16px}
+.evid h4{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 6px;font-weight:400}
+.evid ul{margin:0 0 12px;padding-left:16px}
+.evid li{margin-bottom:4px;font-size:14px}
+
+.anchors{border-top:1px solid var(--rule);padding-top:14px;margin-top:6px}
+.anchors h4{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--market);margin:0 0 8px;font-weight:400}
+.arow{display:flex;gap:10px;font-size:13.5px;margin-bottom:5px}
+.arow .k{font-family:var(--mono);font-size:11px;color:var(--muted);flex:0 0 68px;padding-top:3px}
+.mnote{font-size:12.5px;color:var(--muted);margin-top:8px;padding-left:78px}
+
+/* signature: the gap rail */
+.rail{margin:18px 0 6px;padding:14px 0 4px;border-top:1px solid var(--rule)}
+.raillab{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.track{position:relative;height:26px}
+.track .base{position:absolute;top:12px;left:0;right:0;height:2px;background:var(--rule)}
+.track .fill{position:absolute;top:12px;height:2px;background:var(--flag);transition:all .18s ease}
+.track .mk{position:absolute;top:2px;width:2px;height:22px;background:var(--market)}
+.track .mkband{position:absolute;top:9px;height:8px;background:var(--market);opacity:.22}
+.track .you{position:absolute;top:0;width:11px;height:26px;margin-left:-5.5px;
+  border:1.5px solid var(--ink);background:var(--card);transition:left .18s ease}
+.track.na .base{background:repeating-linear-gradient(90deg,var(--rule) 0 6px,transparent 6px 12px)}
+.railfoot{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;
+  color:var(--muted);margin-top:4px}
+.railfoot .delta{font-weight:600}
+.delta.you{color:var(--ink)} .delta.mkt{color:var(--market)} .delta.flag{color:var(--flag)}
+
+.sliders{border-top:1px solid var(--rule);margin-top:14px;padding-top:16px}
+.sl{display:grid;grid-template-columns:118px 1fr 56px;align-items:center;gap:14px;margin-bottom:12px}
+.sl label{font-size:13.5px}
+.sl label small{display:block;font-size:11px;color:var(--muted);font-family:var(--mono)}
+.sl output{font-family:var(--mono);font-size:15px;text-align:right;font-weight:600}
+.sl output.untouched{color:var(--rule);font-weight:400}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:none;
+  cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--rule)}
+input[type=range]::-moz-range-track{height:2px;background:var(--rule)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;
+  border-radius:50%;background:var(--card);border:1.5px solid var(--ink);margin-top:-6px}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--card);
+  border:1.5px solid var(--ink)}
+input[type=range]:focus-visible{outline:2px solid var(--flag);outline-offset:4px}
+.untouched input[type=range]::-webkit-slider-thumb{border-color:var(--rule)}
+.untouched input[type=range]::-moz-range-thumb{border-color:var(--rule)}
+
+.wbox{display:flex;justify-content:space-between;align-items:baseline;
+  border-top:1px solid var(--rule);margin-top:6px;padding:12px 0}
+.wbox .lab{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted)}
+.wbox .val{font-family:var(--mono);font-size:26px;font-weight:600}
+.wbox .val small{font-size:12px;color:var(--muted);font-weight:400}
+
+.gate{border-top:1px solid var(--rule);padding:14px 0 16px;display:none}
+.gate.on{display:block}
+.gate h4{font-family:var(--display);font-size:16px;margin:0 0 4px}
+.gate p{margin:0 0 8px;font-size:12.5px;color:var(--muted)}
+.gate textarea{width:100%;min-height:74px;background:var(--paper);border:1px solid var(--flag);
+  padding:10px;font-family:var(--body);font-size:14px;color:var(--ink);resize:vertical}
+.gate textarea:focus{outline:2px solid var(--flag);outline-offset:1px}
+.gate.done textarea{border-color:var(--rule)}
+
+footer{position:fixed;bottom:0;left:0;right:0;background:var(--card);
+  border-top:1px solid var(--rule);padding:14px 0}
+.fgrid{max-width:840px;margin:0 auto;padding:0 20px;display:flex;align-items:center;gap:20px;
+  flex-wrap:wrap}
+.tilt{flex:1;min-width:220px}
+.tiltlab{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);display:flex;justify-content:space-between}
+.tiltbar{position:relative;height:10px;background:var(--paper);border:1px solid var(--rule);
+  margin-top:6px}
+.tiltbar .mid{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
+.tiltbar .f{position:absolute;top:0;bottom:0;transition:all .2s ease}
+.tiltnum{font-family:var(--mono);font-size:13px;margin-top:5px}
+button{font-family:var(--mono);font-size:12px;letter-spacing:.06em;padding:11px 18px;
+  background:var(--ink);color:var(--paper);border:none;cursor:pointer}
+button:disabled{background:var(--rule);color:var(--muted);cursor:not-allowed}
+button:focus-visible{outline:2px solid var(--flag);outline-offset:2px}
+.status{font-family:var(--mono);font-size:11.5px;color:var(--muted);flex-basis:100%}
+
+#out{margin:30px 0;display:none}
+#out.on{display:block}
+#out textarea{width:100%;height:280px;font-family:var(--mono);font-size:11.5px;line-height:1.55;
+  background:var(--card);border:1px solid var(--rule);padding:14px;color:var(--ink)}
+.note{font-size:12.5px;color:var(--muted);margin-top:8px}
+
+@media (max-width:640px){
+  h1{font-size:29px} .evid{grid-template-columns:1fr}
+  .sl{grid-template-columns:96px 1fr 46px;gap:10px}
+  .mnote{padding-left:0}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="eyebrow" id="eyebrow">CONFIDENCE BALLOT</div>
+  <h1><span class="tk" id="ticker">TICKER</span> 採信度盤</h1>
+  <div class="sub" id="meta">資料截止日 —　｜　蒸餾自 — 篇觀點文章</div>
+  <div class="howto">
+    <p><b>三支滑桿全部由你給，我不代填。</b>L 邏輯＝因果鏈成立的機率；F 可發生性＝在你的時間視野內發生的機率；I 影響幅度＝兌現後撼動整個論述的程度（100＝改寫整個故事）。</p>
+    <p>賭注權重 <b>W = L × F × I</b>。三項相乘會整體壓低分數，<b>看排名不看絕對值</b>。</p>
+    <p>灰色的數字代表你還沒動過那支滑桿——沒動過就不算數，也不會計入加權。</p>
+  </div>
+</header>
+
+<main id="cards"></main>
+
+<section id="out">
+  <textarea id="outtext" readonly aria-label="匯出結果"></textarea>
+  <p class="note">複製失敗的話，直接全選這塊文字貼回聊天即可。</p>
+</section>
+</div>
+
+<footer>
+  <div class="fgrid">
+    <div class="tilt">
+      <div class="tiltlab"><span>空方 ΣW</span><span>淨傾向</span><span>多方 ΣW</span></div>
+      <div class="tiltbar"><div class="mid"></div><div class="f" id="tiltfill"></div></div>
+      <div class="tiltnum" id="tiltnum">—</div>
+    </div>
+    <button id="copy" disabled>複製結果</button>
+    <div class="status" id="status">尚未開始評分</div>
+  </div>
+</footer>
+
+<script>
+/* ============================================================================
+   BETS:START — generated 2026-08-19
+   ============================================================================ */
+const META = {
+  "ticker": "IFX",
+  "asOf": "2026-08-19",
+  "articles": 5
+};
+const BETS = [
+  {
+    "id": "b1",
+    "side": "long",
+    "claim": "AI 資料中心電源線倍增兌現：FY26 >€1.6B、FY27 >€2.5B 且公司預告 11 月「實質上修」，成為集團成長主引擎",
+    "source": "公司 Q3 FY26 法說（8/5）＋24/7 Wall St（6/1）",
+    "leading": [
+      "PSS 部門 Q3 營收 +34% YoY、利潤率 24.9% 全集團最高（8/5 新聞稿）",
+      "AI 口徑逐季上修：FY26 目標 15 億→16 億歐元；FY27 >25 億且預告將實質上修、11 月更新（法說簡報）",
+      "超過 10 家客戶產能預訂、累計高個位數十億歐元；含量口徑 $100–250/kW、平均 $175（法說）",
+      "8/17 SemiEngineering 引 GIP 總裁：機櫃 125kW→約 500kW→1MW/800V"
+    ],
+    "against": [
+      "AI 線佔營收 FY26 僅約 10%（16 億／163 億）——引擎小、車身大",
+      "UBS 3/14 降評中性：AI 業務上行有限",
+      "8/5 財報創高當日股價 −5.3%——市場用腳投票說「已在價內」（IBKR 日線）"
+    ],
+    "anchors": {
+      "consensus": "Vara 共識（8/18，20 家）：FY26 EPS €1.77／FY27 €2.79（+58%）；目標價平均 €85.79（24 位，MarketScreener）",
+      "peers": "NTM forward P/E（8 月中）：NXPI 13.7＜ON 20.5＜IFX 約 22–24＜STM 25.3＜ADI 25.7＜TXN 28.1——7 檔第 3 低。IFX 會計年 9 月底止，現價 €55.22÷FY27 共識＝19.8 倍",
+      "reverse": "目標價平均 85.79 ≈ FY27 共識 2.79 × 30.8 倍。⚠️循環警語：EPS 峰谷 0.64→2.65＝4.1 倍，分母是循環取樣點，倍數高低要反著讀——FY27 的 +58% 本身就是循環修復假設"
+    },
+    "marketImplied": [
+      45,
+      65
+    ],
+    "marketNote": "算式：現價÷FY27 共識＝19.8 倍，對類比同業（25–28 倍）折價三成；8/5 好財報跌 5.3%、本週族群回檔再跌——AI 倍增的訊息市場只付了一部分，大約四成五到六成五。"
+  },
+  {
+    "id": "b2",
+    "side": "long",
+    "claim": "車用循環翻正接棒：ATV 轉正＋FY27 共識部門利潤率 19.6%→24.8%，循環修復與 AI 雙引擎同開",
+    "source": "公司 Q3 法說（8/5）＋Rijnberk InvestInsights（2024/5 的結構論點）",
+    "leading": [
+      "ATV Q3 營收 +3% YoY 轉正（8/5）",
+      "整體營收 +13%、FY26 指引 +11%",
+      "Q4 指引部門利潤率約 23%＝逐季爬升（8/5）"
+    ],
+    "against": [
+      "中國車用晶片自給率 2027 年目標 100%、「夠用就好」替代（Stan Shpetner 6/25）",
+      "UBS 估中國車用營收 2026/27 每年 −7%",
+      "ATV 利潤率僅 18.4%，仍在低檔（8/5）"
+    ],
+    "anchors": {
+      "consensus": "FY27 共識 EPS +58% 已內建循環修復",
+      "peers": "同 b1",
+      "reverse": "同 b1 循環警語"
+    },
+    "marketImplied": [
+      40,
+      60
+    ],
+    "marketNote": "算式：FY27 +58% 是共識基準情境，但 19.8 倍的折價端定價顯示市場對修復只半信——四到六成。"
+  },
+  {
+    "id": "b3",
+    "side": "short",
+    "claim": "中國替代與價格戰讓 FY27 修復失速：部門利潤率 24.8% 共識達不到",
+    "source": "Stan Shpetner「Chips, Cars, and China」（2025/6/25）＋UBS（3/14）",
+    "leading": [
+      "中國成熟製程產能 2027 年佔全球 39%、外溢壓價（Shpetner）",
+      "大中華營收佔比約 38%（你 7 月報告口徑）",
+      "Mobileye 被低價替代的前例（Shpetner）"
+    ],
+    "against": [
+      "車用 MCU 市占 28.5%、車用半導體全球第一的規模壁壘（Rijnberk）",
+      "ATV 已轉正、Q4 指引續升（8/5）"
+    ],
+    "anchors": {
+      "consensus": "同 b1",
+      "peers": "同 b1",
+      "reverse": "折價三成＝市場已把中國風險付了一部分"
+    },
+    "marketImplied": [
+      30,
+      50
+    ],
+    "marketNote": "算式：對同業折價三成裡，中國與循環風險是主要成分——市場給這條空方三到五成採信。"
+  },
+  {
+    "id": "b4",
+    "side": "short",
+    "claim": "重資本低回報體質：ROCE 約 5%、年投資 27 億歐元，AI 放量若伴隨毛利下滑，獲利品質撐不起倍數",
+    "source": "The Antifragile Investor（Substack，8/19）",
+    "leading": [
+      "FY25 ROCE 約 5%、FY25 自由現金流 −10.5 億（含 Marvell 車用乙太網併購 22 億）（公司年報）",
+      "資本支出對折舊五年合計 1.25 倍（公司財務數據表）"
+    ],
+    "against": [
+      "FY26 調整後自由現金流指引 18.5 億歐元（8/5）",
+      "調整毛利率穩定在 low-to-mid 40s（8/5）"
+    ],
+    "anchors": {
+      "consensus": "共識未單獨定價資本回報結構",
+      "peers": "同 b1",
+      "reverse": "無法拆項回推"
+    },
+    "marketImplied": null,
+    "marketNote": "ROCE 與資本強度屬長期結構變數，共識與目標價不拆項——市場定價無法回推，無法估算。"
+  }
+];
+/* ============================================================================
+   BETS:END
+   ============================================================================ */
+
+const S = {};                            // state: id -> {L,F,I,touched:{},why}
+const $ = (s, r) => (r || document).querySelector(s);
+const mid = b => b.marketImplied ? (b.marketImplied[0] + b.marketImplied[1]) / 2 : null;
+const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+$('#ticker').textContent = META.ticker;
+$('#eyebrow').textContent = 'CONFIDENCE BALLOT · ' + META.asOf;
+$('#meta').textContent = `資料截止日 ${META.asOf}　｜　蒸餾自 ${META.articles} 篇觀點文章　｜　賭注 ${BETS.length} 個`;
+document.title = META.ticker + ' 採信度盤';
+
+const list = (arr, empty) => (arr && arr.length)
+  ? '<ul>' + arr.map(x => `<li>${esc(x)}</li>`).join('') + '</ul>'
+  : `<ul><li style="color:var(--muted)">${empty}</li></ul>`;
+
+BETS.forEach(b => {
+  S[b.id] = { L: 50, F: 50, I: 50, touched: {}, why: '' };
+  const m = mid(b), na = m === null;
+  const card = document.createElement('section');
+  card.className = 'card'; card.dataset.side = b.side; card.id = 'card-' + b.id;
+  card.innerHTML = `
+    <div class="side">${b.side === 'long' ? '多方賭注' : '空方賭注'}</div>
+    <div class="claim">${esc(b.claim)}</div>
+    <div class="src">${esc(b.source)}</div>
+    <div class="evid">
+      <div><h4>已就位的領先指標</h4>${list(b.leading, '無')}</div>
+      <div><h4>反面證據</h4>${list(b.against, '本次搜集未見')}</div>
+    </div>
+    <div class="anchors">
+      <h4>市場目前基準值</h4>
+      <div class="arow"><span class="k">錨A 共識</span><span>${esc(b.anchors.consensus)}</span></div>
+      <div class="arow"><span class="k">錨B 族群</span><span>${esc(b.anchors.peers)}</span></div>
+      <div class="arow"><span class="k">錨C 回推</span><span>${esc(b.anchors.reverse)}</span></div>
+      <div class="mnote">${esc(b.marketNote)}</div>
+    </div>
+    <div class="rail">
+      <div class="raillab"><span>你 vs 市場</span><span>${na ? '市場隱含採信度：無法估算' : `市場隱含 ${b.marketImplied[0]}–${b.marketImplied[1]}%`}</span></div>
+      <div class="track ${na ? 'na' : ''}">
+        <div class="base"></div>
+        ${na ? '' : `<div class="mkband" style="left:${b.marketImplied[0]}%;width:${b.marketImplied[1] - b.marketImplied[0]}%"></div><div class="mk" style="left:${m}%"></div>`}
+        <div class="fill" style="left:0;width:0"></div>
+        <div class="you" style="left:50%"></div>
+      </div>
+      <div class="railfoot"><span>0%</span><span class="delta">—</span><span>100%</span></div>
+    </div>
+    <div class="sliders">
+      ${[['L','邏輯','因果鏈成立'],['F','可發生性','時間視野內發生'],['I','影響幅度','兌現後的撼動程度']]
+        .map(([k, n, h]) => `
+        <div class="sl untouched" data-k="${k}">
+          <label for="${b.id}-${k}">${n}<small>${k} · ${h}</small></label>
+          <input type="range" min="0" max="100" step="1" value="50" id="${b.id}-${k}">
+          <output class="untouched">—</output>
+        </div>`).join('')}
+    </div>
+    <div class="wbox">
+      <span class="lab">賭注權重 W = L × F × I</span>
+      <span class="val" id="w-${b.id}">—<small> / 100</small></span>
+    </div>
+    <div class="gate" id="gate-${b.id}">
+      <h4 id="gateq-${b.id}"></h4>
+      <p>與市場差距 20 個百分點以上是很強的宣稱。寫不出具體理由，就該回頭改分數。</p>
+      <textarea placeholder="具體的新資訊、專業判斷，或市場尚未消化的一手觀察——「我覺得」不算。"></textarea>
+    </div>`;
+  $('#cards').appendChild(card);
+
+  ['L', 'F', 'I'].forEach(k => {
+    const inp = $('#' + b.id + '-' + k), row = inp.closest('.sl'), out = $('output', row);
+    inp.addEventListener('input', () => {
+      S[b.id][k] = +inp.value; S[b.id].touched[k] = true;
+      row.classList.remove('untouched'); out.classList.remove('untouched');
+      out.textContent = inp.value + '%';
+      render(b);
+    });
+  });
+  $('#gate-' + b.id + ' textarea').addEventListener('input', e => {
+    S[b.id].why = e.target.value.trim();
+    $('#gate-' + b.id).classList.toggle('done', S[b.id].why.length >= 10);
+    refresh();
+  });
+});
+
+function complete(b) { const t = S[b.id].touched; return t.L && t.F && t.I; }
+function gateNeeded(b) {
+  const m = mid(b); if (m === null || !S[b.id].touched.F) return 0;
+  const d = S[b.id].F - m;
+  return Math.abs(d) >= 20 ? d : 0;
+}
+function weight(b) { const s = S[b.id]; return s.L * s.F * s.I / 10000; }
+
+function render(b) {
+  const s = S[b.id], card = $('#card-' + b.id), m = mid(b);
+  const you = $('.you', card), fill = $('.fill', card), dEl = $('.delta', card);
+
+  you.style.left = s.F + '%';
+  if (m !== null && s.touched.F) {
+    const lo = Math.min(m, s.F), hi = Math.max(m, s.F), d = s.F - m;
+    fill.style.left = lo + '%'; fill.style.width = (hi - lo) + '%';
+    dEl.textContent = 'Δ ' + (d > 0 ? '+' : '') + d.toFixed(0) + ' pp'
+      + (Math.abs(d) >= 20 ? (d > 0 ? '　你更信' : '　市場更信') : '');
+    dEl.className = 'delta ' + (Math.abs(d) >= 20 ? 'flag' : d > 0 ? 'you' : d < 0 ? 'mkt' : '');
+  } else {
+    fill.style.width = '0';
+    dEl.textContent = m === null ? 'Δ 無法計算' : '—';
+    dEl.className = 'delta';
+  }
+
+  $('#w-' + b.id).innerHTML = complete(b)
+    ? weight(b).toFixed(1) + '<small> / 100</small>'
+    : '—<small> / 100</small>';
+
+  const d = gateNeeded(b), gate = $('#gate-' + b.id);
+  gate.classList.toggle('on', d !== 0);
+  if (d !== 0) $('#gateq-' + b.id).textContent = d > 0
+    ? '我比市場多知道什麼？'
+    : '市場憑什麼比我更信這件事？我漏看了什麼？';
+  refresh();
+}
+
+function refresh() {
+  const done = BETS.filter(complete);
+  const blocked = BETS.filter(b => gateNeeded(b) !== 0 && S[b.id].why.length < 10);
+  const L = done.filter(b => b.side === 'long').reduce((a, b) => a + weight(b), 0);
+  const Sh = done.filter(b => b.side === 'short').reduce((a, b) => a + weight(b), 0);
+  const net = L - Sh, span = Math.max(L, Sh, 1);
+  const f = $('#tiltfill'), pct = Math.min(Math.abs(net) / span, 1) * 50;
+  f.style.background = net >= 0 ? 'var(--long)' : 'var(--short)';
+  f.style.left = net >= 0 ? '50%' : (50 - pct) + '%';
+  f.style.width = pct + '%';
+  $('#tiltnum').textContent = done.length
+    ? `多 ${L.toFixed(1)} ／ 空 ${Sh.toFixed(1)} ／ 淨 ${net >= 0 ? '+' : ''}${net.toFixed(1)}`
+    : '—';
+
+  const ok = done.length === BETS.length && blocked.length === 0;
+  $('#copy').disabled = !ok;
+  $('#status').textContent = ok
+    ? '全部評分完成，可以複製貼回聊天。'
+    : blocked.length
+      ? `還有 ${blocked.length} 個賭注的差距說明沒寫（至少 10 字）`
+      : `已完成 ${done.length} / ${BETS.length} 個賭注`;
+}
+
+$('#copy').addEventListener('click', () => {
+  const rows = BETS.map(b => {
+    const s = S[b.id], m = mid(b);
+    return {
+      id: b.id, side: b.side, claim: b.claim,
+      L: s.L, F: s.F, I: s.I, W: +weight(b).toFixed(1),
+      market_implied: b.marketImplied,
+      delta_pp: m === null ? null : +(s.F - m).toFixed(0),
+      justification: s.why || null
+    };
+  }).sort((a, b) => b.W - a.W);
+  const L = rows.filter(r => r.side === 'long').reduce((a, r) => a + r.W, 0);
+  const Sh = rows.filter(r => r.side === 'short').reduce((a, r) => a + r.W, 0);
+  const payload = {
+    ticker: META.ticker, as_of: META.asOf, scored_at: new Date().toISOString().slice(0, 10),
+    scale: "L/F/I 皆 0-100，W = L*F*I/10000",
+    bets: rows, sum_long_W: +L.toFixed(1), sum_short_W: +Sh.toFixed(1), net_tilt: +(L - Sh).toFixed(1)
+  };
+  const human = [
+    `【${META.ticker} 採信度盤・已評分】依 W 排序`,
+    ...rows.map((r, i) =>
+      `${i + 1}. [${r.side === 'long' ? '多' : '空'}] ${r.claim}\n` +
+      `   L${r.L} × F${r.F} × I${r.I} → W ${r.W.toFixed(1)}` +
+      (r.delta_pp === null ? '　Δ 無法計算' : `　Δ ${r.delta_pp > 0 ? '+' : ''}${r.delta_pp}pp`) +
+      (r.justification ? `\n   差距說明：${r.justification}` : '')),
+    `淨傾向：多 ${L.toFixed(1)} ／ 空 ${Sh.toFixed(1)} ／ 淨 ${(L - Sh) >= 0 ? '+' : ''}${(L - Sh).toFixed(1)}`,
+    '', '```json', JSON.stringify(payload, null, 2), '```'
+  ].join('\n');
+
+  const ta = $('#outtext'); ta.value = human; $('#out').classList.add('on');
+  const done = () => { $('#copy').textContent = '已複製'; setTimeout(() => $('#copy').textContent = '複製結果', 1800); };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(human).then(done, () => { ta.select(); document.execCommand('copy'); done(); });
+  } else { ta.select(); try { document.execCommand('copy'); } catch (e) {} done(); }
+  ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+
+BETS.forEach(render);
+</script>
+</body>
+</html>

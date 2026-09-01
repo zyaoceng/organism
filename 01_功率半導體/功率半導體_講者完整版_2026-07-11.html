@@ -1,0 +1,232 @@
+<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>功率半導體 講者完整版 2026-07-11</title><style>
+:root{--ink:#23211c;--sub:#6f6a5e;--line:#e7e1d6;--bg:#f5f2ec;--card:#fffdf9;--acc:#c96f2b;--green:#5a7d4a;--red:#c9302b;}
+*{box-sizing:border-box}
+body{font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--ink);margin:0;padding:34px 18px;}
+.wrap{max-width:1030px;margin:0 auto;}
+.kicker{letter-spacing:3px;font-size:12px;color:var(--acc);font-weight:700;}
+h1{font-size:29px;margin:6px 0;}
+.meta{color:var(--sub);font-size:13px;margin-bottom:12px;}
+.badge{display:inline-block;background:#2e2a22;color:#ead9b8;border-radius:20px;padding:3px 12px;font-size:12px;margin:0 6px 4px 0;}
+h2{font-size:21px;margin:38px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--ink);}
+h2 .no{color:var(--acc);font-size:13px;letter-spacing:2px;margin-right:8px;}
+h3{font-size:15.5px;margin:14px 0 8px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin:12px 0;}
+.story{background:linear-gradient(135deg,#2e2a22,#4a4030);color:#f4ead4;border-radius:14px;padding:24px 28px;font-size:18px;line-height:1.9;margin:14px 0;}
+.story small{display:block;color:#cfa96b;font-size:12px;letter-spacing:3px;margin-bottom:8px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:13px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:13px;}
+@media(max-width:820px){.grid2,.grid3{grid-template-columns:1fr;}}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0;}
+th{background:#efe9dd;text-align:left;padding:8px 10px;border:1px solid var(--line);font-weight:700;}
+td{padding:8px 10px;border:1px solid var(--line);vertical-align:top;line-height:1.6;}
+tr.hl td{background:#f4f9e8;font-weight:600;}
+ul{margin:6px 0;padding-left:22px;line-height:1.85;}
+li{margin:4px 0;}
+.k{color:var(--green);font-weight:700;} .r{color:var(--red);font-weight:700;} .y{color:#b07d00;font-weight:700;}
+.note{font-size:12px;color:var(--sub);line-height:1.7;margin-top:7px;}
+.src{font-size:11px;color:#948d7f;line-height:1.85;word-break:break-all;}
+.pill{display:inline-block;border-radius:18px;padding:4px 12px;font-size:12.5px;font-weight:700;margin:2px 6px 2px 0;}
+.pill.g{background:#e7f0df;color:#3f5c33;} .pill.r{background:#fbe9e7;color:#a33;} .pill.y{background:#fdf3d8;color:#8a6d00;}
+.dot{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:8px;}
+.kv{font-size:13.5px;line-height:1.9;}
+.lesson{background:#f1f7ec;border:1px solid #c5d8b8;border-radius:12px;padding:14px 18px;font-size:14px;line-height:1.9;margin:10px 0;}
+.qa{border-left:4px solid var(--acc);}
+.speak{background:#fdf6e3;border:1px dashed #d8c58a;border-radius:10px;padding:10px 14px;font-size:12.5px;color:#7a5d00;margin:8px 0;line-height:1.7;}
+</style></head><body><div class="wrap">
+<div class="kicker">投資社團・講者完整版（先讀這份，再用投影版上場）</div>
+<h1>功率半導體：AI 時代的電力生意 — 完整教材</h1>
+<div class="meta"><span class="badge">2026-07-11</span><span class="badge">報價：7/10 收盤（六檔全部更新）</span><span class="badge">投影版共 24 頁，本文件按投影順序展開每一頁的講法與底層數字</span></div>
+
+<div class="lesson"><b>這份教材怎麼用：</b>每一節對應投影版的一段。「◈ 講法」框＝上台時的口語建議；表格與數字＝被追問時的火力庫。目標是你讀完一遍就能不看稿講滿一小時。</div>
+
+<h2><span class="no">壹</span>產業第一課 — 你要能用一句話回答「這是什麼」</h2>
+<div class="card">
+<ul><li><b>一句話：功率半導體是「管電的晶片」——CPU/GPU 負責思考，它負責把電廠的電安全餵進晶片嘴裡。</b></li>
+<li>三個角色：<b>MOSFET</b>＝最快的電力開關（伺服器電源、快充）；<b>IGBT</b>＝耐高壓大電流開關（電動車逆變器＝把電池直流轉成馬達交流的裝置）；<b>二極體</b>＝整流（交流轉直流）</li>
+<li>材料三代：矽（便宜主流）→ <b>SiC 碳化矽</b>（耐高壓，電動車/800V 前端）→ <b>GaN 氮化鎵</b>（高頻小型化，快充/中段降壓）</li>
+<li>商業模式：<b>營收 ＝ Q（顆數）× S（單價）</b>。毛利率看三件事：製程世代、產能稼動率、定價權</li>
+<li>IDM vs fabless：IDM＝自有晶圓廠一條龍（IFX/ON/ST/WOLF，漲價紅利全吃、但稼動率低時虧更兇）；fabless＝只設計、找代工（MPWR/AOSL 半自有，資本輕）</li>
+<li>它是<b>景氣循環股</b>：2021–22 缺貨暴漲 → 2023–25 兩年去庫存 → 2026 翻揚。<b>循環股的鐵律：漲價潮的後面接的一定是下一輪去庫存</b>——問題只是隔多久</li></ul>
+<div class="speak">◈ 講法：先問全場「AI 伺服器最缺的是什麼？」等人講晶片，你說「是電」。一台 Kyber 機櫃 60 萬瓦＝300 台冷氣同時開。然後才進晶片分工。</div></div>
+
+<h2><span class="no">貳</span>故事與三個證據 — 為什麼是現在</h2>
+<div class="story"><small>ONE-LINE STORY（投影版原句）</small>等一個「AI 機櫃走向 600kW–1MW、供電全面改 800V 直流、單櫃功率半導體含量跳 12 倍——同時缺貨漲價、訂單排到 2027」的世界。</div>
+<div class="card"><h3>證據一：800V 革命（物理逼的，不是行銷）</h3>
+<ul><li>低壓大電流送 600kW → 每櫃 200kg 銅、塞不下且過熱；升到 800V → 電流 ÷17、銅 −94%、效率 83%→92%</li>
+<li>矽晶片耐壓上限 ~650V → 800V 只有 SiC/GaN 扛得住（這就是第三代半導體變主角的原因）</li>
+<li><b>單櫃含量 $9,500 → $115,000（12×）</b>；SiC 佔 $3–5k（前端）、GaN $1.5–2.5k（全新中段插槽）</li>
+<li>改裝先行財已出貨：sidecar 電力櫃 $4 萬→$40 萬/櫃（10×）；原生 800V 大浪 2027（反方 SemiAnalysis 說 2028——打的是原生重建，不是眼前改裝）</li>
+<li>進入障礙：建廠 3–5 年＋NVIDIA 認證 18–24 個月 → 2027 世代訂單基本分完</li></ul>
+<svg viewBox="0 0 900 165" style="width:100%">
+<text x="20" y="28" font-size="18" font-weight="800" fill="#23211c">一個機櫃裡的功率半導體值多少錢？</text>
+<text x="20" y="68" font-size="15" fill="#6f6a5e">48V 舊機櫃</text><rect x="180" y="53" width="52" height="23" rx="5" fill="#ded8cd"/><text x="245" y="70" font-size="15" fill="#6f6a5e">$9,500</text>
+<text x="20" y="116" font-size="15" fill="#6f6a5e">800V 新機櫃</text><rect x="180" y="101" width="620" height="23" rx="5" fill="#c96f2b"/><text x="430" y="118" font-size="18" font-weight="800" fill="#fff">$115,000　＝ 12 倍</text>
+<text x="180" y="150" font-size="12.5" fill="#8a8375">內含：SiC 前端 $3,000–5,000/櫃（舊矽方案 $200–400）＋ GaN 中段 $1,500–2,500/櫃（全新插槽）｜onsemi 執行長法說口徑</text></svg>
+<h3>證據二：漲價潮（定價權易主的時間軸）</h3>
+<svg viewBox="0 0 960 145" style="width:100%">
+<line x1="40" y1="66" x2="920" y2="66" stroke="#d9c9ae" stroke-width="4"/>
+<g font-size="14" fill="#23211c">
+<circle cx="90" cy="66" r="9" fill="#5a7d4a"/><text x="90" y="36" text-anchor="middle" font-weight="800">4/1</text><text x="90" y="100" text-anchor="middle" fill="#6f6a5e">英飛凌 +5–15%</text>
+<circle cx="250" cy="66" r="9" fill="#5a7d4a"/><text x="250" y="36" text-anchor="middle" font-weight="800">4/26</text><text x="250" y="100" text-anchor="middle" fill="#6f6a5e">ST 第一輪</text>
+<circle cx="410" cy="66" r="9" fill="#5a7d4a"/><text x="410" y="36" text-anchor="middle" font-weight="800">6/28</text><text x="410" y="100" text-anchor="middle" fill="#6f6a5e">ST 第二輪 5–15%</text>
+<circle cx="570" cy="66" r="9" fill="#5a7d4a"/><text x="570" y="36" text-anchor="middle" font-weight="800">7/1</text><text x="570" y="100" text-anchor="middle" fill="#6f6a5e">TI 15–85%｜IFX 模組 +10–25%</text>
+<circle cx="730" cy="66" r="9" fill="#5a7d4a"/><text x="730" y="36" text-anchor="middle" font-weight="800">7/10</text><text x="730" y="100" text-anchor="middle" fill="#6f6a5e">台廠月營收首驗（富鼎 +16%）</text>
+<circle cx="870" cy="66" r="11" fill="#b07d00"/><text x="870" y="36" text-anchor="middle" font-weight="800">10 月？</text><text x="870" y="100" text-anchor="middle" fill="#b07d00" font-weight="700">第三漲＝裁判</text>
+</g></svg>
+<ul><li>判定邏輯：<b>敢連漲兩次＝客戶跑不掉</b>；交期 30 週+＝供給真的緊</li>
+<li>7/10 台廠六月營收首驗：<b>富鼎 +16.1% YoY</b>（及格、未爆量）——強茂/台半/德微逐家數字上台前用「公開資訊觀測站」或 CMoney 補齊，關鍵字「6月營收」</li></ul>
+<h3>證據三：週期翻身＋安世斷鏈</h3>
+<ul><li>車用+工業＝六成需求；ON 營收 2023 來首度轉正、管理層定調「轉折點」；STM 車用 book-to-bill 回到 1</li>
+<li>安世（Nexperia）：荷蘭接管 vs 中國反制，七八成封測卡中國、本田一度減產 → 歐美車廠轉單、台廠受惠。<b>注意這是事件財：和解＝引擎熄火</b></li></ul>
+<div class="speak">◈ 講法：三個證據講完停一下，說「注意——這三件事互相獨立，任何一件單獨都撐不起行情，但 2026 年它們同時發生」。這是這輪行情的本質。</div></div>
+
+<h2><span class="no">參</span>供電鏈與玩家地圖 — 誰在哪賺哪種錢</h2>
+<div class="card"><svg viewBox="0 0 960 158" style="width:100%">
+<rect x="5" y="28" width="115" height="54" rx="9" fill="#6f6a5e"/><text x="62.5" y="50" font-size="13.5" font-weight="700" fill="#fff" text-anchor="middle">市電／電網</text><text x="62.5" y="69" font-size="11" fill="#fff" text-anchor="middle" opacity="0.9">交流中壓</text><rect x="150" y="28" width="175" height="54" rx="9" fill="#a45718"/><text x="237.5" y="50" font-size="13.5" font-weight="700" fill="#fff" text-anchor="middle">Sidecar 電力櫃</text><text x="237.5" y="69" font-size="11" fill="#fff" text-anchor="middle" opacity="0.9">SiC・$40萬/櫃</text><rect x="355" y="28" width="150" height="54" rx="9" fill="#c96f2b"/><text x="430.0" y="50" font-size="13.5" font-weight="700" fill="#fff" text-anchor="middle">800V 直流匯流排</text><text x="430.0" y="69" font-size="11" fill="#fff" text-anchor="middle" opacity="0.9">銅用量 −94%</text><rect x="535" y="28" width="155" height="54" rx="9" fill="#d98e4a"/><text x="612.5" y="50" font-size="13.5" font-weight="700" fill="#fff" text-anchor="middle">中段降壓</text><text x="612.5" y="69" font-size="11" fill="#fff" text-anchor="middle" opacity="0.9">GaN・全新插槽</text><rect x="720" y="28" width="125" height="54" rx="9" fill="#5a7d4a"/><text x="782.5" y="50" font-size="13.5" font-weight="700" fill="#fff" text-anchor="middle">低壓最後降壓</text><text x="782.5" y="69" font-size="11" fill="#fff" text-anchor="middle" opacity="0.9">MPWR·Vicor 兩家獨大</text><rect x="875" y="28" width="80" height="54" rx="9" fill="#23211c"/><text x="915.0" y="50" font-size="13.5" font-weight="700" fill="#fff" text-anchor="middle">GPU</text><text x="915.0" y="69" font-size="11" fill="#fff" text-anchor="middle" opacity="0.9">3.7–5kW</text>
+<g stroke="#8a8375" stroke-width="2.4"><line x1="122" y1="55" x2="145" y2="55"/><line x1="327" y1="55" x2="350" y2="55"/><line x1="507" y1="55" x2="530" y2="55"/><line x1="692" y1="55" x2="715" y2="55"/><line x1="847" y1="55" x2="870" y2="55"/></g>
+<rect x="150" y="98" width="535" height="4" fill="#c96f2b"/><text x="417" y="122" font-size="14.5" font-weight="800" fill="#a45718" text-anchor="middle">高壓段＝賺「新單價」（英飛凌／ST／GaN 陣營／WOLF 的 SiC）</text>
+<rect x="720" y="98" width="125" height="4" fill="#5a7d4a"/><text x="782" y="122" font-size="14.5" font-weight="800" fill="#5a7d4a" text-anchor="middle">低壓段＝賺「更多顆」</text>
+<text x="480" y="150" font-size="12.5" fill="#8a8375" text-anchor="middle">口訣：越靠電網的新插槽賺新單價；越靠 GPU 的老位置賺顆數（MPWR/Vicor/AOSL/台廠）</text></svg>
+<div class="grid2" style="margin-top:12px">
+<div style="display:flex;gap:16px;align-items:center"><svg width="180" height="180" viewBox="0 0 180 180"><path d="M90.0,3.0 A87.0,87.0 0 0 1 171.9,60.5 L137.5,72.9 A50.5,50.5 0 0 0 90.0,39.5 Z" fill="#c96f2b" stroke="#fff" stroke-width="1.8"/><path d="M171.9,60.5 A87.0,87.0 0 0 1 114.3,173.5 L104.1,138.5 A50.5,50.5 0 0 0 137.5,72.9 Z" fill="#e0a96d" stroke="#fff" stroke-width="1.8"/><path d="M114.3,173.5 A87.0,87.0 0 1 1 90.0,3.0 L90.0,39.5 A50.5,50.5 0 1 0 104.1,138.5 Z" fill="#ded8cd" stroke="#fff" stroke-width="1.8"/></svg><div><b>整體市佔（2025）</b><div style="font-size:13.5px;line-height:2.05"><div><span class="dot" style="background:#c96f2b"></span>英飛凌<b style="margin-left:8px">19.5%</b></div><div><span class="dot" style="background:#e0a96d"></span>ON/TI/ST/三菱（2–5名）<b style="margin-left:8px">26.0%</b></div><div><span class="dot" style="background:#ded8cd"></span>其他<b style="margin-left:8px">54.5%</b></div></div></div></div>
+<div style="display:flex;gap:16px;align-items:center"><svg width="180" height="180" viewBox="0 0 180 180"><path d="M90.0,3.0 A87.0,87.0 0 1 1 38.9,19.6 L60.3,49.2 A50.5,50.5 0 1 0 90.0,39.5 Z" fill="#5a7d4a" stroke="#fff" stroke-width="1.8"/><path d="M38.9,19.6 A87.0,87.0 0 0 1 90.0,3.0 L90.0,39.5 A50.5,50.5 0 0 0 60.3,49.2 Z" fill="#ded8cd" stroke="#fff" stroke-width="1.8"/></svg><div><b>SiC 集中度（2024）</b><div style="font-size:13.5px;line-height:2.05"><div><span class="dot" style="background:#5a7d4a"></span>前五合計<b style="margin-left:8px">90.0%</b></div><div><span class="dot" style="background:#ded8cd"></span>其他<b style="margin-left:8px">10.0%</b></div></div><div class="note">WOLF 是前五之一——這是它值得看的結構理由</div></div></div></div>
+<div class="speak">◈ 講法：指著鏈圖說「記一個口訣：越靠電網賺新單價、越靠 GPU 賺顆數」。然後把六檔一一放上鏈：IFX/ST/WOLF 在左半、MPWR/AOSL 在右半、ON 橫跨。</div></div>
+
+<h2><span class="no">◆</span>英飛凌 Infineon（IFX.DE）｜€72.40（7/10 收）</h2>
+<div class="grid2"><div class="card"><h3>三個月走勢</h3><svg viewBox="0 0 340 90" style="width:100%"><polyline points="8.0,82.0 13.1,79.7 18.3,79.5 23.4,77.2 28.6,72.1 33.7,73.7 38.9,73.9 44.0,71.9 49.1,64.8 54.3,63.7 59.4,64.8 64.6,66.0 69.7,61.6 74.9,58.6 80.0,58.9 85.1,53.7 90.3,55.0 95.4,54.7 100.6,51.8 105.7,51.3 110.9,56.0 116.0,47.3 121.1,41.3 126.3,45.5 131.4,44.6 136.6,46.4 141.7,41.0 146.9,40.8 152.0,31.7 157.1,27.6 162.3,26.2 167.4,26.8 172.6,21.1 177.7,20.0 182.9,20.7 188.0,8.0 193.1,8.7 198.3,13.7 203.4,25.6 208.6,23.5 213.7,27.5 218.9,29.2 224.0,26.5 229.1,21.9 234.3,19.9 239.4,22.7 244.6,26.4 249.7,17.6 254.9,17.1 260.0,10.0 265.1,20.0 270.3,23.6 275.4,19.5 280.6,25.1 285.7,24.4 290.9,19.7 296.0,24.1 301.1,27.3 306.3,25.7 311.4,26.3 316.6,36.3 321.7,37.9 326.9,32.3 332.0,34.0" fill="none" stroke="#c96f2b" stroke-width="2.4"/><circle cx="332.0" cy="34.0" r="4" fill="#23211c"/></svg><div class="note">4 月 +83% → 高檔箱體 → 本週破位（7/7 −8%），收 72.4</div></div><div class="card"><h3>AI 電源營收目標（€B）</h3><svg viewBox="0 0 420 200" style="width:100%;max-width:420px"><rect x="32" y="129" width="77" height="36" rx="6" fill="#e0a96d"/><text x="70" y="120" text-anchor="middle" font-size="16" font-weight="800" fill="#23211c">€0.7B</text><text x="70" y="190" text-anchor="middle" font-size="13" fill="#6f6a5e">FY25 實際</text><rect x="172" y="87" width="77" height="78" rx="6" fill="#c96f2b"/><text x="210" y="78" text-anchor="middle" font-size="16" font-weight="800" fill="#23211c">€1.5B</text><text x="210" y="190" text-anchor="middle" font-size="13" fill="#6f6a5e">FY26 目標</text><rect x="312" y="35" width="77" height="130" rx="6" fill="#a45718"/><text x="350" y="26" text-anchor="middle" font-size="16" font-weight="800" fill="#23211c">€2.5B</text><text x="350" y="190" text-anchor="middle" font-size="13" fill="#6f6a5e">FY27 目標</text></svg></div></div><div class="card"><h3>基本面速記</h3><ul><li>整體 #1（19.5%）、IGBT #1（22%）、SiC 前二；車用佔一半、大中華營收 38%</li><li>最新季 €38.1 億（+6%）；全年上修 €160 億+；<b>在手訂單 €250 億（+25%）</b></li><li>四引擎全沾：漲價發動者／車用 β／NVIDIA 800V 名單／安世受惠</li><li>風險：EV 高壓業務疲弱、CSS 部門弱、大中華地緣、7/1 起改三部門（追蹤口徑變）</li></ul></div>
+<div class="card"><h3>2027 年 EPS × PE（目標價不變，空間用最新收盤重算）</h3>
+<table><tr><th></th><th>保守</th><th class="hl">基準</th><th>樂觀</th></tr>
+<tr><td>2027 EPS</td><td>€1.77</td><td><b>€2.07</b></td><td>€2.37</td></tr>
+<tr><td>PE</td><td>24×</td><td><b>30×</b></td><td>34×</td></tr>
+<tr class="hl"><td>目標價 vs 現價</td><td>€42.5（−41%）</td><td><b>€62.1（−14%）</b></td><td>€80.6（+11%）</td></tr></table></div>
+<div class="card"><h3>技術面（照你的平台引擎跑）　<span style="background:#c9302b;color:#fff;border-radius:6px;padding:3px 12px;font-size:14px">偏空</span></h3>
+<table><tr><th>趨勢</th><th>RSI(14)</th><th>MACD 柱</th><th>KD</th><th>布林 %B</th><th>20/60 日線</th></tr>
+<tr><td><b>均線糾結／盤整</b></td><td>44.5（偏弱）</td><td>綠柱（空方）</td><td>K 25.0／D 23.4</td><td>14.4%</td><td>78.24／70.68</td></tr></table>
+<div class="kv">支撐：<b class="k">63.2／58.35</b>　壓力：<b class="r">82.99／88.65</b>　距波段高：<b class="r">-18.1%</b></div>
+<div class="note">量比因 7/10 尾盤資料不完整不列入判讀；以上為訊號整理，非買賣建議（你的平台的免責語照搬）。</div></div>
+<div class="card"><h3>L2v1 判定（2026-07-11 重跑）</h3><div><span class="pill g">濾網 ✓（72.4 &gt; 60日線 70.7，但僅高 2.4%、20日線在頭上）</span><span class="pill y">判定：觀察</span></div>
+<div class="kv" style="margin-top:8px">門檻 ✗（基準 −14%）。本週破位下跌 −6.6%（7/7 單日 −8%）：漲多後的第一次像樣修正，濾網瀕臨翻面——若跌破 70.7 連濾網也熄燈。觸發：8 月初法說上修、或繼續回檔讓基準目標重新給出 25% 空間（≈€49.7）。</div></div>
+
+<h2><span class="no">◆</span>onsemi（ON）｜$96.04（7/10 收）</h2>
+<div class="grid2"><div class="card"><h3>三個月走勢</h3><svg viewBox="0 0 340 90" style="width:100%"><polyline points="8.0,82.0 13.3,80.8 18.6,80.3 23.9,71.5 29.2,67.9 34.6,64.9 39.9,63.3 45.2,60.9 50.5,50.5 55.8,49.8 61.1,50.2 66.4,55.8 71.7,49.3 77.0,47.0 82.4,44.3 87.7,45.5 93.0,44.8 98.3,41.1 103.6,47.2 108.9,44.1 114.2,39.4 119.5,43.1 124.9,29.4 130.2,26.3 135.5,32.5 140.8,36.8 146.1,40.8 151.4,35.9 156.7,36.6 162.0,28.9 167.3,16.2 172.7,18.6 178.0,20.0 183.3,23.7 188.6,23.3 193.9,14.2 199.2,8.0 204.5,10.5 209.8,27.6 215.1,23.3 220.5,27.9 225.8,35.9 231.1,29.1 236.4,28.2 241.7,17.4 247.0,26.4 252.3,32.7 257.6,22.5 263.0,10.8 268.3,27.8 273.6,29.4 278.9,25.9 284.2,58.9 289.5,61.4 294.8,54.3 300.1,54.2 305.4,58.2 310.8,54.2 316.1,58.4 321.4,55.2 326.7,50.4 332.0,52.6" fill="none" stroke="#c96f2b" stroke-width="2.4"/><circle cx="332.0" cy="52.6" r="4" fill="#23211c"/></svg><div class="note">6/26 併購跳空 −21% → 打底 → 本週反彈 +5%，收 96.0</div></div><div class="card"><h3>AI DC 營收軌跡（$M）</h3><svg viewBox="0 0 380 200" style="width:100%;max-width:380px"><rect x="43" y="100" width="105" height="65" rx="6" fill="#e0a96d"/><text x="95" y="91" text-anchor="middle" font-size="16" font-weight="800" fill="#23211c">$250M</text><text x="95" y="190" text-anchor="middle" font-size="13" fill="#6f6a5e">2025 實際</text><rect x="233" y="35" width="105" height="130" rx="6" fill="#c96f2b"/><text x="285" y="26" text-anchor="middle" font-size="16" font-weight="800" fill="#23211c">$500M</text><text x="285" y="190" text-anchor="middle" font-size="13" fill="#6f6a5e">2026 目標</text></svg><div class="note">「2027 $1B」查無官方出處——別引用</div></div></div><div class="card"><h3>基本面速記</h3><ul><li>整體 #2、車用 51%；SiC 晶棒到模組一條龍；PEG&lt;1 的性價比代表</li><li>Q1 營收 $15.1 億、2023 來首度轉正；1MW 機櫃含量 $50k→$100k（公司口徑，與 12× 說法為不同世代定義）</li><li>Synaptics 併購：$70 億全股票（稀釋未入模型）、市場 −21% 反對票；2027 年中交割</li><li>催化：8/3 財報、9 月分析師日</li></ul></div>
+<div class="card"><h3>2027 年 EPS × PE（目標價不變，空間用最新收盤重算）</h3>
+<table><tr><th></th><th>保守</th><th class="hl">基準</th><th>樂觀</th></tr>
+<tr><td>2027 EPS</td><td>$3.60</td><td><b>$4.30</b></td><td>$5.00</td></tr>
+<tr><td>PE</td><td>20×</td><td><b>26×</b></td><td>30×</td></tr>
+<tr class="hl"><td>目標價 vs 現價</td><td>$72（−25%）</td><td><b>$111.8（+16%）</b></td><td>$150（+56%）</td></tr></table></div>
+<div class="card"><h3>技術面（照你的平台引擎跑）　<span style="background:#a31515;color:#fff;border-radius:6px;padding:3px 12px;font-size:14px">偏空（強）</span></h3>
+<table><tr><th>趨勢</th><th>RSI(14)</th><th>MACD 柱</th><th>KD</th><th>布林 %B</th><th>20/60 日線</th></tr>
+<tr><td><b>空頭排列</b></td><td>43.9（偏弱）</td><td>綠柱（空方）</td><td>K 43.4／D 30.7</td><td>31.2%</td><td>106.38／106.93</td></tr></table>
+<div class="kv">支撐：<b class="k">92.44／87.96／86.47</b>　壓力：<b class="r">119.1</b>　距波段高：<b class="r">-28.3%</b></div>
+<div class="note">量比因 7/10 尾盤資料不完整不列入判讀；以上為訊號整理，非買賣建議（你的平台的免責語照搬）。</div></div>
+<div class="card"><h3>L2v1 判定（2026-07-11 重跑）</h3><div><span class="pill r">濾網 ✗（96.0 &lt; 60日線 106.9，空頭排列）</span><span class="pill y">判定：觀察（反彈中）</span></div>
+<div class="kv" style="margin-top:8px">門檻 ✗（+16%）。<b>本週教材級案例</b>：6/29 收盤 88.57 時門檻其實短暫打開（+26%），但濾網擋住了接刀——之後一週反彈 +8.4%。這就是紀律的成本與保護同時發生：少賺了反彈，也躲過了再殺一波的可能。觸發：站回 60 日線、或 8/3 財報上修 2027 共識。</div></div>
+
+<h2><span class="no">◆</span>STMicroelectronics（STM）｜$71.65（7/10 收）</h2>
+<div class="grid2"><div class="card"><h3>三個月走勢</h3><svg viewBox="0 0 340 90" style="width:100%"><polyline points="8.0,82.0 13.3,80.9 18.6,81.3 23.9,79.7 29.2,74.7 34.6,74.3 39.9,74.6 45.2,73.5 50.5,64.4 55.8,63.0 61.1,62.9 66.4,64.3 71.7,58.9 77.0,54.3 82.4,53.2 87.7,54.3 93.0,50.5 98.3,49.0 103.6,52.9 108.9,46.8 114.2,45.0 119.5,49.1 124.9,38.9 130.2,37.0 135.5,42.6 140.8,43.4 146.1,42.9 151.4,36.0 156.7,34.6 162.0,32.4 167.3,25.2 172.7,30.7 178.0,27.6 183.3,27.8 188.6,28.4 193.9,8.7 199.2,8.4 204.5,10.9 209.8,25.2 215.1,17.2 220.5,20.3 225.8,25.1 231.1,11.3 236.4,12.9 241.7,9.8 247.0,18.0 252.3,20.2 257.6,10.8 263.0,8.0 268.3,22.0 273.6,23.1 278.9,17.4 284.2,23.9 289.5,17.6 294.8,17.4 300.1,25.2 305.4,29.6 310.8,23.9 316.1,31.6 321.4,29.3 326.7,23.9 332.0,23.4" fill="none" stroke="#c96f2b" stroke-width="2.4"/><circle cx="332.0" cy="23.4" r="4" fill="#23211c"/></svg><div class="note">4 月 +80% → 回檔 −16% → 本週守住 60 日線，收 71.7</div></div><div class="card"><h3>基本面速記</h3><ul><li>SiC #1（Tesla 帶飛）；<b>但漲的是矽光子/資料中心</b>：DC 營收 2026 翻倍 $1B、2027 再翻倍、AWS 長約</li><li>功率部門（P&D）年減 1.8%、單季虧 $84M——功率故事在它身上還沒開始</li><li>低基期：2026 EPS 共識 +147%、2027 再 +101%</li><li>7/23 財報＝六檔最近裁判；$1.5B 可轉債稀釋待追蹤</li></ul></div></div>
+<div class="card"><h3>2027 年 EPS × PE（目標價不變，空間用最新收盤重算）</h3>
+<table><tr><th></th><th>保守</th><th class="hl">基準</th><th>樂觀</th></tr>
+<tr><td>2027 EPS</td><td>$2.00</td><td><b>$2.63</b></td><td>$3.20</td></tr>
+<tr><td>PE</td><td>22×</td><td><b>28×</b></td><td>34×</td></tr>
+<tr class="hl"><td>目標價 vs 現價</td><td>$44（−39%）</td><td><b>$73.6（+3%）</b></td><td>$108.8（+52%）</td></tr></table></div>
+<div class="card"><h3>技術面（照你的平台引擎跑）　<span style="background:#8a8375;color:#fff;border-radius:6px;padding:3px 12px;font-size:14px">中性／整理</span></h3>
+<table><tr><th>趨勢</th><th>RSI(14)</th><th>MACD 柱</th><th>KD</th><th>布林 %B</th><th>20/60 日線</th></tr>
+<tr><td><b>均線糾結／盤整</b></td><td>51.1（偏強）</td><td>綠柱（空方）</td><td>K 44.9／D 35.9</td><td>37.0%</td><td>73.51／64.67</td></tr></table>
+<div class="kv">支撐：<b class="k">69.57／67.73／59.07</b>　壓力：<b class="r">81.01</b>　距波段高：<b class="r">-10.3%</b></div>
+<div class="note">量比因 7/10 尾盤資料不完整不列入判讀；以上為訊號整理，非買賣建議（你的平台的免責語照搬）。</div></div>
+<div class="card"><h3>L2v1 判定（2026-07-11 重跑）</h3><div><span class="pill g">濾網 ✓（71.7 &gt; 60日線 64.7）</span><span class="pill y">判定：觀察</span></div>
+<div class="kv" style="margin-top:8px">門檻 ✗（基準 +3%，貼著目標價）。街上平均目標價仍低於現價。<b>7/23 財報是六檔中最近的裁判</b>：指引 $3.45B 與 DC 軌跡若上修，門檻才可能打開。注意它的功率部門仍虧損——AI 線其實是光通訊故事。</div></div>
+
+<h2><span class="no">◆</span>Monolithic Power（MPWR）｜$1,354（7/10 收）</h2>
+<div class="grid2"><div class="card"><h3>三個月走勢</h3><svg viewBox="0 0 340 90" style="width:100%"><polyline points="8.0,64.4 13.3,65.9 18.6,67.8 23.9,58.9 29.2,47.3 34.6,43.3 39.9,36.7 45.2,37.8 50.5,25.3 55.8,18.3 61.1,26.2 66.4,41.0 71.7,36.9 77.0,21.4 82.4,26.9 87.7,28.7 93.0,26.1 98.3,14.7 103.6,28.2 108.9,23.8 114.2,13.1 119.5,24.0 124.9,15.0 130.2,21.5 135.5,32.8 140.8,44.1 146.1,47.3 151.4,32.2 156.7,30.8 162.0,25.8 167.3,12.8 172.7,20.4 178.0,18.1 183.3,29.9 188.6,34.2 193.9,19.5 199.2,8.0 204.5,14.6 209.8,45.1 215.1,31.2 220.5,36.0 225.8,46.5 231.1,25.8 236.4,28.0 241.7,14.7 247.0,41.9 252.3,50.9 257.6,30.4 263.0,35.0 268.3,55.2 273.6,53.2 278.9,52.6 284.2,74.8 289.5,74.9 294.8,62.6 300.1,71.5 305.4,79.3 310.8,69.0 316.1,82.0 321.4,74.4 326.7,64.0 332.0,67.5" fill="none" stroke="#c96f2b" stroke-width="2.4"/><circle cx="332.0" cy="67.5" r="4" fill="#23211c"/></svg><div class="note">5/26 高 1714 → 下降通道 → 7/8 低 1232 → 兩日彈 +10%，收 1354</div></div><div class="card"><h3>Enterprise Data 線（$M/季）</h3><svg viewBox="0 0 420 200" style="width:100%;max-width:420px"><rect x="24" y="94" width="58" height="71" rx="6" fill="#e0a96d"/><text x="52" y="85" text-anchor="middle" font-size="16" font-weight="800" fill="#23211c">$144</text><text x="52" y="190" text-anchor="middle" font-size="13" fill="#6f6a5e">Q2’25</text><rect x="129" y="70" width="58" height="95" rx="6" fill="#d98e4a"/><text x="158" y="61" text-anchor="middle" font-size="16" font-weight="800" fill="#23211c">$191.5</text><text x="158" y="190" text-anchor="middle" font-size="13" fill="#6f6a5e">Q3</text><rect x="234" y="49" width="58" height="116" rx="6" fill="#c96f2b"/><text x="262" y="40" text-anchor="middle" font-size="16" font-weight="800" fill="#23211c">$233.5</text><text x="262" y="190" text-anchor="middle" font-size="13" fill="#6f6a5e">Q4</text><rect x="339" y="35" width="58" height="130" rx="6" fill="#a45718"/><text x="368" y="26" text-anchor="middle" font-size="16" font-weight="800" fill="#23211c">$262.8</text><text x="368" y="190" text-anchor="middle" font-size="13" fill="#6f6a5e">Q1’26</text></svg><div class="note">年增 +97.7%；全年成長下限公司口頭上修至 +85%</div></div></div><div class="card"><h3>基本面速記</h3><ul><li>低壓 POL 與 Vicor 兩家獨大；毛利 55.5% 平台；產能 $4B→$6B 擴建</li><li>2024 Blackwell 份額驚魂（單日 −18%）＝本檔原型風險：每代 NVIDIA 平台都要重新投票</li><li>Rubin design win 只有媒體推測、公司從不具名確認</li><li>與 NVDA 完全共用「巨頭 capex」證偽訊號＝同一個 40% 故事額度</li></ul></div>
+<div class="card"><h3>2027 年 EPS × PE（目標價不變，空間用最新收盤重算）</h3>
+<table><tr><th></th><th>保守</th><th class="hl">基準</th><th>樂觀</th></tr>
+<tr><td>2027 EPS</td><td>$23.0</td><td><b>$26.0</b></td><td>$29.0</td></tr>
+<tr><td>PE</td><td>35×</td><td><b>45×</b></td><td>55×</td></tr>
+<tr class="hl"><td>目標價 vs 現價</td><td>$805（−41%）</td><td><b>$1,170（−14%）</b></td><td>$1,595（+18%）</td></tr></table></div>
+<div class="card"><h3>技術面（照你的平台引擎跑）　<span style="background:#a31515;color:#fff;border-radius:6px;padding:3px 12px;font-size:14px">偏空（強）</span></h3>
+<table><tr><th>趨勢</th><th>RSI(14)</th><th>MACD 柱</th><th>KD</th><th>布林 %B</th><th>20/60 日線</th></tr>
+<tr><td><b>空頭排列</b></td><td>45.2（偏弱）</td><td>綠柱（空方）</td><td>K 51.7／D 36.2</td><td>34.5%</td><td>1422.8／1517.06</td></tr></table>
+<div class="kv">支撐：<b class="k">1232.03</b>　壓力：<b class="r">1621.91／1667.95</b>　距波段高：<b class="r">-19.9%</b></div>
+<div class="note">量比因 7/10 尾盤資料不完整不列入判讀；以上為訊號整理，非買賣建議（你的平台的免責語照搬）。</div></div>
+<div class="card"><h3>L2v1 判定（2026-07-11 重跑）</h3><div><span class="pill r">濾網 ✗（1354 &lt; 60日線 1517，空頭排列）</span><span class="pill y">判定：觀察</span></div>
+<div class="kv" style="margin-top:8px">門檻 ✗（連樂觀 +18% 都不到 25%）。7/8 殺到 1232 波段低後兩天彈 +10%——高估值遇族群擠泡沫的劇本仍在進行。反推：要有 25% 空間需 2027 EPS $29×55 倍＝把 +85% 下限連兌兩年再給頂級倍數。</div></div>
+
+<h2><span class="no">◆</span>Alpha & Omega（AOSL）｜$37.71（7/10 收）</h2>
+<div class="grid2"><div class="card"><h3>三個月走勢</h3><svg viewBox="0 0 340 90" style="width:100%"><polyline points="8.0,82.0 13.3,73.5 18.6,71.1 23.9,71.1 29.2,63.5 34.6,46.3 39.9,48.5 45.2,44.1 50.5,46.4 55.8,33.3 61.1,39.3 66.4,47.2 71.7,45.8 77.0,36.2 82.4,37.2 87.7,39.8 93.0,35.3 98.3,19.4 103.6,53.3 108.9,52.0 114.2,50.0 119.5,52.5 124.9,41.5 130.2,42.9 135.5,49.2 140.8,50.2 146.1,50.0 151.4,44.3 156.7,48.6 162.0,41.1 167.3,23.5 172.7,20.7 178.0,19.4 183.3,30.7 188.6,34.9 193.9,8.0 199.2,9.7 204.5,16.8 209.8,40.3 215.1,34.0 220.5,43.1 225.8,50.0 231.1,36.5 236.4,31.1 241.7,25.0 247.0,31.3 252.3,37.0 257.6,23.1 263.0,19.3 268.3,31.5 273.6,40.4 278.9,29.7 284.2,34.6 289.5,31.1 294.8,25.1 300.1,36.0 305.4,54.3 310.8,51.0 316.1,60.9 321.4,53.5 326.7,51.8 332.0,52.5" fill="none" stroke="#c96f2b" stroke-width="2.4"/><circle cx="332.0" cy="52.5" r="4" fill="#23211c"/></svg><div class="note">7/2 −14.7% → 7/7–7/8 兩度盤中破前低又收回 → 收 37.7</div></div><div class="card"><h3>基本面速記</h3><ul><li>$1.1B 小型股（β 2.55）；低壓段「小 MPWR」題材：全球首顆 NVIDIA OVR4-22 控制晶片、SmartClamp DrMOS 已量產</li><li>Advanced Computing 線季增翻倍、年增 +40%；但整體仍虧損（−$0.28/季）</li><li>集中度風險之王：兩大經銷商佔營收 73%、港中開票 97%、封測在上海</li><li>8/5 財報看轉盈路徑；印度 Kaynes 產線＝去中化第一步</li></ul></div></div>
+<div class="card"><h3>2027 年 EPS × PE（目標價不變，空間用最新收盤重算）</h3>
+<table><tr><th></th><th>保守</th><th class="hl">基準</th><th>樂觀</th></tr>
+<tr><td>2027 EPS</td><td>—</td><td><b>$0.32</b></td><td>$2.50（高度推測）</td></tr>
+<tr><td>PE</td><td>—</td><td><b>—</b></td><td>22×</td></tr>
+<tr class="hl"><td>目標價 vs 現價</td><td>—</td><td><b>FY27 共識 $0.32：尺失真</b></td><td>FY28 情境 $55（+46%）</td></tr></table></div>
+<div class="card"><h3>技術面（照你的平台引擎跑）　<span style="background:#c9302b;color:#fff;border-radius:6px;padding:3px 12px;font-size:14px">偏空</span></h3>
+<table><tr><th>趨勢</th><th>RSI(14)</th><th>MACD 柱</th><th>KD</th><th>布林 %B</th><th>20/60 日線</th></tr>
+<tr><td><b>均線糾結／盤整</b></td><td>44.2（偏弱）</td><td>綠柱（空方）</td><td>K 25.8／D 25.8</td><td>18.7%</td><td>42.88／42.18</td></tr></table>
+<div class="kv">支撐：<b class="k">36.35／35／33.6</b>　壓力：<b class="r">43.6／45.97</b>　距波段高：<b class="r">-29.3%</b></div>
+<div class="note">量比因 7/10 尾盤資料不完整不列入判讀；以上為訊號整理，非買賣建議（你的平台的免責語照搬）。</div></div>
+<div class="card"><h3>L2v1 判定（2026-07-11 重跑）</h3><div><span class="pill r">濾網 ✗（37.7 &lt; 60日線 42.2）</span><span class="pill y">判定：投機倉待裁定</span></div>
+<div class="kv" style="margin-top:8px">EPS×PE 不適用（仍虧損）。技術面注意：7/7–7/8 盤中兩度跌破前低 36.7（最低 33.6）又收回——假跌破後打底的可能，但按框架這是「事後解讀」不是進場理由。8/5 財報看轉盈路徑。</div></div>
+
+<h2><span class="no">◆</span>Wolfspeed（WOLF）— 新增｜$35.64（7/10 收）</h2>
+<div class="grid2"><div class="card"><h3>三個月走勢</h3><svg viewBox="0 0 340 90" style="width:100%"><polyline points="8.0,80.3 13.3,82.0 18.6,80.7 23.9,76.8 29.2,78.2 34.6,77.1 39.9,79.5 45.2,75.0 50.5,75.3 55.8,69.9 61.1,72.2 66.4,77.8 71.7,78.1 77.0,72.4 82.4,61.8 87.7,63.0 93.0,62.0 98.3,52.6 103.6,49.5 108.9,47.4 114.2,42.0 119.5,37.0 124.9,24.0 130.2,13.2 135.5,24.7 140.8,28.7 146.1,29.5 151.4,29.8 156.7,13.9 162.0,13.3 167.3,8.0 172.7,23.0 178.0,20.4 183.3,28.8 188.6,38.1 193.9,26.2 199.2,25.3 204.5,17.4 209.8,35.0 215.1,34.5 220.5,44.2 225.8,52.1 231.1,49.0 236.4,52.5 241.7,43.8 247.0,49.8 252.3,44.4 257.6,31.6 263.0,38.1 268.3,44.0 273.6,48.5 278.9,45.7 284.2,48.3 289.5,50.9 294.8,45.0 300.1,50.4 305.4,57.1 310.8,57.9 316.1,63.0 321.4,63.2 326.7,61.1 332.0,63.5" fill="none" stroke="#c96f2b" stroke-width="2.4"/><circle cx="332.0" cy="63.5" r="4" fill="#23211c"/></svg><div class="note">4 月 $24 → 5 月最高 $80.8（+240%）→ 崩 −56%，收 35.6——NVTS 同款投機退潮</div></div><div class="card"><h3>基本面速記（新增檔）</h3><ul><li><b>純 SiC 玩家＋全球唯一大規模 200mm SiC 廠（Mohawk Valley）</b>；SiC 集中度前五</li><li>2025/6/30 聲請 Chapter 11 → 9/29 出重整：債務 −70%、年利息 −60%、到期展至 2030；Renesas 持股+董事席（1 月增發 1,685 萬股後總股數約 4,510 萬股，市值 ~$16 億）</li><li>Q3 FY26（3 月止）：營收 $150M（功率 $100M、其中 ~90% 出自 Mohawk Valley）；<b>毛利率 −20.6%</b>、稼動率不足吃掉 $46M；Q4 指引 $140–160M、毛利續負</li><li>故事：800V 前端 SiC 需求 2027 落地 → 稼動率填滿 → 毛利從 −20% 翻正的暴力槓桿。證偽：Q4 營收 &lt;$140M、毛利率無收斂、800V SiC 訂單遲未出現</li><li>風險：SiC 中國價格戰、破產前科＝這行業會過度擴產的活證據、老股東已在重整中歸零過一次</li></ul></div></div>
+<div class="card"><h3>2027 年 EPS × PE（目標價不變，空間用最新收盤重算）</h3>
+<table><tr><th></th><th>保守</th><th class="hl">基準</th><th>樂觀</th></tr>
+<tr><td>2027 EPS</td><td>—</td><td><b>負值</b></td><td>—</td></tr>
+<tr><td>PE</td><td>—</td><td><b>—</b></td><td>—</td></tr>
+<tr class="hl"><td>目標價 vs 現價</td><td>—</td><td><b>EPS 為負：尺不適用</b></td><td>轉盈槓桿情境待財報</td></tr></table></div>
+<div class="card"><h3>技術面（照你的平台引擎跑）　<span style="background:#a31515;color:#fff;border-radius:6px;padding:3px 12px;font-size:14px">偏空（強）</span></h3>
+<table><tr><th>趨勢</th><th>RSI(14)</th><th>MACD 柱</th><th>KD</th><th>布林 %B</th><th>20/60 日線</th></tr>
+<tr><td><b>空頭排列</b></td><td>38.7（偏弱）</td><td>綠柱（空方）</td><td>K 13.7／D 15.5（低檔）</td><td>10.8%</td><td>44.58／46.36</td></tr></table>
+<div class="kv">支撐：<b class="k">33.65</b>　壓力：<b class="r">60.25</b>　距波段高：<b class="r">-51.5%</b></div>
+<div class="note" style="color:#a33">⚠ 短線超賣（RSI/KD 低檔），可能技術性反彈</div><div class="note">量比因 7/10 尾盤資料不完整不列入判讀；以上為訊號整理，非買賣建議（你的平台的免責語照搬）。</div></div>
+<div class="card"><h3>L2v1 判定（2026-07-11 重跑）</h3><div><span class="pill r">濾網 ✗（35.6 &lt; 60日線 46.4，空頭排列・六檔最弱）</span><span class="pill y">判定：投機倉待裁定</span></div>
+<div class="kv" style="margin-top:8px">破產重生股＝二元劇本第二型。5 月從 $24 炒到 $80.8（+240%）再崩 −56%——和 NVTS 同款投機退潮。財務仍在深水區（毛利率 −20.6%），但債務已砍 70%、稼動率是巨大的獲利槓桿。按框架：無獲利、無濾網＝只能是投機小注，且要等空頭排列鬆動。</div></div>
+
+<h2><span class="no">肆</span>檢查總表（7/10 收盤重跑）＋本週盤面</h2>
+<div class="card">
+<table><tr><th>玩家</th><th>現價</th><th>27年基準目標</th><th>空間</th><th>濾網（60日線）</th><th>技術燈號</th><th>判定</th></tr>
+<tr><td><b>IFX</b></td><td>€72.40</td><td>€62.1</td><td class="r">−14%</td><td class="k">✓（貼線）</td><td>偏空</td><td>觀察</td></tr>
+<tr><td><b>ON</b></td><td>$96.04</td><td>$111.8</td><td class="y">+16%</td><td class="r">✗</td><td>偏空（強）</td><td>觀察（反彈中）</td></tr>
+<tr><td><b>STM</b></td><td>$71.65</td><td>$73.6</td><td class="r">+3%</td><td class="k">✓</td><td>中性／整理</td><td>觀察（7/23）</td></tr>
+<tr><td><b>MPWR</b></td><td>$1,354</td><td>$1,170</td><td class="r">−14%</td><td class="r">✗</td><td>偏空（強）</td><td>觀察</td></tr>
+<tr><td><b>AOSL</b></td><td>$37.71</td><td>尺不適用</td><td class="r">—</td><td class="r">✗</td><td>偏空</td><td>投機待裁定</td></tr>
+<tr><td><b>WOLF</b></td><td>$35.64</td><td>尺不適用</td><td class="r">—</td><td class="r">✗</td><td>偏空（強）</td><td>投機待裁定</td></tr></table>
+<h3>本週盤面（7/6–7/10）一段講完</h3>
+<ul><li>族群週初重挫（7/7 IFX −8%、MPWR 殺到 1232、AOSL 盤中破前低）→ 週四五 V 型反彈（MPWR +10%、ON +5%）——<b>題材資金退潮後的第一次打底嘗試</b></li>
+<li>技術燈號六檔全數偏空/中性＝你的平台和 L2v1 給出同一個答案：<b>右側還沒回來</b></li>
+<li><b>ON 紀律案例（QA 必被問）</b>：6/29 收 88.57 門檻曾打開（+26%）但濾網擋刀 → 一週後 +8.4%。少賺反彈是紀律的成本，擋掉「繼續崩」是紀律的價值——樣本數一次，不足以推翻規則</li></ul></div>
+
+<h2><span class="no">伍</span>QA 預想 — 十個一定會被問的問題</h2>
+<div class="card qa"><h3>Q1 故事這麼好，為什麼一檔都不能買？</h3><div class="kv">答：故事真假與價格貴賤是兩件事。六月族群大漲已預付 2027 大半兌現；門檻（25% 空間）就是「別為好故事付任何價格」的保險絲。</div></div>
+<div class="card qa"><h3>Q2 那漲上去不就錯過了？</h3><div class="kv">答：會，而且本週就發生了（ON 反彈 8%）。框架的答案：錯過的是「無保護的反彈」，等的是「觸發後的趨勢」——8 月財報季就是下一批觸發點；追蹤清單比 FOMO 有用。</div></div>
+<div class="card qa"><h3>Q3 SiC 2021–23 泡沫會重演嗎？</h3><div class="kv">答：會不會不知道，但「這行業會過度擴產」是有前科的（WOLF 破產就是證據）。監測指標：各家擴產宣布的節奏 vs 800V 訂單落地速度。</div></div>
+<div class="card qa"><h3>Q4 為什麼名單沒有 NVTS？</h3><div class="kv">答：P/S 167 倍、營收年減 39%、分析師目標價全部低於現價——純故事股的清算已示範給你看（−57%）。要 GaN 曝險，IFX/ST 內建。</div></div>
+<div class="card qa"><h3>Q5 WOLF 破產過還能碰？</h3><div class="kv">答：重整把債砍了 70%，活下來了；但毛利 −20%、老股東歸零過。它是「稼動率填滿→毛利翻正」的槓桿劇本＝投機倉性質，和存股邏輯無關。</div></div>
+<div class="card qa"><h3>Q6 台廠為什麼不在深度名單？</h3><div class="kv">答：在族群掃描裡（強茂/台半/朋程/德微）。它們吃「量+漲價+轉單」，月營收月月可驗證（7/10 富鼎 +16% 首驗及格）；沒進六檔only因這次聚焦美歐 IDM 與 AI 電源鏈。</div></div>
+<div class="card qa"><h3>Q7 巨頭 capex 見頂怎麼辦？</h3><div class="kv">答：這是 A 引擎的總開關，Meta 已出現「Excess」語言＝第一道裂縫候選。所以 MPWR/AOSL/WOLF 的 AI 線與 NVDA 算同一個故事、合併 40% 上限。</div></div>
+<div class="card qa"><h3>Q8 為什麼用 2027 獲利不用 2026？</h3><div class="kv">答：市場定價領先 12–18 個月，2026 的數字大都在價格裡了；用 2027 是在給「還沒被完全定價的那一年」估值。</div></div>
+<div class="card qa"><h3>Q9 PE 給 30 倍憑什麼？</h3><div class="kv">答：不是拍腦袋——錨定法：自身歷史區間、最像的同業（AVGO/ON）、產業中位（34–38）三個錨，取有理由的位置。越有潛力可越高，但不可脫錨。</div></div>
+<div class="card qa"><h3>Q10 所以現在到底該做什麼？</h3><div class="kv">答：三件事：①盯行事曆（7/23 STM → 8 月初四家 → 10 月第三漲）②盯觸發（各檔站回 60 日線/財報上修）③手癢就回去看檢查總表——六個「觀察」不是六個「買」。</div></div>
+
+<h2><span class="no">陸</span>行事曆與名詞表</h2>
+<div class="card"><svg viewBox="0 0 960 135" style="width:100%">
+<line x1="40" y1="62" x2="920" y2="62" stroke="#d9c9ae" stroke-width="4"/>
+<g font-size="14" fill="#23211c">
+<circle cx="90" cy="62" r="9" fill="#5a7d4a"/><text x="90" y="33" text-anchor="middle" font-weight="800">7/10（已放榜）</text><text x="90" y="96" text-anchor="middle" fill="#6f6a5e">台廠 6 月營收首驗</text>
+<circle cx="280" cy="62" r="9" fill="#c96f2b"/><text x="280" y="33" text-anchor="middle" font-weight="800">7/23</text><text x="280" y="96" text-anchor="middle" fill="#6f6a5e">STM 財報</text>
+<circle cx="470" cy="62" r="9" fill="#c96f2b"/><text x="470" y="33" text-anchor="middle" font-weight="800">8 月初</text><text x="470" y="96" text-anchor="middle" fill="#6f6a5e">IFX 法說・8/3 ON・8/5 AOSL・WOLF Q4</text>
+<circle cx="690" cy="62" r="9" fill="#b07d00"/><text x="690" y="33" text-anchor="middle" font-weight="800">10 月</text><text x="690" y="96" text-anchor="middle" fill="#b07d00" font-weight="700">IFX 第三漲？</text>
+<circle cx="870" cy="62" r="9" fill="#23211c"/><text x="870" y="33" text-anchor="middle" font-weight="800">11 月</text><text x="870" y="96" text-anchor="middle" fill="#6f6a5e">IFX FY27 指引</text>
+</g></svg></div>
+<div class="card"><h3>名詞速查（被問就翻這裡）</h3>
+<table><tr><td><b>EPS</b> 每股盈餘</td><td><b>PE</b> 本益比＝股價÷EPS</td><td><b>PEG</b> PE÷成長率，&lt;1 偏便宜</td></tr>
+<tr><td><b>毛利率</b> (營收−成本)÷營收</td><td><b>60日線</b> 近三個月平均成本</td><td><b>多頭/空頭排列</b> 價&gt;20日&gt;60日／反之</td></tr>
+<tr><td><b>RSI</b> 0–100 動能，50 上偏強</td><td><b>KD</b> 短線超買超賣（80/20）</td><td><b>%B</b> 在布林通道的位置（0 下軌 100 上軌）</td></tr>
+<tr><td><b>book-to-bill</b> 接單÷出貨，&gt;1 訂單在堆</td><td><b>IDM</b> 設計製造一條龍</td><td><b>P/S</b> 市值÷營收（虧損股用）</td></tr>
+<tr><td><b>缺口</b> 前後兩天價格真空區</td><td><b>稼動率</b> 產能利用率</td><td><b>稀釋</b> 發新股讓每股獲利變薄</td></tr></table></div>
+
+<h2>來源</h2>
+<div class="card src">公司一手：Infineon 各季新聞稿+FY25 年報｜onsemi 8-K+10-K｜STM 6-K+20-F｜MPWR 新聞稿+10-K｜AOSL 新聞稿+10-K｜<b>Wolfspeed：Q3 FY26 新聞稿（businesswire 2026-05-05）、8-K/S-1（sec.gov，重整與 Renesas 股權）、semiconductor-today</b>・產業：NVIDIA 800VDC 部落格、Tom's Hardware、TrendForce、SemiAnalysis（反方）、工商時報/旺得富/今周刊/豐雲學堂・共識：stockanalysis/TipRanks/MarketBeat/gurufocus・台廠營收：CMoney（富鼎 6 月 +16.09%）、鉅亨營收速報・價量：券商 API（7/10 收盤、三個月日線）・技術指標與判讀邏輯：使用者自建技術分析平台 engine.py（SMA/RSI/MACD/KD/布林/量比/支撐壓力聚類/綜合燈號）・免責：社團內部研究，非投資建議</div>
+<div class="note">有機體 L2v1・講者完整版 2026-07-11</div>
+</div></body></html>

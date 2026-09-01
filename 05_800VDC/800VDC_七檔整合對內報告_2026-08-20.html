@@ -1,0 +1,1333 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>800VDC 七檔整合對內報告 2026-08-20</title>
+<style>
+:root{
+  --bg:#EAE7E1; --card:#F7F5F1; --card2:#F1EEE8; --card3:#EDE9E2;
+  --ink:#3E3A36; --sub:#7E786F; --line:#DCD6CC; --line2:#CBC3B6;
+  --vrt:#4F7A6B; --mpwr:#6B6E9E; --ifx:#5B7FA3; --lite:#A98A4E; --delta:#7A8B57;
+  --nv:#8A6F9E; --on:#B4735A;
+  --sand:#C0A170; --rose:#B08079; --slate:#8C8880; --green:#5C8A6B;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font-family:"Noto Serif TC","Songti TC","PingFang TC",serif;
+ font-size:15.5px;line-height:1.82;padding-bottom:70px;-webkit-text-size-adjust:100%}
+.wrap{max-width:990px;margin:0 auto;padding:0 20px}
+.slide{background:var(--card);border:1px solid var(--line);border-radius:12px;
+ padding:28px 30px;margin:22px 0;box-shadow:0 1px 2px rgba(62,58,54,.05)}
+.kick{font-size:11px;letter-spacing:.22em;color:var(--sub);font-weight:700;text-transform:uppercase}
+h1{font-size:34px;line-height:1.2;margin:10px 0 8px;font-weight:800;letter-spacing:-.01em}
+h2{font-size:22px;margin:2px 0 12px;font-weight:800;line-height:1.35}
+h3{font-size:16.5px;margin:22px 0 8px;font-weight:700}
+h4{font-size:14px;margin:16px 0 6px;font-weight:700;color:var(--sub);letter-spacing:.04em}
+.sub{color:var(--sub);font-size:13px;line-height:1.7}
+p{margin:0 0 11px}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+th{text-align:left;color:var(--sub);font-weight:600;font-size:11.5px;letter-spacing:.05em;
+ border-bottom:2px solid var(--ink);padding:6px 9px;vertical-align:bottom}
+td{border-bottom:1px solid var(--line);padding:7px 9px;vertical-align:top}
+tr:last-child td{border-bottom:none}
+.num{font-variant-numeric:tabular-nums;font-family:ui-monospace,"SF Mono",Menlo,monospace}
+td.r,th.r{text-align:right}
+td.c,th.c{text-align:center}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.stat{display:flex;gap:11px;flex-wrap:wrap;margin:14px 0}
+.stat>div{flex:1;min-width:140px;background:var(--card2);border:1px solid var(--line);
+ border-radius:9px;padding:11px 13px}
+.stat b{display:block;font-size:20px;line-height:1.3;font-family:ui-monospace,Menlo,monospace}
+.stat span{font-size:11.5px;color:var(--sub);line-height:1.55;display:block;margin-top:3px}
+.quote{background:var(--card2);border-left:4px solid var(--line2);padding:12px 18px;
+ margin:14px 0;font-size:14px}
+.quote i{display:block;font-style:normal;color:var(--sub);font-size:11.5px;margin-top:6px}
+.box{background:var(--card2);border:1px solid var(--line);border-radius:9px;
+ padding:14px 18px;margin:14px 0;font-size:13.8px}
+.box.warn{background:#F2ECE2;border-color:var(--sand)}
+.box.hl{background:#EFEDE6;border-left:5px solid var(--ink);border-radius:0 9px 9px 0}
+.box.conflict{background:#F6E9E6;border:1.5px solid var(--rose)}
+.box.ok{background:#EBF0EA;border-color:var(--green)}
+.box h4{margin-top:0}
+svg{display:block;width:100%;height:auto;margin:10px 0}
+svg text{font-family:"Noto Serif TC","PingFang TC",serif}
+.note{font-size:12px;color:var(--sub);line-height:1.7}
+.src{font-size:11.5px;color:var(--sub);line-height:1.7;margin-top:8px;word-break:break-word}
+ul{margin:6px 0 12px;padding-left:20px}
+li{margin:5px 0}
+.pt{width:100%;border-collapse:collapse;font-size:13.5px;margin:10px 0}
+.pt th{background:var(--card2);border:1px solid var(--line);padding:7px 9px;text-align:center;color:var(--ink);font-weight:700;font-size:12.5px}
+.pt td{border:1px solid var(--line);padding:7px 9px;text-align:center}
+.pt td:first-child,.pt th:first-child{text-align:left;color:var(--sub);font-weight:600}
+.pt .hi{font-weight:800}
+.pt td.l{text-align:left}
+.chip{display:inline-block;font-size:11px;letter-spacing:.06em;font-weight:700;
+ padding:2px 8px;border-radius:20px;border:1px solid var(--line2);color:var(--sub);background:var(--card2)}
+.chip.long{color:#3F6B58;border-color:#9DBBAC;background:#E9F0EC}
+.chip.short{color:#8C5A46;border-color:#D2AC99;background:#F6EAE4}
+.chip.dark{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.ticker{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
+ border-bottom:3px solid var(--ink);padding-bottom:9px;margin-bottom:4px}
+.ticker .nm{font-size:24px;font-weight:800}
+.ticker .px{font-family:ui-monospace,Menlo,monospace;font-size:19px;font-weight:700}
+.ticker .tilt{margin-left:auto;font-family:ui-monospace,Menlo,monospace;font-size:19px;font-weight:800}
+.toc{columns:2;column-gap:26px;font-size:13.5px}
+.toc a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line2);display:inline-block;margin:3px 0}
+.toc a:hover{border-color:var(--ink)}
+.rn{font-family:ui-monospace,Menlo,monospace;font-size:44px;font-weight:800;color:var(--line2);
+ line-height:1;float:left;margin:2px 14px 4px 0}
+.up{color:#3F6B58;font-weight:700}
+.dn{color:#9E5D45;font-weight:700}
+.flat{color:var(--sub)}
+hr.d{border:none;border-top:1px dashed var(--line2);margin:20px 0}
+footer{color:var(--sub);font-size:11.5px;max-width:990px;margin:34px auto 0;padding:18px 20px;border-top:2px solid var(--ink);line-height:1.85}
+@media(max-width:680px){h1{font-size:25px}h2{font-size:19px}.slide{padding:20px 17px}.toc{columns:1}
+ body{font-size:15px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="slide">
+  <div class="kick">台大控股・對內報告　產業深度 05</div>
+  <h1>800VDC 電力路徑：七檔整合</h1>
+  <div class="sub">
+    2026 年 8 月 20 日｜研究：Claude｜信心評分與判斷：祖曜筬<br>
+    價格座標：美股 8/20 收盤（Interactive Brokers）；台股 8/20 收盤（證交所）；歐股以 IFNNY ADR 換算<br>
+    七張採信度盤分別評於 <b>2026-08-17</b>（VRT、MPWR、2301、2308）與 <b>2026-08-20</b>（IFX、NVTS、ON），分數一格未動<br>
+    本報告不判斷進出場時點
+  </div>
+
+  <div class="box hl" style="margin-top:18px">
+    <b>這份報告怎麼來的：</b>把 8/17 的四檔對內報告與 8/20 的第二批三檔合併，價格、共識、族群盤面全部重跑到 8/20 收盤。
+    合併之後多出來的東西是<b>族群層只判一次、七檔共用</b>，以及<b>組合層的曝險合併計算</b>——這兩件事在分兩份寫的時候做不到。
+  </div>
+
+  <h3 style="margin-top:24px">目錄</h3>
+  <div class="toc">
+    <a href="#s0">零、三天內被改掉的六件事</a><br>
+    <a href="#s1">壹、這一段跌的是折現率</a><br>
+    <a href="#s2">貳、族群層判定（七檔共用）</a><br>
+    <a href="#s3">參、七檔總表</a><br>
+    <a href="#vrt">肆之一、Vertiv</a><br>
+    <a href="#mpwr">肆之二、Monolithic Power</a><br>
+    <a href="#ifx">肆之三、英飛凌</a><br>
+    <a href="#lite">肆之四、光寶科</a><br>
+    <a href="#delta">肆之五、台達電</a><br>
+    <a href="#nvts">肆之六、Navitas</a><br>
+    <a href="#on">肆之七、onsemi</a><br>
+    <a href="#s5">伍、執行層規則還原</a><br>
+    <a href="#s6">陸、組合層</a><br>
+    <a href="#s7">柒、判斷留檔與對帳日曆</a><br>
+    <a href="#s8">捌、附錄</a>
+  </div>
+</div>
+<div class="slide" id="s0">
+  <span class="rn">零</span>
+  <h2>三天內被改掉的六件事</h2>
+  <p class="sub" style="margin-bottom:16px">下面每一條都推翻或修正了 8/17、8/20 兩份報告裡的一句話。先看這段，再看後面的細節。</p>
+
+  <div class="scroll"><table>
+    <tr><th style="width:22%">項目</th><th style="width:34%">兩份舊報告寫的</th><th>8/20 查證後</th></tr>
+    <tr>
+      <td><b>回檔的原因</b></td>
+      <td>「媒體歸因為 AI 電力基建整體回檔、無單一公司壞消息」——原因沒查出來</td>
+      <td>查到了，而且是總體面：8/18 三十年期美國公債殖利率盤中 5.337%，2007 年以來最高；《華爾街日報》8/16 刊出大型科技公司約 3 兆美元表外 AI 承諾的報導；油價因伊朗僵局走高。<b>七檔在 8/13–8/20 之間全部沒有公司面消息</b>（逐檔查 SEC 申報與新聞稿）。這是折現率上升，不是需求下修。</td>
+    </tr>
+    <tr>
+      <td><b>NVIDIA 財報日</b></td>
+      <td>8/27</td>
+      <td><b>8/26（週三）</b>美東下午 5 點。出處：NVIDIA 官方 7/29 新聞稿。族群層下一個時點明確的催化劑要往前挪一天。</td>
+    </tr>
+    <tr>
+      <td><b>onsemi 的 FY27 共識分母</b></td>
+      <td>「FY27 共識是否已完整反映併購稀釋，各資料商口徑不一——這是分母端的已知模糊」</td>
+      不模糊了，但要說明這是推斷而非資料商明示：<b>三條算術都指向共識為併購前的獨立公司口徑</b>。反推——FY27 淨利共識 16.43 億美元 ÷ 每股盈餘 4.226 美元 ≈ 3.888 億股，與現行流通股數 3.893 億股幾乎相同；若含 12% 稀釋應在 4.4 億股以上。同時 Synaptics 仍被 13 位分析師當獨立公司在估。你那注「基準數字向下」的優勢宣稱因此站得住。</td>
+    </tr>
+    <tr>
+      <td><b>族群廣度</b></td>
+      <td>「本週族群內同時上漲檔數＝0，廣度歸零」</td>
+      <td>那是 8/19 的切片。把七檔逐日排開：8/17 三檔上漲、8/18 一檔、<b>8/19 零檔</b>、8/20 回到四檔。廣度是收窄後在 8/20 部分回來，不是持續歸零。</td>
+    </tr>
+    <tr>
+      <td><b>光寶科的位置</b></td>
+      <td>（併在「全族群齊跌 2–7%」裡）</td>
+      <td>光寶科是七檔裡唯一沒跌的：8/17→8/20 累計 0.0%，其中 8/18 逆勢 +3.80%。它也是七檔中唯一在近三個月高點附近的一檔（8/17 盤中 286.5 為三個月新高，現距高點 6.8%）。其餘六檔距三個月高點 14%–62%。</td>
+    </tr>
+    <tr>
+      <td><b>onsemi 的價格位置</b></td>
+      <td>「近 10 日未破 8/5 低點 76.91，但 8/19 盤中貼邊」</td>
+      <td>破了。8/19 收 76.58、8/20 收 74.73、盤中低 74.50，是<b>三個月新低</b>。而且 8/20 族群中位數是 +0.77%，onsemi 是 −2.42%——在族群止穩的那一天單獨續跌。</td>
+    </tr>
+  </table></div>
+
+  <div class="box warn">
+    <h4>一項新增的一手進展（前兩份報告沒有的）</h4>
+    NVIDIA 官方部落格 8/11 更新：依 800VDC 規格開發的設備與基礎設施公司<b>超過 80 家</b>（原名單 29 家）；與 Google、Microsoft 合作的白皮書 2026 年 3 月發布；2026 年 7 月發布的是開放運算計畫的<b>低壓直流固態變壓器規格 v0.3 草案</b>（不是整套 800VDC 規格）；時程確認為 2026 下半年推出 MGX 相容 800VDC power rack、2027 年推出單列最高 2MW 的 row power center。
+    StorageReview 8/15 把三階段寫得更細：Option A 機櫃旁轉換器 <b>2026Q3 進入量產</b>、Option B 集中式 power center <b>2027Q3</b>、Option C 固態變壓器 <b>2029</b>；機櫃功率世代 145kW → 330kW → 570kW → 1MW。
+    <div class="src">出處：blogs.nvidia.com/blog/800-vdc-power-architecture-ai-factory（2026/8/11）；storagereview.com（2026/8/15）</div>
+  </div>
+</div>
+
+<div class="slide" id="s1">
+  <span class="rn">壹</span>
+  <h2>這一段跌的是折現率，不是這七家公司</h2>
+
+  <h3>事實：三天內七檔全部沒有公司面消息</h3>
+  <div class="scroll"><table>
+    <tr><th>標的</th><th>8/13–8/20 的公司面消息</th><th>查證方式</th></tr>
+    <tr><td>Vertiv</td><td>無申報、無新聞稿。最後一次評等動作是 8/14 Weiss 由 Buy 降 Hold</td><td>SEC 全文檢索，該期間 702 筆全為第三方持股揭露</td></tr>
+    <tr><td>Monolithic Power</td><td>無</td><td>同上；最近一次為 7/30 財報</td></tr>
+    <tr><td>英飛凌</td><td>只有 8/17 的例行週度庫藏股執行揭露（8/10–8/14 買回 640,634 股，均價區間 €62.34–€64.43）</td><td>德媒 8/19 明寫「there was no company-specific catalyst behind the move」</td></tr>
+    <tr><td>光寶科</td><td>無</td><td>公開資訊觀測站與新聞；最近一則為 8/3 法說口徑</td></tr>
+    <tr><td>台達電</td><td>無</td><td>最近一則為 8/12 重慶二期廠房公告（工程款約人民幣 5.46 億元）</td></tr>
+    <tr><td>Navitas</td><td>只有 8/13 投資人會議出席公告。<b>零增發、零內部人交易</b>（最近一次 Form 4 為 5/27–5/28）</td><td>SEC 全文檢索 8/14–8/20，Navitas 本身零申報</td></tr>
+    <tr><td>onsemi</td><td>無。Synaptics 8/12 取得美國聯邦交易委員會提前放行、8/13 以 8-K 揭露；<b>S-4 尚未申報，股東會日期不存在</b></td><td>SEC 全文檢索 2026 年 8 月 S-4 含 Synaptics 為 0 筆</td></tr>
+  </table></div>
+
+  <h3>那跌的是什麼</h3>
+  <div class="stat">
+    <div><b>5.337%</b><span>8/18 三十年期美國公債殖利率盤中高點，2007 年以來最高。十年期 4.68%</span></div>
+    <div><b>3 兆美元</b><span>《華爾街日報》8/16 統計的九家大型科技公司表外 AI 承諾：未起租租賃 1.2 兆＋採購承諾 1.9 兆，對照過去一年帳列資本支出約 6,000 億</span></div>
+    <div><b>−4.98%</b><span>8/18 費城半導體指數收盤變動。同日 Bloom Energy −9.97%、GE Vernova −6.90%、Caterpillar −4.63%——整個電力基建族群同步</span></div>
+    <div><b>0 家</b><span>宣布削減或暫停資本支出的雲端業者。也查無 GPU 或記憶體供應鏈斷鏈事件</span></div>
+  </div>
+
+  <div class="box hl">
+    <h4>倍數歸因（valuation-method-selector 步驟五）</h4>
+    Forward 倍數 = b ÷（r − g）。倍數下修只有三個來源：g 下修（市場對成長的看法改變）、b 下修（現金轉換率變差）、<b>r 上修（利率或風險溢酬上升）</b>。
+    這一段的證據全部指向第三個：公司面零消息、跌幅跨越電力設備／功率半導體／記憶體／光通訊四個不相干的次族群、觸發點是債市與一篇談財務槓桿的報導。
+    <br><br>
+    <b>歸因錯誤的代價寫在規則裡：</b>把 r 造成的全市場移動當成自己看錯了公司，會在這裡砍掉本來對的部位；反過來在升息循環反轉時，又會把運氣當成能力。
+  </div>
+
+  <h4>折現率敏感度：倍數越高的檔，被 r 咬得越深</h4>
+  <div class="scroll"><table class="pt">
+    <tr><th>目前 forward 倍數</th><th>隱含 r（b=1、g=5%）</th><th>r 再 +25bp</th><th>r 再 +50bp</th><th>對應標的</th></tr>
+    <tr><td>20.1×</td><td>10.00%</td><td>19.0×（−4.8%）</td><td>18.2×（−9.1%）</td><td>英飛凌</td></tr>
+    <tr><td>26.8×</td><td>8.73%</td><td>25.1×（−6.3%）</td><td>23.6×（−11.8%）</td><td>台達電</td></tr>
+    <tr><td>29.1×</td><td>8.44%</td><td>27.1×（−6.8%）</td><td>25.4×（−12.7%）</td><td>Vertiv</td></tr>
+    <tr><td>47.8×</td><td>7.09%</td><td>42.7×（−10.7%）</td><td>38.6×（−19.3%）</td><td>Monolithic Power</td></tr>
+  </table></div>
+  <p class="note">
+    這張表是單階段模型的算術，不是預測。用途只有一個：說明<b>同一個 r 的變動，對七檔的殺傷力不一樣，而且跟公司好壞無關，只跟目前的倍數位置有關。</b>
+    實際跌幅的排序（Navitas −10.4%、Vertiv −9.9%、英飛凌 −9.7%、onsemi −9.6%、台達電 −7.4%、Monolithic Power −6.6%、光寶科 0.0%）與倍數高低並不一致，
+    代表除了無風險利率之外還有一塊風險溢酬在動，而風險溢酬同樣屬於 r，同樣不屬於任何一家公司。
+  </p>
+  <div class="src">出處：thestreet.com 8/18 與 8/20 盤後彙整；《華爾街日報》Rudegeair 與 Santilli〈Why Big Tech's AI Spending Is $3 Trillion Higher Than It Seems〉8/16，經 tipranks.com 8/17 轉述；247wallst.com 8/18 電力族群彙整；價格為 Interactive Brokers 日線。</div>
+</div>
+<div class="slide" id="s2">
+  <span class="rn">貳</span>
+  <h2>族群層判定：七檔共用，只判一次</h2>
+  <p class="sub">股癌操作方法第二層。順序是二 → 一 → 三：先定族群，第一層的橫向比較才有樣本；族群層的資金條件不成立時，個股估值算得再細也推不出時點。</p>
+
+  <h3>2.1　族群邊界由需求來源畫</h3>
+  <p>需求來源：<b>NVIDIA 與雲端業者把資料中心配電從 54V 交流體系換成 800V 直流</b>。七檔共享的是同一筆未來現金流，差別只在每家靠它貢獻多少營收。</p>
+  <div class="scroll"><table>
+    <tr><th>標的</th><th>在電力路徑上的位置</th><th class="r">800VDC／AI 資料中心佔自身營收</th><th>依據</th></tr>
+    <tr><td><b>Vertiv</b></td><td>設施級電力系統＋集中整流、直流母線、櫃級 DC-DC</td><td class="r num">約 80%（資料中心整體）</td><td>公司口徑；800V 部分未單獨揭露</td></tr>
+    <tr><td><b>台達電</b></td><td>櫃內電源、電力櫃、液冷、固態變壓器，產品線最全</td><td class="r num">AI 相關 &gt;25%</td><td>財務長口徑（年初指引 20%）；800V 金額未單獨揭露</td></tr>
+    <tr><td><b>光寶科</b></td><td>伺服器電源、BBU、800V 電源櫃</td><td class="r num">雲端與物聯網部門 55%</td><td>2Q26 法說；AI 相關全年目標 &gt;30%</td></tr>
+    <tr><td><b>Monolithic Power</b></td><td>板端供電（DrMOS、多相控制），800V 前端在送樣</td><td class="r num">企業數據部門 38.8%</td><td>2Q26；800V 插槽營收為零</td></tr>
+    <tr><td><b>英飛凌</b></td><td>SiC／GaN 功率元件，涵蓋前端與櫃內</td><td class="r num">約 10%</td><td>FY26 AI 資料中心電源線目標 &gt;€16 億 ÷ 全年指引 €163 億</td></tr>
+    <tr><td><b>Navitas</b></td><td>GaN／SiC 元件，sidecar busbar 新插槽</td><td class="r num">高功率走向 1/3 以上</td><td>4Q26 公司口徑；目前未達</td></tr>
+    <tr><td><b>onsemi</b></td><td>SiC＋GaN＋電源模組，品類同英飛凌</td><td class="r num">個位數 %</td><td>AI 資料中心約 5–6 億美元 ÷ 全年約 66 億美元</td></tr>
+  </table></div>
+  <p class="note"><b>排除的兩檔：</b>GE Vernova（電力總量題材，與架構切換的相關係數最低）、Eaton（機電廣域，800V 佔比極小）。排除的判準是規則二：族群的定義是倍數同向移動的集合，不是產業分類表。</p>
+
+  <h3>2.2　這個敘述撐不撐得起倍數擴張：三個條件</h3>
+  <div class="scroll"><table class="pt">
+    <tr><th>條件</th><th class="c">判定</th><th class="l">證據與數字</th></tr>
+    <tr><td>增量夠大</td><td class="c hi">通過</td><td class="l">整體市場級距 300–450 億美元（The Diligence Stack）；固態變壓器 2030 年約 320 億美元（SemiAnalysis）；sidecar 2028 年高峰約 110 億美元</td></tr>
+    <tr><td>兌現期寫到季</td><td class="c hi">通過</td><td class="l">Option A 機櫃旁轉換器 2026Q3 量產、Option B 集中式 power center 2027Q3、Option C 固態變壓器 2029（StorageReview 8/15，對照 NVIDIA 官方時程）</td></tr>
+    <tr><td>參與者夠多</td><td class="c hi">通過</td><td class="l">依規格開發的設備與基礎設施公司超過 80 家（NVIDIA 官方部落格 8/11，較 2025/10 的 29 家名單擴大）</td></tr>
+  </table></div>
+  <p>三條全過。<b>敘述本身沒有問題，出問題的是資金條件（見 2.7）。</b>這兩件事要分開，因為它們的檢查期限不同：敘述看的是季度兌現，資金看的是這幾天的成交行為。</p>
+
+  <h3>2.3　單位含量倍率：族群內選增幅最大的環節</h3>
+  <div class="scroll"><table>
+    <tr><th>標的</th><th class="r">單位含量倍率</th><th>怎麼估的</th><th>但是</th></tr>
+    <tr><td>Navitas</td><td class="r num">最高（基期近零）</td><td>GaN／SiC 元件 2.5–3.5 萬美元／MW，是全新插槽</td><td>倍率高是因為分母小；公司層級營收基期 4,769 萬美元，倍率大不等於金額大</td></tr>
+    <tr><td>Vertiv</td><td class="r num">高</td><td>整套電力系統每 MW 內容價值 325–375 萬美元</td><td>倍率落在公司八成營收上，是七檔裡「高倍率 × 大基期」唯一同時成立的一檔</td></tr>
+    <tr><td>光寶科</td><td class="r num">高</td><td>800V 電源櫃單價 20–40 萬美元／櫃；BBU 由選配走向標配</td><td>目前 1 家大型雲端業者設計出貨、新增 2 家接洽</td></tr>
+    <tr><td>台達電</td><td class="r num">中高</td><td>系統級升級單位價值量約 5 倍</td><td>倍率被非 AI 事業（電動車、自動化）稀釋</td></tr>
+    <tr><td>英飛凌</td><td class="r num">中高</td><td>每 kW 含量 100–250 美元、均 175 美元，隨機櫃功率 145kW → 570kW → 1MW 線性放大</td><td>AI 電源線只佔營收約 10%，公司層級倍率被車用與工業稀釋</td></tr>
+    <tr><td>onsemi</td><td class="r num">中</td><td>品類與英飛凌相同</td><td>佔公司營收個位數 %，稀釋最嚴重</td></tr>
+    <tr><td>Monolithic Power</td><td class="r num">無法計算</td><td>800V 前端產品開始送樣，SiC 全用自家元件、GaN「will have a working device」</td><td>沒有時點、沒有金額，倍率算不出來</td></tr>
+  </table></div>
+  <p class="note">規則 2.3 的用法：受益幅度 = 終端成長率 × 該環節的單位含量倍率。倍率接近一的環節，受益幅度等於終端成長率，沒有超額。這張表解釋了為什麼你的七張盤在系統層（Vertiv +61.6）給分最高、在循環晶片層（onsemi −6.0）給分最低——這七個分數來自同一個判準的七個切片。</p>
+
+  <h3>2.4　輪動位置</h3>
+  <p>路徑：龍頭 → 二線 → 三線 → 邊緣。判準是「敘述不變，標的與敘述的關聯性越來越弱」。</p>
+  <div class="box">
+    <b>已走完的路徑：</b>龍頭（台達電、Vertiv，4–5 月）→ 二線（光寶科，8 月初連兩根漲停）→ 邊緣（松川 8/8 當週 +24%、新盛力）→ 8/18–8/19 全族群回檔。
+    <br><br>
+    <b>判定：關聯性最弱的一段已經被拉動過，這一輪敘述的資金已經用得差不多。</b>
+    8/20 出現的四檔反彈屬於總體面反彈（財政部公債買回消息後殖利率回落）。族群啟動的判準是同時創新高（2.6），而那天上漲的四檔沒有任何一檔創新高。
+  </div>
+
+  <h3>2.5　廣度：資金充裕度的直接觀察</h3>
+  <div class="scroll"><table class="pt">
+    <tr><th>標的</th><th>8/17</th><th>8/18</th><th>8/19</th><th>8/20</th><th>8/17→8/20</th></tr>
+    <tr><td>Vertiv</td><td class="dn">−0.48%</td><td class="dn">−6.80%</td><td class="dn">−4.23%</td><td class="up">+1.43%</td><td class="dn">−9.91%</td></tr>
+    <tr><td>Monolithic Power</td><td class="up">+1.00%</td><td class="dn">−5.85%</td><td class="dn">−2.48%</td><td class="up">+0.77%</td><td class="dn">−6.55%</td></tr>
+    <tr><td>英飛凌（ADR）</td><td class="dn">−0.20%</td><td class="dn">−6.82%</td><td class="dn">−4.22%</td><td class="up">+1.33%</td><td class="dn">−9.74%</td></tr>
+    <tr><td>光寶科</td><td class="dn">−1.31%</td><td class="up">+3.80%</td><td class="flat">0.00%</td><td class="dn">−2.38%</td><td class="flat">0.00%</td></tr>
+    <tr><td>台達電</td><td class="flat">0.00%</td><td class="dn">−3.45%</td><td class="dn">−3.02%</td><td class="dn">−1.13%</td><td class="dn">−7.43%</td></tr>
+    <tr><td>Navitas</td><td class="up">+0.90%</td><td class="dn">−9.67%</td><td class="dn">−2.58%</td><td class="up">+0.97%</td><td class="dn">−10.35%</td></tr>
+    <tr><td>onsemi</td><td class="up">+0.87%</td><td class="dn">−4.75%</td><td class="dn">−3.58%</td><td class="dn">−2.42%</td><td class="dn">−9.59%</td></tr>
+    <tr style="border-top:2px solid var(--ink)"><td><b>族群中位數</b></td><td class="flat">0.00%</td><td class="dn">−5.85%</td><td class="dn">−3.02%</td><td class="up">+0.77%</td><td class="dn">−7.43%</td></tr>
+    <tr><td><b>上漲檔數</b></td><td class="hi">3 / 7</td><td class="hi">1 / 7</td><td class="hi">0 / 7</td><td class="hi">4 / 7</td><td class="hi">0 / 7<br><span class="note">1 檔平盤</span></td></tr>
+  </table></div>
+  <p><b>判定：廣度收窄。</b>四天裡有三天上漲檔數在 1 檔以下，累計只有光寶科一檔沒跌。8/20 回到 4/7 屬總體面消息造成的同步反彈。資金外溢的特徵是落後補漲，而這一天漲的四檔全是前兩天跌最深的四檔。</p>
+
+  <h3>2.6　族群啟動的判定：同時創新高</h3>
+  <div class="scroll"><table class="pt">
+    <tr><th>標的</th><th>近三個月最高</th><th>現價距高點</th><th>最近一次創三個月新高</th></tr>
+    <tr><td>光寶科</td><td class="num">286.50</td><td class="num">−6.8%</td><td><b>8/17（盤中）</b></td></tr>
+    <tr><td>英飛凌（ADR）</td><td class="num">75.57</td><td class="num">−14.4%</td><td>8/12</td></tr>
+    <tr><td>Monolithic Power</td><td class="num">1,714.09</td><td class="num">−23.6%</td><td>5/26 或更早</td></tr>
+    <tr><td>Vertiv</td><td class="num">358.54</td><td class="num">−26.2%</td><td>6/22</td></tr>
+    <tr><td>台達電</td><td class="num">2,585</td><td class="num">−32.5%</td><td>5/27</td></tr>
+    <tr><td>onsemi</td><td class="num">134.92</td><td class="num">−44.6%</td><td>6/3</td></tr>
+    <tr><td>Navitas</td><td class="num">34.17</td><td class="num">−62.1%</td><td>6/3</td></tr>
+  </table></div>
+  <p><b>判定：族群啟動訊號不存在。</b>近五個交易日內創三個月新高的只有光寶科一檔，其餘六檔距高點 14%–62%。創新高代表這個價位之上沒有套牢賣壓；同族群多檔同時創新高才是族群性資金流入。一檔只能算個股訊號。</p>
+
+  <h3 id="s27">2.7　資金條件（估值八規則之規則八）</h3>
+  <div class="box conflict">
+    <b>判定：不成立。</b>依據必須來自資金的行為，不能來自公司的數字——
+    ①四個交易日累計上漲 0 檔、平盤 1 檔、下跌 6 檔；②近五日創新高 1 檔；③輪動已走到關聯性最弱的一段；④成交量在 8/18 放大到平常的 1.5–2 倍後於 8/19–8/20 縮回。
+    <br><br>
+    <b>等什麼：</b>族群止跌，加上一個時點明確的催化劑。最近的一個是 <b>NVIDIA 8/26（週三）財報</b>。
+    <br><b>檢查期限：</b>9 月第一週。
+    <br><b>本報告不給進場點。</b>估值的產出是區間與條件，裡面不含時間；時點由第三層決定，而第三層需要另一個資訊源。
+  </div>
+</div>
+<div class="slide" id="s3">
+  <span class="rn">參</span>
+  <h2>七檔總表</h2>
+  <p class="sub">分數是你 8/17 與 8/20 親評的，一格未動。價格、共識、倍數是我在 8/20 收盤後重算的。</p>
+
+  <h3>你的立場光譜</h3>
+<svg viewBox="0 0 920 326" role="img" aria-label="七檔採信度盤淨傾向光譜">
+<line x1="204.0" y1="30" x2="204.0" y2="306" stroke="#DCD6CC" stroke-width="1"/>
+<text x="204.0" y="24" font-size="11" fill="#7E786F" text-anchor="middle">-10</text>
+<line x1="290.0" y1="30" x2="290.0" y2="306" stroke="#3E3A36" stroke-width="1.6"/>
+<text x="290.0" y="24" font-size="11" fill="#7E786F" text-anchor="middle">+0</text>
+<line x1="376.0" y1="30" x2="376.0" y2="306" stroke="#DCD6CC" stroke-width="1"/>
+<text x="376.0" y="24" font-size="11" fill="#7E786F" text-anchor="middle">+10</text>
+<line x1="462.0" y1="30" x2="462.0" y2="306" stroke="#DCD6CC" stroke-width="1"/>
+<text x="462.0" y="24" font-size="11" fill="#7E786F" text-anchor="middle">+20</text>
+<line x1="548.0" y1="30" x2="548.0" y2="306" stroke="#DCD6CC" stroke-width="1"/>
+<text x="548.0" y="24" font-size="11" fill="#7E786F" text-anchor="middle">+30</text>
+<line x1="634.0" y1="30" x2="634.0" y2="306" stroke="#DCD6CC" stroke-width="1"/>
+<text x="634.0" y="24" font-size="11" fill="#7E786F" text-anchor="middle">+40</text>
+<line x1="720.0" y1="30" x2="720.0" y2="306" stroke="#DCD6CC" stroke-width="1"/>
+<text x="720.0" y="24" font-size="11" fill="#7E786F" text-anchor="middle">+50</text>
+<line x1="806.0" y1="30" x2="806.0" y2="306" stroke="#DCD6CC" stroke-width="1"/>
+<text x="806.0" y="24" font-size="11" fill="#7E786F" text-anchor="middle">+60</text>
+<line x1="892.0" y1="30" x2="892.0" y2="306" stroke="#DCD6CC" stroke-width="1"/>
+<text x="892.0" y="24" font-size="11" fill="#7E786F" text-anchor="middle">+70</text>
+<text x="4" y="24" font-size="11" fill="#7E786F" font-weight="700">淨傾向（點）</text>
+<text x="196" y="63" font-size="14" fill="#3E3A36" text-anchor="end" font-weight="700">Vertiv　VRT</text>
+<rect x="290.0" y="44" width="529.8" height="26" fill="#4F7A6B" rx="3"/>
+<text x="829.8" y="63" font-size="14" fill="#3E3A36" font-weight="800" text-anchor="start" font-family="ui-monospace,Menlo,monospace">+61.6</text>
+<text x="196" y="101" font-size="14" fill="#3E3A36" text-anchor="end" font-weight="700">Monolithic Power　MPWR</text>
+<rect x="290.0" y="82" width="463.5" height="26" fill="#6B6E9E" rx="3"/>
+<text x="763.5" y="101" font-size="14" fill="#3E3A36" font-weight="800" text-anchor="start" font-family="ui-monospace,Menlo,monospace">+53.9</text>
+<text x="196" y="139" font-size="14" fill="#3E3A36" text-anchor="end" font-weight="700">英飛凌　IFX</text>
+<rect x="290.0" y="120" width="357.8" height="26" fill="#5B7FA3" rx="3"/>
+<text x="657.8" y="139" font-size="14" fill="#3E3A36" font-weight="800" text-anchor="start" font-family="ui-monospace,Menlo,monospace">+41.6</text>
+<text x="196" y="177" font-size="14" fill="#3E3A36" text-anchor="end" font-weight="700">光寶科　2301</text>
+<rect x="290.0" y="158" width="230.5" height="26" fill="#A98A4E" rx="3"/>
+<text x="530.5" y="177" font-size="14" fill="#3E3A36" font-weight="800" text-anchor="start" font-family="ui-monospace,Menlo,monospace">+26.8</text>
+<text x="196" y="215" font-size="14" fill="#3E3A36" text-anchor="end" font-weight="700">台達電　2308</text>
+<rect x="290.0" y="196" width="74.0" height="26" fill="#7A8B57" rx="3"/>
+<text x="374.0" y="215" font-size="14" fill="#3E3A36" font-weight="800" text-anchor="start" font-family="ui-monospace,Menlo,monospace">+8.6</text>
+<text x="196" y="253" font-size="14" fill="#3E3A36" text-anchor="end" font-weight="700">Navitas　NVTS</text>
+<rect x="290.0" y="234" width="3.4" height="26" fill="#8A6F9E" rx="3"/>
+<text x="303.4" y="253" font-size="14" fill="#3E3A36" font-weight="800" text-anchor="start" font-family="ui-monospace,Menlo,monospace">+0.4</text>
+<text x="196" y="291" font-size="14" fill="#3E3A36" text-anchor="end" font-weight="700">onsemi　ON</text>
+<rect x="238.4" y="272" width="51.6" height="26" fill="#B4735A" rx="3"/>
+<text x="228.4" y="291" font-size="14" fill="#3E3A36" font-weight="800" text-anchor="end" font-family="ui-monospace,Menlo,monospace">-6.0</text>
+</svg>
+  <p class="note">同一個 800VDC 敘述，你在系統層（Vertiv、Monolithic Power）最有信心，在循環晶片層（onsemi）最保留。光譜跨度 67.6 點。</p>
+
+  <h3>價格、共識與倍數（8/20 收盤）</h3>
+  <div class="scroll"><table>
+    <tr>
+      <th>標的</th><th class="r">8/20 收盤</th><th class="r">8/17→8/20</th>
+      <th class="r">本年度共識</th><th class="r">次年度共識</th><th class="r">次年度倍數</th>
+      <th class="r">賣方目標中位</th><th class="r">對現價</th><th class="r">你的淨傾向</th>
+    </tr>
+    <tr><td><b>Vertiv</b><br><span class="note">VRT・美元</span></td><td class="r num">264.72</td><td class="r num dn">−9.9%</td>
+        <td class="r num">6.71</td><td class="r num">9.10</td><td class="r num hi">29.1×</td><td class="r num">345</td><td class="r num up">+30.3%</td><td class="r num"><b>+61.6</b></td></tr>
+    <tr><td><b>Monolithic Power</b><br><span class="note">MPWR・美元</span></td><td class="r num">1,310.15</td><td class="r num dn">−6.6%</td>
+        <td class="r num">27.39</td><td class="r num">查無<br><span class="note">一般公認會計原則 29.90</span></td><td class="r num hi">47.8×<br><span class="note">本年度</span></td><td class="r num">1,820</td><td class="r num up">+38.9%</td><td class="r num"><b>+53.9</b></td></tr>
+    <tr><td><b>英飛凌</b><br><span class="note">IFX・歐元，會計年度至 9 月底</span></td><td class="r num">55.90</td><td class="r num dn">−9.7%</td>
+        <td class="r num">1.72</td><td class="r num">2.78<br><span class="note">finanzen.net</span></td><td class="r num hi">20.1×</td><td class="r num">90.00</td><td class="r num up">+61.0%</td><td class="r num"><b>+41.6</b></td></tr>
+    <tr><td><b>光寶科</b><br><span class="note">2301・新台幣</span></td><td class="r num">267.00</td><td class="r num flat">0.0%</td>
+        <td class="r num">8.80</td><td class="r num">12.06</td><td class="r num hi">22.1×</td><td class="r num">250</td><td class="r num dn">−6.4%</td><td class="r num"><b>+26.8</b></td></tr>
+    <tr><td><b>台達電</b><br><span class="note">2308・新台幣</span></td><td class="r num">1,745</td><td class="r num dn">−7.4%</td>
+        <td class="r num">41.11</td><td class="r num">65.02</td><td class="r num hi">26.8×</td><td class="r num">2,565</td><td class="r num up">+47.0%</td><td class="r num"><b>+8.6</b></td></tr>
+    <tr><td><b>Navitas</b><br><span class="note">NVTS・美元</span></td><td class="r num">12.955</td><td class="r num dn">−10.4%</td>
+        <td class="r num">營收 47.69M</td><td class="r num">營收 74.25M</td><td class="r num hi">38.1×<br><span class="note">企業價值／營收</span></td><td class="r num">13.00</td><td class="r num flat">+0.3%</td><td class="r num"><b>+0.4</b></td></tr>
+    <tr><td><b>onsemi</b><br><span class="note">ON・美元</span></td><td class="r num">74.73</td><td class="r num dn">−9.6%</td>
+        <td class="r num">3.20</td><td class="r num">4.53</td><td class="r num hi">16.5×</td><td class="r num">110.00</td><td class="r num up">+47.2%</td><td class="r num"><b>−6.0</b></td></tr>
+  </table></div>
+  <p class="note">
+    次年度＝各公司的 FY2027。倍數＝8/20 收盤價 ÷ 次年度共識每股盈餘；Monolithic Power 的次年度非一般公認會計原則共識在免費來源查無，故列本年度倍數（一般公認會計原則口徑次年度 29.90 美元，對應 43.8×）；Navitas 為虧損公司，改用企業價值 ÷ 營收。
+    英飛凌價格以 IFNNY 美國存託憑證 64.70 美元（1:1）換算，各報價來源在 €55.2–€56.7 之間，對應倍數 19.9–20.4×，不影響任何一項判定。
+  </p>
+
+  <h3>七檔在同一族群內的倍數排名（規則二：橫向優先於縱向）</h3>
+  <div class="scroll"><table class="pt">
+    <tr><th>排名（次年度倍數，低到高）</th><th>標的</th><th>倍數</th><th class="l">落在便宜端還貴端，為什麼</th></tr>
+    <tr><td>1</td><td>onsemi</td><td class="num">16.5×</td><td class="l">便宜端。<b>但這是循環谷的正常長相</b>，訊號要反讀（見規則四）</td></tr>
+    <tr><td>2</td><td>英飛凌</td><td class="num">20.1×</td><td class="l">便宜端。同樣是循環修復初段的取樣，反讀</td></tr>
+    <tr><td>3</td><td>光寶科</td><td class="num">22.1×</td><td class="l">中間偏低。次年度基準對台達電折價 17%。用 8/17 報告的同一個本年度基準來看，折價由 37% 收斂到 28%——收斂來自台達電下跌，不是光寶科上漲</td></tr>
+    <tr><td>4</td><td>台達電</td><td class="num">26.8×</td><td class="l">中間。8/17 時是 32.0×，倍數壓縮來自價格 −7.4% 與次年度共識由 59.00 上修到 65.02 兩件事相乘</td></tr>
+    <tr><td>5</td><td>Vertiv</td><td class="num">29.1×</td><td class="l">中間偏高。8/17 時是 34.4×。溢價來源是資料中心營收佔比八成與五千名以上現場工程師的系統整合能力</td></tr>
+    <tr><td>6</td><td>Navitas</td><td class="num">38.1×</td><td class="l">貴端。溢價來源是全新插槽的基期效果，沒有盈餘可以承接</td></tr>
+    <tr><td>7</td><td>Monolithic Power</td><td class="num">47.8×</td><td class="l">最貴（且分母是本年度，若換成次年度會更低，排名不變）。溢價來源是企業數據部門連五季跳增</td></tr>
+  </table></div>
+
+  <div class="box">
+    <h4>外部可比公司（口徑不同，只作背景）</h4>
+    這些是未來十二個月的 forward 倍數，跟上表的「次年度倍數」不是同一個基準期，<b>不可以直接比大小</b>，列出來只是為了知道各次族群現在的水位。
+    <br><br>
+    <b>機電與電力設備：</b>Eaton 30.2×｜Schneider Electric 27.4×｜GE Vernova 46.1×｜ABB 22.0×
+    <br><b>類比與功率半導體：</b>Power Integrations 33.3×｜Vicor 41.9×｜Texas Instruments 27.6×｜STMicro 24.7×｜Renesas 26.6×（2026 年）／20.9×（2027 年）｜Analog Devices 23.4×｜NXP 13.5×
+    <div class="src">出處：stockanalysis.com 統計頁，股價日期 8/7–8/20 不等；Renesas 為 MarketScreener 8/12。</div>
+  </div>
+</div>
+<div class="slide" id="vrt">
+  <div class="kick">肆之一</div>
+  <div class="ticker" style="border-color:var(--vrt)">
+    <span class="nm">Vertiv</span><span class="sub">VRT・NYSE</span>
+    <span class="px">$264.72</span>
+    <span class="tilt" style="color:var(--vrt)">+61.6</span>
+  </div>
+  <p class="sub" style="margin-top:10px">資料中心電力與散熱系統：不斷電系統、配電、精密空調、液冷，加上 800VDC 世代的集中整流器、直流母線、櫃級直流轉直流與直流備援。約八成營收綁資料中心。</p>
+
+  <div class="stat">
+    <div><b>29.1×</b><span>現價 ÷ FY27 共識每股盈餘 9.10 美元。8/17 時是 34.4×</span></div>
+    <div><b>−26.2%</b><span>距三個月高點 358.54（6/22）</span></div>
+    <div><b>150 億</b><span>最後一次揭露的 backlog（2025/12/31，年增 109%）。之後連兩季未再揭露</span></div>
+    <div><b>+241%</b><span>2Q26 營運現金流年增，11 億美元</span></div>
+  </div>
+
+  <h3>你的採信度盤（2026-08-17 親評，未改動）</h3>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>方向</th><th>賭注</th><th class="c">L×F×I</th><th class="r">權重</th><th class="r">與市場的差距</th></tr>
+    <tr><td>1</td><td><span class="chip long">多</span></td><td>訂單與備貨動能延續——backlog 150 億（+109%）與遞延收入半年倍增支撐 FY27 共識</td><td class="c num">72×80×65</td><td class="r num hi">37.4</td><td class="r num">0pp</td></tr>
+    <tr><td>2</td><td><span class="chip long">多</span></td><td>800VDC 組合 2H26 如期出貨、2027 隨 Rubin Ultra 部署，每 MW 內容價值站上 325–375 萬美元區間高端</td><td class="c num">70×75×65</td><td class="r num hi">34.1</td><td class="r num">+5pp</td></tr>
+    <tr><td>3</td><td><span class="chip short">空</span></td><td>動能見頂——Q2 營收低於共識＋連兩季停止揭露 backlog 是需求放緩的領先訊號</td><td class="c num">25×25×90</td><td class="r num">5.6</td><td class="r num">−3pp</td></tr>
+    <tr><td>4</td><td><span class="chip short">空</span></td><td>台達電等亞洲電源廠切走系統價值</td><td class="c num">25×20×85</td><td class="r num">4.3</td><td class="r num">−3pp</td></tr>
+  </table></div>
+  <p class="note">多方權重 71.5、空方 9.9、淨傾向 +61.6（權重＝L×F×I÷10000，逐格複核無誤）。與查證資料的衝突：無。</p>
+
+  <div class="box hl">
+    <b>讀法：</b>你的頭號賭注跟市場零分歧。按規則七，超額報酬只有兩個來源——基準數字估得比共識準，或倍數方向判斷得比共識早。這一注兩個都不是，
+    它是「跟市場想的一樣，而且我認為市場想得對」。這種持有的正當理由是拿族群報酬，部位大小要按跟單處理。
+    真正帶分歧的是第二注（+5pp，倍數方向）。兩個空方你都給了低可發生、高殺傷的形狀（影響幅度 85–90）：你認為大概率不發生，但發生就砸穿論述。
+  </div>
+
+  <h3>查證重點（8/20 更新）</h3>
+  <ul>
+    <li><b>backlog 揭露轉暗是事實，不是觀點。</b>2Q26 財報與法說簡報完全沒有 backlog 或訂單金額，只有質化敘述「Strong pipeline momentum: points to another year of expected robust orders growth」。最後一次有金額的揭露是 2026/2/11 隨 4Q25 財報公布的 150 億美元。空方拿它當訊號才是觀點。</li>
+    <li><b>同一份財報裡多空各拿一半：</b>2Q26 營收 32.74 億（+24%）低於共識約 33.7 億，財報日單日 −17.26%；同時遞延收入半年由 18.15 億增至 36.34 億、存貨 +73% 至 25.23 億。這正是賭注 1 與賭注 3 的分界。</li>
+    <li><b>800VDC 時程為公司原話：</b>「2026 年客戶驗證中，2027 年部署」；與 VisionBay.ai 在台灣做全球首座機櫃／機艙級 800VDC AI 資料中心（2Q26 法說）。</li>
+    <li><b>全年指引年內三度上修</b>（2/11 → 4/22 → 7/29），最新為營收 138–142 億、調整後每股盈餘 6.65–6.75 美元。</li>
+    <li><b>新增：</b>8/14 Weiss Ratings 由 Buy（B−）降至 Hold（C+）。8/17–8/20 無其他評等或目標價調整，公司零申報、零新聞稿。</li>
+    <li><b>次年度共識上修：</b>FY27 每股盈餘由 8/17 報告記載的 8.55 美元升到 9.10 美元（+6.4%），營收共識 181.5 億（+29.5%）。</li>
+  </ul>
+
+  <h3>估值判定書</h3>
+  <div class="box">
+    <b>選定方法：</b>Forward PE（沿用市場既有的折現現金流假設分支）。<br>
+    <b>排除：</b>重建折現現金流模型（800VDC 屬產品組合換代，商業模式未變；若不斷電系統被邊緣化成真，2027 需重驗）｜企業價值／稅息折舊攤銷前獲利（併購頻繁，但調整後盈餘與現金流可用，不需退層）｜企業價值／營收、股價淨值比（獲利健全）。<br><br>
+    <b>三道檢查：</b><br>
+    ① <b>循環位置</b>——調整後每股盈餘 2021–25 為 0.76／0.53／1.89／2.85／4.20，2023 出現 3.6 倍跳升。性質是虧轉盈初期的營運槓桿，不是景氣循環取樣，正常化盈餘無意義，改用前瞻共識；2022 成本衝擊那次 −30% 記為歷史彈性註記。<br>
+    ② <b>盈餘轉現金比率 b</b>——FY26 指引調整後自由現金流 24–26 億對調整後淨利約 25.6 億，b≈0.94–1.0；2Q26 營運現金流 11 億（+241%）支持。過關。<br>
+    ③ <b>商業模式轉折</b>——無需重建。這正是你兩個空方賭注的落點。<br><br>
+    <b>反推：</b>現價 264.72 ÷ FY27 共識 9.10 = 29.1×；賣方目標中位 345 = 37.9×。<br>
+    <b>可證偽的宣稱：</b>這個價格隱含 FY27 營收 +29.5%、每股盈餘 +35.6% 兌現。要往上走，需要 <b>3Q26 財報（10 月下旬）恢復訂單量化揭露，或營收重回超標</b>。<br><br>
+    <b>倍數歸因：</b>8/17→8/20 由 34.4× 壓到 29.1×。拆解——價格 −9.9%，分母 +6.4%（共識上修）。分母是往上的，倍數壓縮全部來自價格；而同期公司零消息。<b>歸因：r，不是 g，也不是 b。</b><br><br>
+    <b>失效條件（任一發生本判定作廢）：</b>①3Q26 財報仍無 backlog 或訂單量化揭露、且營收再度低於共識（10 月下旬）②800V 組合 2H26 未出貨，12 月底前無公司確認 ③台達電拿下指標性雲端業者的系統級訂單（供應鏈新聞，隨時）。
+  </div>
+
+  <h3>股癌八規則判定</h3>
+  <div class="scroll"><table>
+    <tr><th style="width:20%">規則</th><th style="width:14%">判定</th><th>依據</th></tr>
+    <tr><td>四、分母循環</td><td><b>否</b>→正讀</td><td>調整後每股盈餘連年成長，無腰斬級擺盪；分母峰谷倍率小於價格峰谷倍率</td></tr>
+    <tr><td>二、橫向比較</td><td>通過</td><td>七檔名單第 5 低（29.1×）。溢價來源：資料中心營收佔比八成、五千名以上現場工程師的系統整合與運維紀錄</td></tr>
+    <tr><td>三、縱向比較</td><td>資料不足</td><td>完整 forward 倍數歷史序列在免費來源查無</td></tr>
+    <tr><td>五、倍數位置</td><td>資料不足／非追價</td><td>歷史分布查無。共識 8/12 上修在前、價格 8/18–8/19 下跌在後——共識先動、價格反向，屬非追價</td></tr>
+    <tr><td>六、重新歸類</td><td>無</td><td>一直被歸在資料中心基建類；三個代理（報告標籤、指數納入、法說提問組成）皆無變化</td></tr>
+    <tr><td>七、優勢來源</td><td class="hi">指不出來</td><td>頭號注 Δ 0pp。共識認為 backlog 與遞延收入支撐 FY27 +28%，你認為一樣。差異來源指不出來</td></tr>
+    <tr><td>八、資金條件</td><td>不成立</td><td>族群層共用判定，見 2.7。等族群止跌＋NVIDIA 8/26 財報，檢查期限 9 月第一週</td></tr>
+    <tr><td>一、改寫成區間</td><td>24.3×–37.9×</td><td>見下表</td></tr>
+  </table></div>
+
+  <h3>情境倍數區間（倍數 × FY27 共識 9.10）</h3>
+  <div class="scroll"><table class="pt">
+    <tr><th></th><th>下緣 24.3×</th><th>現價 29.1×</th><th>上緣 37.9×</th></tr>
+    <tr><td>倍數依據</td><td>7/29 財報日盤中低點 220.92 的定價</td><td>市場現在對 FY27 付的價</td><td>賣方目標中位 345 隱含</td></tr>
+    <tr><td>目標價</td><td class="num hi">221</td><td class="num">265</td><td class="num hi">345</td></tr>
+    <tr><td>對現價</td><td class="num dn">−16.5%</td><td class="num">0%</td><td class="num up">+30.3%</td></tr>
+    <tr><td>成立條件</td><td>3Q26 重演 7/29：營收低於共識且仍不揭露訂單（10 月下旬）</td><td>—</td><td>3Q26 恢復訂單量化揭露或營收超標（10 月下旬）</td></tr>
+  </table></div>
+  <p class="note">驗算：24.3×9.10=221.1；29.1×9.10=264.8；37.9×9.10=344.9。<b>這個價格隱含 FY27 共識兌現、但訂單能見度不恢復；要往上緣走，需要 10 月下旬那份財報把訂單重新量化。</b></p>
+
+  <h3>觀察點追蹤</h3>
+  <div class="scroll"><table>
+    <tr><th>賭注</th><th>證實它</th><th>推翻它</th><th>時點</th></tr>
+    <tr><td>訂單動能（37.4）</td><td>3Q26 恢復揭露且訂單重新加速</td><td>連三季沉默，或揭露出來的數字轉弱</td><td>10 月下旬財報</td></tr>
+    <tr><td>800V 出貨（34.1）</td><td>2H26 首批出貨公告＋每 MW 內容價值口徑重申</td><td>出貨延至 2027，或每 MW 價值下修</td><td>12 月底前</td></tr>
+    <tr><td>見頂訊號（5.6）</td><td>Q3 營收再度低於共識＋現金流品質惡化</td><td>Q3 營收重回超標</td><td>10 月下旬</td></tr>
+    <tr><td>台達切入（4.3）</td><td>台達奪雲端業者系統級標案</td><td>Vertiv 續拿指標案</td><td>隨時，法說追認</td></tr>
+  </table></div>
+</div>
+<div class="slide" id="mpwr">
+  <div class="kick">肆之二</div>
+  <div class="ticker" style="border-color:var(--mpwr)">
+    <span class="nm">Monolithic Power</span><span class="sub">MPWR・NASDAQ</span>
+    <span class="px">$1,310.15</span>
+    <span class="tilt" style="color:var(--mpwr)">+53.9</span>
+  </div>
+  <p class="sub" style="margin-top:10px">類比電源管理積體電路平台。資料中心核心供電（DrMOS、多相控制、48V 垂直供電模組）為主力，車用、工控、消費為其餘。無自有晶圓廠，毛利率 55.6%，淨現金 14.1 億美元、零負債。</p>
+
+  <div class="stat">
+    <div><b>47.8×</b><span>現價 ÷ FY26 共識 27.39 美元。8/17 時是 51.2×</span></div>
+    <div><b>+44.8%</b><span>2Q26 企業數據部門季增，3.806 億美元，佔營收 38.8%</span></div>
+    <div><b>130%</b><span>財務主管把企業數據部門全年成長下限由 85% 上調到 130%</span></div>
+    <div><b>0</b><span>800V 前端插槽目前的營收、量產時點與設計案金額</span></div>
+  </div>
+
+  <h3>你的採信度盤（2026-08-17 親評，未改動）</h3>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>方向</th><th>賭注</th><th class="c">L×F×I</th><th class="r">權重</th><th class="r">與市場的差距</th></tr>
+    <tr><td>1</td><td><span class="chip long">多</span></td><td>800V 世代以自家 SiC 加自研 GaN 卡進交流轉直流前端新插槽，擴大單機內容價值</td><td class="c num">70×70×70</td><td class="r num hi">34.3</td><td class="r num">無法計算</td></tr>
+    <tr><td>2</td><td><span class="chip long">多</span></td><td>企業數據部門全年成長下限 130% 兌現，且 2027 不失速</td><td class="c num">80×80×45</td><td class="r num hi">28.8</td><td class="r num">+3pp</td></tr>
+    <tr><td>3</td><td><span class="chip short">空</span></td><td>NVIDIA 平台換代重新投票——Blackwell 配額事件在 Rubin 世代重演</td><td class="c num">35×26×85</td><td class="r num">7.7</td><td class="r num">+9pp</td></tr>
+    <tr><td>4</td><td><span class="chip short">空</span></td><td>企業數據高基期後 2027 減速幅度大於共識</td><td class="c num">13×13×90</td><td class="r num">1.5</td><td class="r num">−10pp</td></tr>
+  </table></div>
+  <p class="note">多方 63.1、空方 9.2、淨傾向 +53.9。與查證資料的衝突：無。</p>
+
+  <div class="box hl">
+    <b>讀法：</b>你把最重的注押在市場現在沒辦法定價的東西上——800V 插槽沒有營收、沒有量產時點、法說沒點名 NVIDIA，這注的對錯只有未來的官方口徑能裁。
+    結構是「企業數據部門付底價、800V 當選擇權」，而市場（47.8×）已經把底價付滿。換代風險你比市場多信 9 個百分點，這是你七張盤裡對空方最大的正分歧。
+  </div>
+
+  <h3>查證重點（8/20 更新）</h3>
+  <ul>
+    <li><b>企業數據部門季營收五季連跳：</b>144 → 191.5 → 233.5 → 262.8 → 380.6（百萬美元）。2Q26 整體營收 9.806 億（年增 47.6%、季增 21.9%）創高，Q3 指引 11.4–11.6 億。</li>
+    <li><b>「85% 上調至 130%」是財務主管原話</b>（“we are willing to raise floor for that particular end market from 85% for the year to 130%”，2Q26 法說）。</li>
+    <li><b>800V 進度也是法說原話：</b>高壓交流轉直流產品「開始送樣」、SiC 全用自家元件、GaN「will have a working device」——皆無時點、無金額。</li>
+    <li><b>換代前科成立：</b>2024/11 Edgewater 報告稱 B200／GB200 配額大幅受限或歸零，當日重挫；2024 年報揭露一家 AI 電源間接客戶佔營收 17%。執行長 2Q26 口徑「we do not have any concentrated customers」與年報的 17% 並存，口徑差異照列，不裁定。</li>
+    <li><b>Rubin 世代供應商名單：</b>2026 年公開來源查無 MPWR 缺席或在列的可信報導。查無本身也是資訊。</li>
+    <li><b>次年度共識的資料缺口：</b>FY27 非一般公認會計原則每股盈餘在 stockanalysis 免費層被付費牆擋住，其他免費來源明顯過時。可取得的是 MarketScreener 免費頁的一般公認會計原則口徑 29.90 美元（對應 43.8×）與 FY27 營收共識 51.78 億美元。<b>這是本報告最大的一個分母缺口。</b></li>
+    <li><b>8/13–8/20 公司零申報、零新聞稿。</b></li>
+  </ul>
+
+  <h3>估值判定書</h3>
+  <div class="box">
+    <b>選定方法：</b>Forward PE。<br>
+    <b>排除：</b>重建折現現金流模型（企業數據部門高成長，但商業模式未變——同一個類比平台放大）｜企業價值／稅息折舊攤銷前獲利（資本支出僅折舊的 0.3–0.7 倍、盈餘乾淨，不需退層）｜企業價值／營收、股價淨值比（獲利健全）。<br><br>
+    <b>三道檢查：</b><br>
+    ① <b>循環位置</b>——非一般公認會計原則每股盈餘 2017–25 由 2.93 增到 17.77，連年成長、無腰斬級回檔，屬平台成長股；2024–25 取樣在 AI 上升段，倍數判讀要記得這一點。<br>
+    ② <b>盈餘轉現金比率 b</b>——五年合計自由現金流 ÷ 淨利約 1.15（2022 營運現金流為負屬單年營運資金異常；2024 淨利含一次性稅益，兩者互抵後整體大於 1）。品質高，PE 適用性強。<br>
+    ③ <b>商業模式轉折</b>——無（800V 尚在送樣）。<br><br>
+    <b>反推：</b>現價 1,310.15 ÷ FY26 共識 27.39 = 47.8×；賣方目標中位 1,820 = 66.4×。<br>
+    <b>可證偽的宣稱：</b>要把 47.8× 壓回功率積體電路同業 Power Integrations 的 33.3×，需要每股盈餘比共識再高 43%。這個價格隱含企業數據部門 130% 下限兌現、2027 續高成長，<b>並且 800V 或其他新插槽至少一項在 2027 年中前落地</b>。<br><br>
+    <b>倍數歸因：</b>8/17→8/20 由 51.2× 壓到 47.8×。分母未動，價格 −6.6%，公司零消息。<b>歸因：r。</b>年初至今的 +51.7% 則主要是 g 上修（企業數據兩度上修），b 本來就高、未變。<br><br>
+    <b>失效條件：</b>①3Q26 企業數據部門金額季減（10 月底財報）②Rubin 供應商名單出現 MPWR 被替換的可信通路報導（隨時）③800V 送樣至 2027 年中仍無量產時點——這是你頭號賭注的死線。
+  </div>
+
+  <h3>股癌八規則判定</h3>
+  <div class="scroll"><table>
+    <tr><th style="width:20%">規則</th><th style="width:14%">判定</th><th>依據</th></tr>
+    <tr><td>四、分母循環</td><td><b>否</b>→正讀</td><td>每股盈餘九年連續成長，無腰斬級擺盪</td></tr>
+    <tr><td>二、橫向比較</td><td>通過</td><td>七檔第 7（最貴，47.8×）。溢價來源：企業數據部門連五季跳增與 55.6% 毛利率</td></tr>
+    <tr><td>三、縱向比較</td><td>資料不足</td><td>完整 forward 倍數歷史序列查無</td></tr>
+    <tr><td>五、倍數位置</td><td class="hi">上緣／非追價</td><td>七檔最高、外部功率類比同業（27.6×–41.9×）全數在其下。共識 7/31 財報後上修在前、價格 8/12 見高後回落在後，共識非追價。<b>依規則五，持有理由已經從「數字便宜」換成「賭敘述會再擴張」，這種持有需要外生的停損機制</b></td></tr>
+    <tr><td>六、重新歸類</td><td>進行中（往上）</td><td>由「類比積體電路廠」往「AI 資料中心供電平台」移動。代理：報告與法說把企業數據部門單獨拉出來談 ✓；法說提問組成轉向 ✓；指數與主題基金納入 資料不足</td></tr>
+    <tr><td>七、優勢來源</td><td class="hi">指不出來（頭號注）</td><td>800V 插槽注的市場隱含採信度無法計算——市場對一個沒有時點、沒有金額的東西不會定價，所以沒有可比對的共識。第三注（換代風險 +9pp）屬倍數方向，失效日：Rubin 設計案獲確認之時</td></tr>
+    <tr><td>八、資金條件</td><td>不成立</td><td>族群層共用，見 2.7</td></tr>
+    <tr><td>一、改寫成區間</td><td>33.3×–66.4×</td><td>見下表</td></tr>
+  </table></div>
+
+  <h3>情境倍數區間（倍數 × FY26 共識 27.39）</h3>
+  <div class="scroll"><table class="pt">
+    <tr><th></th><th>下緣 33.3×</th><th>現價 47.8×</th><th>上緣 66.4×</th></tr>
+    <tr><td>倍數依據</td><td>對齊 Power Integrations 未來十二個月 33.3×，即 AI 溢價全數還掉</td><td>市場現在付的價</td><td>賣方目標中位 1,820 隱含</td></tr>
+    <tr><td>目標價</td><td class="num hi">912</td><td class="num">1,309</td><td class="num hi">1,819</td></tr>
+    <tr><td>對現價</td><td class="num dn">−30.4%</td><td class="num">0%</td><td class="num up">+38.8%</td></tr>
+    <tr><td>成立條件</td><td>企業數據部門單季金額出現季減（10 月底）</td><td>—</td><td>企業數據 130% 下限兌現＋800V 給出首次量產時點</td></tr>
+  </table></div>
+  <p class="note">驗算：33.3×27.39=912.1；47.8×27.39=1,309.2；66.4×27.39=1,818.7。分母是本年度共識，若換成次年度分母，三格會同步下移、相對關係不變；次年度非一般公認會計原則共識查無，所以不做這個換算。</p>
+
+  <h3>觀察點追蹤</h3>
+  <div class="scroll"><table>
+    <tr><th>賭注</th><th>證實它</th><th>推翻它</th><th>時點</th></tr>
+    <tr><td>800V 插槽（34.3）</td><td>官方首次給出量產時點或設計案名單</td><td>2027 年中前無時點，或前端被整合元件製造商全拿</td><td>每季法說，死線 2027 年中</td></tr>
+    <tr><td>企業數據 130%（28.8）</td><td>3Q26 該部門 ≥ 4.40 億美元</td><td>該部門季減或全年口徑下修</td><td>10 月底財報</td></tr>
+    <tr><td>換代重演（7.7）</td><td>通路調查報導配額被砍</td><td>Rubin 世代設計案獲官方或客戶端確認</td><td>隨時；GTC 2027 前後密度最高</td></tr>
+    <tr><td>2027 減速（1.5）</td><td>FY27 首次指引低於 +20%</td><td>FY27 指引不低於共識</td><td>2027/2 Q4 法說</td></tr>
+  </table></div>
+</div>
+<div class="slide" id="ifx">
+  <div class="kick">肆之三</div>
+  <div class="ticker" style="border-color:var(--ifx)">
+    <span class="nm">英飛凌</span><span class="sub">IFX・Xetra　IFNNY・ADR</span>
+    <span class="px">€55.90 / $64.70</span>
+    <span class="tilt" style="color:var(--ifx)">+41.6</span>
+  </div>
+  <p class="sub" style="margin-top:10px">功率半導體整合元件製造商。SiC 與 GaN 元件涵蓋 800V 架構的前端與櫃內，同時是車用功率的全球最大供應商。電源與感測系統部門是集團利潤率最高的一塊。</p>
+
+  <div class="stat">
+    <div><b>20.1×</b><span>現價 ÷ FY27 共識 €2.78（會計年度至 9 月底）</span></div>
+    <div><b>4.1 倍</b><span>每股盈餘 FY17–25 峰谷倍率（0.64 → 2.65）＝標準循環股</span></div>
+    <div><b>約 10%</b><span>AI 資料中心電源線佔營收：FY26 目標 &gt;€16 億 ÷ 全年指引 €163 億</span></div>
+    <div><b>+61.0%</b><span>賣方目標中位 €90 對現價。七檔中賣方與市價分歧最大</span></div>
+  </div>
+
+  <h3>你的採信度盤（2026-08-20 親評，未改動）</h3>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>方向</th><th>賭注</th><th class="c">L×F×I</th><th class="r">權重</th><th class="r">與市場的差距</th></tr>
+    <tr><td>1</td><td><span class="chip long">多</span></td><td>AI 資料中心電源線倍增兌現：FY26 &gt;€16 億、FY27 &gt;€25 億，且公司預告 11 月「實質上修」</td><td class="c num">80×85×70</td><td class="r num hi">47.6</td><td class="r num hi">+30pp<br><span class="note">觸發說明關卡</span></td></tr>
+    <tr><td>2</td><td><span class="chip long">多</span></td><td>車用循環翻正接棒：車用部門轉正，FY27 共識部門利潤率 19.6% → 24.8%</td><td class="c num">50×50×40</td><td class="r num">10.0</td><td class="r num">0pp</td></tr>
+    <tr><td>3</td><td><span class="chip short">空</span></td><td>中國替代與價格戰讓 FY27 修復失速</td><td class="c num">45×35×57</td><td class="r num">9.0</td><td class="r num">−5pp</td></tr>
+    <tr><td>4</td><td><span class="chip short">空</span></td><td>重資本低回報體質：投入資本報酬率約 5%、年投資 27 億歐元</td><td class="c num">30×45×52</td><td class="r num">7.0</td><td class="r num">無法計算</td></tr>
+  </table></div>
+  <p class="note">多方 57.6、空方 16.0、淨傾向 +41.6。權重 47.6 是七張盤二十八注裡最大的單一注。</p>
+
+  <div class="quote">
+    「反面證據強度不夠，ifx公司內部自己出來講的資訊相對整體市場更可信，電線又佔營收38左右，整體增量將會對公司財務面有強勁支撐，我認為800vdc會在27年到來，ifx又是其中的獲益者，目前盤面更多是在情緒下殺」
+    <i>——祖曜筬，2026-08-20 差距說明原文。優勢宣稱類型：基準數字。失效日期：11 月法說。</i>
+  </div>
+
+  <div class="box conflict">
+    <h4>與查證資料的衝突（分數照舊，證據照列）</h4>
+    你寫「電線又佔營收 38 左右」。查證數字是 <b>AI 資料中心電源線佔營收約 10%</b>（FY26 目標 &gt;€16 億 ÷ 指引 €163 億）。最接近 38 的兩個數是：
+    <b>電源與感測系統部門</b>佔營收 34.6%（但它包含手機快充、工業電源、感測器，AI 線只是其中成長最快的一塊），以及你 7 月報告裡的<b>大中華營收 38%</b>。
+    <br><br>
+    如果你的影響幅度 70 是建立在「38% 的營收直接受 800V 拉動」上，依據與查證數字衝突；如果是「電源與感測系統整體受電源升級帶動」，佔比成立、但傳導強度要打折。
+    這條列入 11 月法說對帳項：屆時看 AI 線佔比的實際軌跡。
+  </div>
+
+  <h3>查證重點（8/20 更新）</h3>
+  <ul>
+    <li><b>AI 口徑逐季上修成立：</b>FY24 €2.5 億 → FY25 &gt;€7 億 → FY26 &gt;€16 億 → FY27 &gt;€25 億，且公司預告 11 月再上修；超過 10 家客戶產能預訂、累計高個位數十億歐元；含量每 kW 100–250 美元、均 175 美元（8/5 法說）。</li>
+    <li><b>FY26 第三季：</b>營收 €41.72 億、部門獲利 €7.97 億，全年指引上調至 €163 億。8/5 財報創高、當日 −5.3%——好消息跌，是「已在價內」的行為證據。</li>
+    <li><b>新增（8/17 揭露）：</b>公司在 8/10–8/14 於 Xetra 買回自家股票 640,634 股，成交量加權均價區間 <b>€62.34–€64.43</b>。現價比買回區間下緣 €62.34 低 10.3%。這是公司對自身價格的行為，可查證；依規則五它是風險刻度的參考，不能單獨當買賣理由。</li>
+    <li><b>8/13–8/20 除庫藏股例行揭露外無其他公司公告。</b>德媒 8/19 明寫「there was no company-specific catalyst behind the move」，把單週跌約 10% 歸因於債市融資成本上升。</li>
+    <li><b>每股盈餘序列 FY17–25：</b>0.85／0.98／0.89／0.64（谷）／1.20／1.97／2.65（峰）／1.87／1.39——峰谷 4.1 倍，循環股。</li>
+    <li><b>流動性提醒：</b>IFNNY 美國存託憑證日均成交金額只有約 1,700 萬美元，是七檔裡最低的一檔（Vertiv 7.4 億、台達電約 7.0 億美元等值）。要建部位請走 Xetra 的 IFX，別走 ADR。</li>
+  </ul>
+
+  <h3>估值判定書</h3>
+  <div class="box">
+    <b>選定方法：</b>Forward PE，循環修正。<br>
+    <b>排除：</b>企業價值／稅息折舊攤銷前獲利（投資對折舊五年 1.25 倍、擴產折舊是真成本）｜企業價值／營收、股價淨值比（獲利健全）｜重建折現現金流模型（商業模式未變）。<br><br>
+    <b>三道檢查：</b><br>
+    ① <b>循環位置</b>——峰谷 4.1 倍，是循環股。目前在谷後修復初段，<b>FY27 分母本身就是一個修復假設</b>，倍數要配合循環位置讀。<br>
+    ② <b>盈餘轉現金比率 b</b>——FY21–25 自由現金流品質受投資週期壓縮（FY25 名目自由現金流為負、調整後 18 億歐元），b 在 0.6–0.9 之間波動。這一項只是勉強過關，是四檔用 PE 的標的裡 b 最不穩的一檔。<br>
+    ③ <b>商業模式轉折</b>——無需重建。<br><br>
+    <b>反推：</b>現價 €55.90 ÷ FY27 共識 €2.78 = 20.1×；賣方平均 €85.09 = 30.6×、中位 €90 = 32.4×。<br>
+    <b>可證偽的宣稱：</b>這個價格隱含 FY27 修復兌現一半、AI 上修不算數。要往上緣走，需要 <b>11 月法說把 FY27 &gt;€25 億的口徑再往上推，且車用不被中國價格戰打斷</b>。<br><br>
+    <b>倍數歸因：</b>對照 8/14 的 €61.73（22.2×），倍數壓到 20.1×，價格 −9.5%、分母未動、公司零消息。<b>歸因：r。</b>而 20.1× 在自身五年錨點（約 20×）的中位，代表市場對這家公司的「看法」其實沒變，變的是全市場的貼現條件。<br><br>
+    <b>失效條件：</b>①11 月法說沒有出現 AI 口徑的實質上修（FY26 年報同場）②車用部門連兩季年增仍為負，或中國車用價格戰擴大 ③FY27 &gt;€25 億口徑下修、或客戶產能預訂縮水。
+  </div>
+
+  <h3>股癌八規則判定</h3>
+  <div class="scroll"><table>
+    <tr><th style="width:20%">規則</th><th style="width:14%">判定</th><th>依據</th></tr>
+    <tr><td>四、分母循環</td><td class="hi"><b>是</b>→反讀</td><td>分母峰谷 4.1 倍（價格峰谷倍率資料不足）。20.1× 看起來便宜，但它是「修復年分母」除出來的；分母沒修復完，倍數就不是真的低</td></tr>
+    <tr><td>二、橫向比較</td><td>通過</td><td>七檔第 2 低。同類外部可比：NXP 13.5×、STMicro 24.7×、Texas Instruments 27.6×、Renesas 20.9×（2027 年）</td></tr>
+    <tr><td>三、縱向比較</td><td class="hi">適用</td><td>規則四判定為循環，縱向恢復效力。對齊到「谷後修復初段」（2020–21 的位置），不是拿整段歷史平均</td></tr>
+    <tr><td>五、倍數位置</td><td>中位／非追價</td><td>錨點五年均約 20×，現 20.1× ≈ 中位。共識 8/5 財報後上修在前、價格其後下跌——共識先動、價格反向，屬非追價</td></tr>
+    <tr><td>六、重新歸類</td><td>進行中（往上）</td><td>報告標籤出現「AI 電源」✓、法說提問轉向 AI ✓、指數與主題基金納入 資料不足。反向警語：類別回落比財報快</td></tr>
+    <tr><td>七、優勢來源</td><td class="hi">基準數字</td><td>共識認為 FY27 每股盈餘 €2.78；你認為公司口徑會把它推高；差異來源是 11 月的上修預告。<b>失效日：11 月法說</b></td></tr>
+    <tr><td>八、資金條件</td><td>不成立</td><td>族群層共用，見 2.7</td></tr>
+    <tr><td>一、改寫成區間</td><td>13.5×–32.4×</td><td>見下表</td></tr>
+  </table></div>
+
+  <h3>情境倍數區間（倍數 × FY27 共識 €2.78）</h3>
+  <div class="scroll"><table class="pt">
+    <tr><th></th><th>下緣 13.5×</th><th>現價 20.1×</th><th>上緣 32.4×</th></tr>
+    <tr><td>倍數依據</td><td>對齊 NXP 未來十二個月 13.5×</td><td>市場現在付的價，等於自身五年錨點中位</td><td>賣方目標中位 €90 隱含</td></tr>
+    <tr><td>目標價</td><td class="num hi">€37.5</td><td class="num">€55.9</td><td class="num hi">€90.1</td></tr>
+    <tr><td>對現價</td><td class="num dn">−32.9%</td><td class="num">0%</td><td class="num up">+61.1%</td></tr>
+    <tr><td>成立條件</td><td>中國價格戰兌現、FY27 修復失速：車用連兩季年增為負（11 月＋2027/2 法說）</td><td>—</td><td>11 月法說 AI 口徑實質上修，且循環修復續行</td></tr>
+  </table></div>
+  <p class="note">驗算：13.5×2.78=37.5；20.1×2.78=55.9；32.4×2.78=90.1。上緣與現價差 61%，是七檔裡賣方與市價分歧最大的一檔——這正是你 +30pp 的鏡像：賣方跟你站同一邊，現價跟你作對。</p>
+
+  <h3>觀察點追蹤</h3>
+  <div class="scroll"><table>
+    <tr><th>賭注</th><th>證實它</th><th>推翻它</th><th>時點</th></tr>
+    <tr><td>AI 電源線倍增（47.6）</td><td>11 月法說 AI 口徑實質上修，且 AI 佔比軌跡向上（同時裁決你的 38% 衝突節）</td><td>FY27 &gt;€25 億口徑下修，或客戶預訂縮水</td><td><b>2026/11 法說（FY26 年報）</b></td></tr>
+    <tr><td>循環接棒（10.0）</td><td>車用連兩季年增為正、Q4 部門利潤率 23% 兌現</td><td>車用再轉負、中國車用價格戰擴大</td><td>11 月＋2027/2 法說</td></tr>
+    <tr><td>中國替代（9.0）</td><td>FY27 部門利潤率 24.8% 共識被下修</td><td>部門利潤率逐季往 24.8% 走</td><td>逐季法說</td></tr>
+    <tr><td>重資本低回報（7.0）</td><td>AI 放量伴隨毛利率下滑</td><td>投入資本報酬率隨稼動率回升</td><td>11 月年報</td></tr>
+  </table></div>
+</div>
+<div class="slide" id="lite">
+  <div class="kick">肆之四</div>
+  <div class="ticker" style="border-color:var(--lite)">
+    <span class="nm">光寶科</span><span class="sub">2301・台灣證交所</span>
+    <span class="px">NT$267.00</span>
+    <span class="tilt" style="color:var(--lite)">+26.8</span>
+  </div>
+  <p class="sub" style="margin-top:10px">以電源管理為核心的電子零組件廠。雲端與物聯網部門（伺服器電源、電池備援模組、機櫃電源方案）2Q26 佔營收 55%，其餘為光電與資訊消費電子。台達之外唯一同時做到 800V 電源櫃系統級出貨與電池備援模組規模營收的台廠。</p>
+
+  <div class="stat">
+    <div><b>22.1×</b><span>現價 ÷ 2027 共識 12.06 元</span></div>
+    <div><b>−6.8%</b><span>距三個月高點 286.50。這個高點是 <b>8/17 盤中</b>創的，七檔裡唯一</span></div>
+    <div><b>0.0%</b><span>8/17→8/20 累計。族群中位數 −7.4%</span></div>
+    <div><b>20–25%</b><span>電池備援模組佔雲端部門營收（法說口徑，金額未單獨揭露）</span></div>
+  </div>
+
+  <h3>你的採信度盤（2026-08-17 親評，未改動）</h3>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>方向</th><th>賭注</th><th class="c">L×F×I</th><th class="r">權重</th><th class="r">與市場的差距</th></tr>
+    <tr><td>1</td><td><span class="chip long">多</span></td><td>電池備援模組由選配走向標配、雲端全年營收年增超過 70%，「每家主要雲端業者長期營收 10 億美元」目標可信</td><td class="c num">80×75×65</td><td class="r num hi">39.0</td><td class="r num">無法計算</td></tr>
+    <tr><td>2</td><td><span class="chip short">空</span></td><td>台達電以更完整系統方案壓縮光寶 800V 份額與價格，AI 增量獲利不如市場想像</td><td class="c num">74×35×90</td><td class="r num hi">23.3</td><td class="r num">−5pp</td></tr>
+    <tr><td>3</td><td><span class="chip long">多</span></td><td>800V 電源櫃 8 月送樣 → 11 月小量產 → 2027Q1 規模量產如期</td><td class="c num">75×80×25</td><td class="r num">15.0</td><td class="r num hi">+15pp</td></tr>
+    <tr><td>4</td><td><span class="chip short">空</span></td><td>資本支出翻 2.6 倍引發折舊侵蝕、全年 25% 毛利率目標失守</td><td class="c num">35×15×75</td><td class="r num">3.9</td><td class="r num">−5pp</td></tr>
+  </table></div>
+  <p class="note">多方 54.0、空方 27.2、淨傾向 +26.8。與查證資料的衝突：無。</p>
+
+  <div class="box hl">
+    <b>讀法：</b>七張盤裡唯一多空同桌的一張。你最重的多方注（電池備援模組，39.0）又是無法定價的那一種，而你放了全場第二重的空方注在台達競爭上（23.3，可發生度 74 代表你認為因果鏈大致成立、只是短期未必發生）。
+    時程那注你比市場多信 15 個百分點，是二十八注裡第二大的正分歧。
+  </div>
+
+  <h3>查證重點（8/20 更新）</h3>
+  <ul>
+    <li><b>時程為公司原話：</b>8 月送樣（13 週測試）→ 11 月小量產 → 2027Q1 規模量產；現為 1 家大型雲端業者設計出貨、新增 2 家接洽（7/31 法說）。公司同場自留但書：2027 實際需求與營收貢獻「尚未完全明朗」。</li>
+    <li><b>新增（經濟日報 8/16）：</b>輝達官網更新 800VDC 藍圖後的台廠對照——光寶 8 月送交樣機、最快 11 月量產、明年首季較大規模放量，<b>並與 Wolfspeed 建立戰略夥伴關係</b>——一手出處是 Wolfspeed 8/6 新聞稿〈Wolfspeed and LITEON announce strategic partnership to enable 800 VDC power solutions〉。這是 8/17 報告沒有的一條。</li>
+    <li><b>新增（7/14，窗口外但與電池備援模組直接相關）：</b>斥資 9.19 億美元在美國德州 McKinney 設廠，面積逾 65 萬平方英尺，<b>主打電池備援模組</b>，預計逾 600 個職缺。你的頭號賭注多了一個實體投資的佐證。</li>
+    <li><b>2Q26 三率三升創高：</b>營收 527 億（+30.4%）、毛利率 27.2%、營益率 15.6%、每股盈餘 3.14 元；上半年 4.80 元（+66%）。全年指引：AI 相關佔營收 &gt;30%、雲端年增 &gt;70%、毛利率目標約 25%、資本支出上修至 180 億。</li>
+    <li><b>電池備援模組佔雲端營收 20–25% 為法說口徑，金額未單獨揭露</b>——你頭號賭注目前沒有逐季對帳的窗口。這是事實，不是評語。</li>
+    <li><b>賣方分歧極大：</b>目標價中位 250 元（8/3，11 位分析師）<b>低於現價</b>；平均 281 元（區間 176–370）。凱基 275（每股盈餘估 8.87／13.08／18.31）、統一 240、大摩 170（5/9）。</li>
+    <li><b>8/17–8/20 無個別公司消息。</b>8/18 在族群齊跌時逆勢 +3.80%，8/19 平盤，8/20 −2.38% 屬回吐。</li>
+  </ul>
+
+  <h3>估值判定書</h3>
+  <div class="box">
+    <b>選定方法：</b>Forward PE。<br>
+    <b>排除：</b>重建折現現金流模型（800V 電源櫃是新產品線、仍同一商業模式；若 2027 系統級營收佔比站上兩成再重估）｜企業價值／稅息折舊攤銷前獲利（資本支出擴至 2025 年的 2.6 倍，擴產期折舊是真成本）｜企業價值／營收、股價淨值比（獲利健全）。<br><br>
+    <b>三道檢查：</b><br>
+    ① <b>循環位置</b>——每股盈餘 2018–25 為 3.42／4.03／4.31／6.01／6.19／6.36／5.21／6.64，2024 回檔 18% 屬弱循環、無腰斬級擺盪。2025 起的加速全來自雲端一條腿。<br>
+    ② <b>盈餘轉現金比率 b</b>——2025 年自由現金流（197−68.5＝128.5 億）÷ 淨利 151 億 ≈ 0.85；上半年資本支出 66.7 億已接近 2025 全年，b 進入受壓期。2021–24 資本支出細項在免費來源鎖住，資料缺口如實記。<br>
+    ③ <b>商業模式轉折</b>——無需重建。<br><br>
+    <b>反推：</b>現價 267 ÷ 2026 共識 8.80 = 30.3×；÷ 2027 共識 12.06 = 22.1×。<b>現價已高於賣方目標中位 250（隱含 20.7×）。</b><br>
+    <b>可證偽的宣稱：</b>這個價格隱含 2027 每股盈餘 +37% 兌現且雲端年增不失速。靠山是 <b>11 月小量產</b>與 <b>2027Q1 規模量產</b>兩個三到八個月內就會開獎的時點。<br><br>
+    <b>倍數歸因：</b>8/17→8/20 倍數完全沒動（價格 267 → 267）。在族群中位數 −7.4% 的四天裡倍數零壓縮，代表這個價位有買方持續承接。<b>依規則五，這是「還剩多少買方」的刻度，不是買賣理由。</b><br><br>
+    <b>失效條件：</b>①11 月小量產跳票（11–12 月營收與公司公告）②毛利率連兩季低於 25%（3Q26、4Q26 財報）③唯一那家大型雲端業者的訂單被台達奪走（法說或供應鏈證實，隨時）。
+  </div>
+
+  <h3>股癌八規則判定</h3>
+  <div class="scroll"><table>
+    <tr><th style="width:20%">規則</th><th style="width:14%">判定</th><th>依據</th></tr>
+    <tr><td>四、分母循環</td><td><b>否</b>→正讀</td><td>八年每股盈餘序列最深回檔 18%，無腰斬級擺盪</td></tr>
+    <tr><td>二、橫向比較</td><td>通過</td><td>七檔第 3 低（22.1×）。次年度基準對台達電折價 17%；用本年度基準，折價由 8/17 的 37% 收斂到 28%</td></tr>
+    <tr><td>三、縱向比較</td><td>資料不足</td><td>完整 forward 倍數歷史序列查無</td></tr>
+    <tr><td>五、倍數位置</td><td class="hi">價格在高檔／共識非追價</td><td>七檔裡唯一距三個月高點只有 6.8% 的一檔，且該高點是 8/17 剛創的。法說 7/31 → 共識 8/3 上修 → 價格 8/3–8/4 連兩根漲停：共識先動、價格跟上，非追價</td></tr>
+    <tr><td>六、重新歸類</td><td>進行中（往上）</td><td>由「電子零組件廠」往「AI 電源與電池備援供應商」。代理：報告標籤 ✓、法說提問組成 ✓、指數與主題基金納入 資料不足</td></tr>
+    <tr><td>七、優勢來源</td><td class="hi">基準數字（第三注）</td><td>頭號注（電池備援標配化）市場隱含採信度無法計算，<b>指不出來</b>。第三注可以指：共識沒把 11 月小量產與 2027Q1 放量完整計入，你多信 15pp。<b>失效日：11–12 月營收</b></td></tr>
+    <tr><td>八、資金條件</td><td>族群不成立／個股相對強</td><td>族群層不成立。但這一檔四天累計 0.0%、8/18 逆勢上漲，資金行為與族群背離。依規則八，個股層的相對強勢不能推翻族群層的判定，只能記錄</td></tr>
+    <tr><td>一、改寫成區間</td><td>14.6×–30.7×</td><td>見下表</td></tr>
+  </table></div>
+
+  <h3>情境倍數區間（倍數 × 2027 共識 12.06）</h3>
+  <div class="scroll"><table class="pt">
+    <tr><th></th><th>下緣 14.6×</th><th>賣方中位 20.7×</th><th>現價 22.1×</th><th>上緣 30.7×</th></tr>
+    <tr><td>倍數依據</td><td>7/29 波段低 176.5 的定價</td><td>目標中位 250 隱含</td><td>市場現在付的價</td><td>最樂觀賣方 370 隱含</td></tr>
+    <tr><td>目標價</td><td class="num hi">176</td><td class="num">250</td><td class="num">267</td><td class="num hi">370</td></tr>
+    <tr><td>對現價</td><td class="num dn">−34.1%</td><td class="num dn">−6.4%</td><td class="num">0%</td><td class="num up">+38.7%</td></tr>
+    <tr><td>成立條件</td><td>11 月小量產跳票，且台達搶走那家雲端業者</td><td>時程如期但 2027 貢獻低於公司口徑</td><td>—</td><td>2027Q1 規模量產如期＋電池備援首次被單獨量化揭露</td></tr>
+  </table></div>
+  <p class="note">驗算：14.6×12.06=176.1；20.7×12.06=249.6；22.1×12.06=266.5；30.7×12.06=370.2。<b>賣方中位在現價之下，是七檔裡唯一一檔——市場價格跑在賣方前面。</b></p>
+
+  <h3>觀察點追蹤</h3>
+  <div class="scroll"><table>
+    <tr><th>賭注</th><th>證實它</th><th>推翻它</th><th>時點</th></tr>
+    <tr><td>電池備援標配化（39.0）</td><td>法說首次單獨揭露該產品金額且季增</td><td>佔比口徑下修，或標配化被大客戶規格排除</td><td>10 月底 3Q 法說起逐季</td></tr>
+    <tr><td>台達競爭（23.3）</td><td>台達奪其雲端客戶訂單，或 800V 櫃報價戰</td><td>光寶新增第 2 家雲端業者落地</td><td>隨時，法說追認</td></tr>
+    <tr><td>時程如期（15.0）</td><td>11 月小量產公告、12 月營收現形</td><td>小量產延期公告</td><td>2026/11–12</td></tr>
+    <tr><td>折舊侵蝕（3.9）</td><td>3Q26 毛利率跌破 25%</td><td>連兩季站穩 25% 以上</td><td>10 月底、2027/2</td></tr>
+  </table></div>
+</div>
+<div class="slide" id="delta">
+  <div class="kick">肆之五</div>
+  <div class="ticker" style="border-color:var(--delta)">
+    <span class="nm">台達電</span><span class="sub">2308・台灣證交所</span>
+    <span class="px">NT$1,745</span>
+    <span class="tilt" style="color:var(--delta)">+8.6</span>
+  </div>
+  <p class="sub" style="margin-top:10px">電源與散熱的全鏈玩家：伺服器電源、電力櫃、液冷、電池備援、固態變壓器到微電網。NVIDIA 800VDC 生態系裡產品線最完整的公司。電源及零組件佔 7 月營收 57%，液冷佔營收超過 12%。</p>
+
+  <div class="stat">
+    <div><b>26.8×</b><span>現價 ÷ 2027 共識 65.02 元。8/17 時是 32.0×（當時分母 59.00）</span></div>
+    <div><b>−32.5%</b><span>距三個月高點 2,585（5/27）</span></div>
+    <div><b>+47.75%</b><span>7 月營收 670.7 億年增，創新高；前七月 +42.1%</span></div>
+    <div><b>700 億</b><span>2026 資本支出上修後金額（2025：461 億），年化折舊約 440 億的 1.6 倍</span></div>
+  </div>
+
+  <h3>你的採信度盤（2026-08-17 親評，未改動）</h3>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>方向</th><th>賭注</th><th class="c">L×F×I</th><th class="r">權重</th><th class="r">與市場的差距</th></tr>
+    <tr><td>1</td><td><span class="chip long">多</span></td><td>800V 系統級產品 Q3 量產、2027 明顯放量且滲透率達兩成，單位價值量升約 5 倍</td><td class="c num">90×85×15</td><td class="r num hi">11.5</td><td class="r num">+3pp</td></tr>
+    <tr><td>2</td><td><span class="chip short">空</span></td><td>800V 放量遞延——2027 實際滲透率遠低於兩成口徑，2027 共識落空</td><td class="c num">80×10×85</td><td class="r num">6.8</td><td class="r num">−8pp</td></tr>
+    <tr><td>3</td><td><span class="chip long">多</span></td><td>AI 佔營收比重由 25% 續升向四成、雲端業者 2027 資本支出續增</td><td class="c num">80×75×10</td><td class="r num">6.0</td><td class="r num">−3pp</td></tr>
+    <tr><td>4</td><td><span class="chip short">空</span></td><td>傳統事業（電動車、自動化）持續虧損或疲弱，拖累獲利品質</td><td class="c num">60×70×5</td><td class="r num">2.1</td><td class="r num">無法計算</td></tr>
+  </table></div>
+  <p class="note">多方 17.5、空方 8.9、淨傾向 +8.6。七張盤裡權重總和最小的一張——四注加起來只有 26.4。</p>
+
+  <div class="box hl">
+    <b>讀法：</b>結構特殊——多方的事你認為大多會發生（90×85、80×75），但你把全部四注的影響幅度壓在 5–15。
+    翻成白話：<b>你認為台達電的好消息都是真的，也都已經是市場的預設。</b>所以這一章的主軸是兌現與定價的差距，不是會不會兌現。
+  </div>
+
+  <h3>查證重點（8/20 更新）</h3>
+  <ul>
+    <li><b>時程為董事長原話：</b>「400V、800V 產品第三季開始量產，第四季出貨量有限，明顯放量可能最快要到明年」；部分客戶專案因施工與缺料延後但需求未變（7/30 法說）。4Q25 法說已預告高壓直流的主要貢獻自 2027 起——公司口徑前後一致，市場對 2026 的期待本來就該低。</li>
+    <li><b>新增（7/23，8/17 報告未收）：</b>某美系外資（FTNN 報導指為花旗）把目標價由 2,480 元降至 2,280 元（−8%），下修今／明／後年每股盈餘至 35.9／57.2／90.3 元（降幅 7–11%），<b>三大理由之一明列「800V 高壓直流供電架構導入速度較預期緩慢」</b>，但維持買進評等。這是你第二注（放量遞延）在賣方端第一次被具體寫出來。</li>
+    <li><b>共識分母在動：</b>2027 共識每股盈餘由 5/2 的 59.00 元（FactSet 中位，23 位）上修到 8/20 的 65.02 元（MarketScreener，22 位）。兩個口徑並存，本報告以較新者為主、較舊者列在附錄。</li>
+    <li><b>外資供應鏈實查：</b>2027 滲透率約 20%、新一代 sidecar 整合電池備援與雙向直流轉直流（TechNews 7/23）；亞系外資估高壓直流市場 2026 年 7.5 億美元 → 2028 年 180 億美元。</li>
+    <li><b>800V 營收金額或佔比：公司未單獨揭露。</b>這一檔的 800V 兌現目前只能用整體 AI 佔比與月營收間接對帳。</li>
+    <li><b>AI 設備折舊年限 5 年縮至 3 年（2026/4 起）：</b>獲利品質的會計面利空、需求急迫的訊號面利多，兩面並存照列。</li>
+    <li><b>8/17–8/20 無個別公司消息。</b>最近一則為 8/12 重慶二期廠房公告，暫估工程總價約人民幣 5.46 億元。8/19 單日 −3.02%，台媒與台積電 −40 元、聯電 −4%、南亞科 −6% 並列在「油價 → 通膨 → 全球公債殖利率數十年新高」同一段落，無個股歸因。</li>
+  </ul>
+
+  <h3>估值判定書</h3>
+  <div class="box">
+    <b>選定方法：</b>Forward PE。<br>
+    <b>排除：</b>重建折現現金流模型（800V 是既有電源本業的量價升級，商業模式未變）｜企業價值／稅息折舊攤銷前獲利（資本支出 700 億約為年化折舊 440 億的 1.6 倍，擴產折舊是真成本，該指標會高估現金產生能力）｜企業價值／營收、股價淨值比（獲利健全）。<br><br>
+    <b>三道檢查：</b><br>
+    ① <b>循環位置</b>——每股盈餘 2018–25 為 7.00／8.90／9.81／10.32／12.58／12.86／13.56／23.14，連年成長、無腰斬翻倍擺盪，非典型循環股；但 2025 年 +71% 的跳升取樣在 AI 資本支出週期高段，前瞻共識比歷史數字可靠。<br>
+    ② <b>盈餘轉現金比率 b</b>——2021–25 自由現金流 ÷ 淨利約 0.07／0.64／1.11／0.92／0.75（投資現金流含併購，屬下限估計）。近三年 0.75–1.11 尚穩，2026 年起 700 億資本支出會再壓 b。<br>
+    ③ <b>商業模式轉折</b>——無需重建。<br><br>
+    <b>反推：</b>現價 1,745 ÷ 2027 共識 65.02 = 26.8×（若用 5/2 的舊共識 59.00 則為 29.6×）；÷ 2026 共識 41.11 = 42.4×。賣方目標中位 2,565 = 39.5× 2027 共識。<br>
+    <b>可證偽的宣稱：</b>這個價格隱含 2026 每股盈餘 +78%（23.14 → 41.11）與 2027 再 +58% 連兩年兌現，且屆時倍數守住 26.8×。產業前提是高壓直流市場照亞系口徑放大 24 倍。<br><br>
+    <b>倍數歸因（這一檔要拆兩層）：</b>8/17 的 32.0× 到 8/20 的 26.8×，其中——價格 −7.4% 貢獻 2.4× 的壓縮（歸因 r），共識分母由 59.00 上修到 65.02（+10.2%）貢獻 2.8× 的壓縮（歸因 g 上修，但價格沒有反映）。
+    <b>這四天裡台達電同時發生了「市場更看好它的 2027 盈餘」與「市場付更少的錢」兩件事。</b>兩件事的來源不同：前者是公司，後者是全市場的貼現條件。<br><br>
+    <b>失效條件：</b>①2027/1 法說未確認 800V 放量或下修口徑 ②任一大型雲端業者下修 2027 資本支出指引（2026/10–2027/2 財報季）③AI 佔比連兩季停在 25% 不再上行（逐季法說）。
+  </div>
+
+  <h3>股癌八規則判定</h3>
+  <div class="scroll"><table>
+    <tr><th style="width:20%">規則</th><th style="width:14%">判定</th><th>依據</th></tr>
+    <tr><td>四、分母循環</td><td><b>否</b>→正讀</td><td>八年每股盈餘連年成長；但 2025 +71% 是 AI 高段取樣，前瞻共識優於歷史</td></tr>
+    <tr><td>二、橫向比較</td><td>通過</td><td>七檔第 4（26.8×）。溢價來源：產品線最全，從櫃內電源到設施級固態變壓器都有</td></tr>
+    <tr><td>三、縱向比較</td><td>資料不足</td><td>完整 forward 倍數歷史序列查無</td></tr>
+    <tr><td>五、倍數位置</td><td class="hi">價格與共識背離</td><td>價格 5/27 見高 2,585 後一路走低到 1,745（−32.5%），期間共識 2027 每股盈餘由 59.00 上修到 65.02。<b>共識往上、價格往下</b>——這種背離代表市場不相信共識，或市場在對貼現條件反應。兩者要靠 2027/1 法說才裁得出來</td></tr>
+    <tr><td>六、重新歸類</td><td>無</td><td>早已被歸在 AI 電源類別，沒有新的階躍空間；反向風險是被歸回「電源代工」</td></tr>
+    <tr><td>七、優勢來源</td><td class="hi">指不出來</td><td>頭號注 Δ+3pp、第三注 Δ−3pp，都貼共識。第二注（遞延）Δ−8pp 是你比市場更不擔心遞延——那是負分歧，不是優勢</td></tr>
+    <tr><td>八、資金條件</td><td>不成立</td><td>族群層共用。個股層加註：8/20 盤中 1,705 為五日新低</td></tr>
+    <tr><td>一、改寫成區間</td><td>21.9×–39.5×</td><td>見下表</td></tr>
+  </table></div>
+
+  <h3>情境倍數區間（倍數 × 2027 共識 65.02）</h3>
+  <div class="scroll"><table class="pt">
+    <tr><th></th><th>下緣 21.9×</th><th>現價 26.8×</th><th>上緣 39.5×</th></tr>
+    <tr><td>倍數依據</td><td>7/29 波段低 1,425 的定價</td><td>市場現在付的價</td><td>賣方目標中位 2,565 隱含</td></tr>
+    <tr><td>目標價</td><td class="num hi">1,424</td><td class="num">1,743</td><td class="num hi">2,568</td></tr>
+    <tr><td>對現價</td><td class="num dn">−18.4%</td><td class="num">0%</td><td class="num up">+47.2%</td></tr>
+    <tr><td>成立條件</td><td>800V 放量遞延兌現：2027/1 法說口徑再往後推（7/23 那份外資報告的版本成真）</td><td>—</td><td>2027/1 法說給出明確放量指引＋AI 佔比續升</td></tr>
+  </table></div>
+  <p class="note">驗算：21.9×65.02=1,423.9；26.8×65.02=1,742.5；39.5×65.02=2,568.3。若改用 5/2 舊共識 59.00，三格分別為 1,292／1,582／2,331，方向不變、幅度收窄。</p>
+
+  <h3>觀察點追蹤</h3>
+  <div class="scroll"><table>
+    <tr><th>賭注</th><th>證實它</th><th>推翻它</th><th>時點</th></tr>
+    <tr><td>800V 如期（11.5）</td><td>Q4 出貨口徑成立、2027/1 法說給放量指引</td><td>Q4 零出貨，或 2027 口徑再往後推</td><td>11 月營收、2027/1 法說</td></tr>
+    <tr><td>遞延（6.8）</td><td>更多賣方跟進 7/23 那份的理由</td><td>外資供應鏈實查維持 20% 且出貨兌現</td><td>2027 逐季</td></tr>
+    <tr><td>AI 佔比上行（6.0）</td><td>法說口徑由 25% 走向 30% 以上</td><td>佔比停滯，或任一雲端業者下修資本支出</td><td>逐季法說＋美股財報季</td></tr>
+    <tr><td>傳統拖累（2.1）</td><td>電動車與自動化虧損擴大</td><td>自動化回到損平以上</td><td>逐季法說</td></tr>
+  </table></div>
+</div>
+<div class="slide" id="nvts">
+  <div class="kick">肆之六</div>
+  <div class="ticker" style="border-color:var(--nv)">
+    <span class="nm">Navitas</span><span class="sub">NVTS・NASDAQ</span>
+    <span class="px">$12.955</span>
+    <span class="tilt" style="color:var(--nv)">+0.4</span>
+  </div>
+  <p class="sub" style="margin-top:10px">GaN 與 SiC 元件。原本做消費快充，2025 年營收腰斬後把成長敘述整個換成 AI 資料中心與電網。在 800V 架構裡對應的是 sidecar 匯流排這個全新插槽。</p>
+
+  <div class="stat">
+    <div><b>38.1×</b><span>企業價值 28.30 億 ÷ FY27 共識營收 7,425 萬美元</span></div>
+    <div><b>−62.1%</b><span>距三個月高點 34.17（6/3）。七檔跌最深</span></div>
+    <div><b>0.3%</b><span>賣方目標中位 13.00 對現價。市場價格與賣方中位幾乎相同</span></div>
+    <div><b>0 筆</b><span>8/14–8/20 公司自身的美國證管會申報。零增發、零內部人交易</span></div>
+  </div>
+
+  <h3>你的採信度盤（2026-08-20 親評，未改動）</h3>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>方向</th><th>賭注</th><th class="c">L×F×I</th><th class="r">權重</th><th class="r">與市場的差距</th></tr>
+    <tr><td>1</td><td><span class="chip short">空</span></td><td>稀釋機器：市價發行額度剩 2.44 億美元，加上內部人大額出脫，營收兌現前股數先漲</td><td class="c num">56×65×44</td><td class="r num hi">16.0</td><td class="r num">+5pp</td></tr>
+    <tr><td>2</td><td><span class="chip long">多</span></td><td>重新歸類完成：從消費快充公司變成 AI 電力公司，倍數階躍後不回頭</td><td class="c num">75×85×19</td><td class="r num">12.1</td><td class="r num">+3pp</td></tr>
+    <tr><td>3</td><td><span class="chip long">多</span></td><td>800V 放量時程兌現：sidecar 匯流排 2027 年中量產爬坡、Kyber 2027 分步 2028 加速，AI 基建 4Q26 佔營收超過三分之一</td><td class="c num">85×80×15</td><td class="r num">10.2</td><td class="r num">−8pp</td></tr>
+    <tr><td>4</td><td><span class="chip short">空</span></td><td>放量算術落空：2027 實際出貨的 GW 數遠低於撐估值所需</td><td class="c num">25×25×95</td><td class="r num">5.9</td><td class="r num">−15pp</td></tr>
+  </table></div>
+  <p class="note">多方 22.3、空方 21.9、淨傾向 +0.4。與查證資料的衝突：無。</p>
+
+  <div class="box hl">
+    <b>讀法：</b>兩個多方注都是高邏輯、高可發生、低影響——會發生，也都付完了。最重的注落在稀釋。還有一個少見的負分歧：放量落空那注你比市場少信 15 個百分點，
+    你比市場更不擔心崩盤劇本，只是也不覺得有肉。<b>淨傾向 +0.4 的意思就是這檔在你的框架裡沒有可辨識的邊。</b>
+  </div>
+
+  <h3>查證重點（8/20 更新）</h3>
+  <ul>
+    <li><b>年度營收序列 2020–25：</b>11.8 → 23.7 → 37.9 → 79.5 → 83.3 → 45.9（百萬美元）。2025 腰斬級回落（消費快充退坡）。2Q26 營收 1,050 萬（季增 22%）、高功率市場年增 50% 以上、非一般公認會計原則毛利率 39.5%；Q3 指引 1,350 萬 ±50 萬。</li>
+    <li><b>新增：</b>8/14–8/20 <b>Navitas 本身零申報</b>——無 S-3、無 424B5、無 Form 4。這個窗口對你的頭號空方注（稀釋）既不證實也不推翻。最近一次內部人賣出為 5/27–5/28。</li>
+    <li><b>新增：</b>8/10 對 Renesas 提起專利侵權訴訟；8/13 公告出席 Rosenblatt（8/18）、Jefferies（8/25）、Deutsche Bank（8/27）三場投資人會議。</li>
+    <li><b>NVIDIA 8/12 量產說明點名 ABB、Eaton、Schneider、Vertiv，未點名 Navitas。</b>8/17–8/20 也查無任何新的名單消息。</li>
+    <li><b>設計案零金額化；FY27 每股盈餘連免費共識都查不到</b>——能見度斷層是可查證的事實。FY27 只有營收共識 7,425 萬美元。</li>
+    <li><b>資產負債表（2026/6/30）與季報封面：</b>現金及約當現金 5.5741 億美元（帳上沒有獨立的短期投資科目，其中 4.886 億為貨幣市場基金）、總負債 514 萬美元；流通在外 2.6109 億股為季報封面所載的 <b>7/24</b> 股數。企業價值 28.30 億美元＝12.955×2.6109 億 − 5.5741 億 + 514 萬。</li>
+  </ul>
+
+  <h3>估值判定書</h3>
+  <div class="box">
+    <b>選定方法：</b>企業價值／營收。決策樹分支：盈餘為負、營收在放大滲透率。<br>
+    <b>排除：</b>PE 尺（虧損，FY26 每股盈餘共識 −0.15 美元）｜企業價值／稅息折舊攤銷前獲利（同樣為負）｜股價淨值比（價值錨不在資產）｜折現現金流（未來現金流今天無法合理預測）。<br>
+    <b>規則要求附終局自由現金流率：</b>本判定用類比錨——Power Integrations 型功率積體電路公司的終局自由現金流率約 20–25%。<b>這是延伸假設，不是公司揭露，也不是共識。</b><br><br>
+    <b>反推：</b>現價隱含企業價值 ÷ FY27 共識營收 = 38.1×（用 FY26 共識則是 59.3×）。<br>
+    算術對照：現價的企業價值 28.30 億美元，若要對應功率積體電路同業約 10 倍的企業價值／營收，需要營收 2.83 億美元，是 FY26 共識 4,769 萬的 5.9 倍；以每 MW 5 萬美元的 sidecar 產值換算，約需 5.7GW 出貨（9 Ventures 4/18 的算法）。<br>
+    <b>可證偽的宣稱：</b>這個價格要成立，需要 <b>2027 年中 sidecar 量產爬坡被具名證實</b>，加上 <b>AI 基建 4Q26 佔營收超過三分之一兌現</b>（2027/2 財報揭曉）。<br><br>
+    <b>倍數歸因：</b>四天 −10.4%，公司零消息。<b>歸因：r。</b>但這一檔要加一句——沒有盈餘地板的標的，r 上升時跌得比有盈餘的深，這是結構性的，不是這一次特別。<br><br>
+    <b>本框架的適用邊界警語：</b>估值恆等式要求基準數字與未來現金流有穩定關係。Navitas 的基準數字（營收）與現金流的關係正在被重新定義（快充 → AI），
+    因此<b>歷史序列不能用來判斷循環位置，規則四在這裡是打折的</b>。這一條要跟著輸出，不能省略。<br><br>
+    <b>失效條件：</b>①市價發行額度續用或內部人恢復賣出（每季季報與 Form 4）②4Q26 AI 基建佔營收未達三分之一（2027/2 財報）③2027 年中 sidecar 量產爬坡延後。
+  </div>
+
+  <h3>股癌八規則判定</h3>
+  <div class="scroll"><table>
+    <tr><th style="width:20%">規則</th><th style="width:14%">判定</th><th>依據</th></tr>
+    <tr><td>四、分母循環</td><td class="hi">是，但打折</td><td>營收 2025 腰斬後重建；且基準數字與現金流的關係正在被重新定義——歷史序列的參考性下降，這是框架適用邊界，不是判定結果</td></tr>
+    <tr><td>二、橫向比較</td><td>資料不足</td><td>七檔中唯一用營收倍數的一檔，同口徑可比不足。8/20 備料記載的 Power Integrations 6.7×、Innoscience 48× 未在本次重查，僅供背景</td></tr>
+    <tr><td>三、縱向比較</td><td>不適用</td><td>定價環境已被重新定義</td></tr>
+    <tr><td>五、倍數位置</td><td class="hi">最上緣／共識在追價</td><td>股價營收比歷史分布 4.78–62，現在貼最上緣。價格 6/3 見頂在前、共識 8/3 上修在後——<b>價格先動、共識後補，共識的資訊含量下降</b>（追價判準為延伸推論）</td></tr>
+    <tr><td>六、重新歸類</td><td class="hi">已階躍（往上）</td><td>標籤 ✓、法說提問 ✓、指數納入 資料不足。<b>反向警語：類別回落比財報快。</b>一則「名單缺席」等級的訊息就足以觸發</td></tr>
+    <tr><td>七、優勢來源</td><td class="hi">指不出來</td><td>兩邊都貼市場或在市場定價內。照規矩寫指不出來</td></tr>
+    <tr><td>八、資金條件</td><td>不成立</td><td>族群層共用</td></tr>
+    <tr><td>一、改寫成區間</td><td>企業價值／營收 20.7×–66.4×</td><td>見下表</td></tr>
+  </table></div>
+
+  <h3>檔位表（企業價值／營收 × FY27 共識營收 7,425 萬美元）</h3>
+  <div class="scroll"><table class="pt">
+    <tr><th></th><th>20.7×</th><th>38.1×（現價）</th><th>42.1×</th><th>66.4×</th></tr>
+    <tr><td>倍數依據</td><td>賣方最低目標 $8 隱含</td><td>賣方中位 $13 隱含 38.3×，與現價幾乎重合</td><td>賣方平均 $14.08 隱含</td><td>賣方最高目標 $21 隱含</td></tr>
+    <tr><td>隱含股價</td><td class="num hi">$8.00</td><td class="num">$12.95</td><td class="num">$14.08</td><td class="num hi">$21.00</td></tr>
+    <tr><td>對現價</td><td class="num dn">−38.2%</td><td class="num">0%</td><td class="num up">+8.7%</td><td class="num up">+62.1%</td></tr>
+    <tr><td>成立條件</td><td>放量算術落空：4Q26 AI 基建佔比未達三分之一</td><td>—</td><td>—</td><td>2027 年中量產爬坡具名證實＋設計案首次金額化</td></tr>
+  </table></div>
+  <p class="note">驗算（股價＝（倍數×74.25M＋現金 557.41M − 負債 5.14M）÷ 2.6109 億股）：20.7× → 8.00；38.1× → 12.95；66.4× → 21.00。目標價區間取自 stockanalysis（8 位分析師）；TipRanks 同期為 5 位、平均 14.90 美元、區間 12.60–21.00 美元，家數與數值都不同，用哪一組要標明。<b>現價與賣方中位幾乎相同，代表市場與賣方沒有分歧可以賺；這跟你淨傾向 +0.4、優勢來源指不出來，是同一件事的兩種說法。</b></p>
+
+  <h3>觀察點追蹤</h3>
+  <div class="scroll"><table>
+    <tr><th>賭注</th><th>證實它</th><th>推翻它</th><th>時點</th></tr>
+    <tr><td>稀釋（16.0）</td><td>市價發行續用、內部人恢復賣出</td><td>連兩季零增發＋內部人首見買進</td><td>每季季報＋Form 4</td></tr>
+    <tr><td>重新歸類（12.1）</td><td>被納入 AI 電力主題基金或指數</td><td>再一則「NVIDIA 名單缺席」等級的訊息</td><td>隨時</td></tr>
+    <tr><td>時程（10.2）</td><td>4Q26 AI 基建佔營收超過三分之一</td><td>佔比口徑下修，或量產爬坡延後</td><td>10 月底 Q3 財報起逐季，2027/2 揭曉</td></tr>
+    <tr><td>放量落空（5.9）</td><td>2027 出貨 GW 數明顯低於算術所需</td><td>設計案首次金額化</td><td>2027 逐季</td></tr>
+  </table></div>
+</div>
+<div class="slide" id="on">
+  <div class="kick">肆之七</div>
+  <div class="ticker" style="border-color:var(--on)">
+    <span class="nm">onsemi</span><span class="sub">ON・NASDAQ</span>
+    <span class="px">$74.73</span>
+    <span class="tilt" style="color:var(--on)">−6.0</span>
+  </div>
+  <p class="sub" style="margin-top:10px">功率與感測半導體。SiC、GaN、電源模組與配電板在 MGX／800V 全鏈都有位置，但 AI 資料中心只佔公司營收個位數百分比，主體仍是車用與工業。七張採信度盤裡唯一淨傾向為負的一檔。</p>
+
+  <div class="stat">
+    <div><b>16.5×</b><span>現價 ÷ FY27 共識 4.53 美元（非一般公認會計原則）。七檔最低</span></div>
+    <div><b>6.3 倍</b><span>每股盈餘峰谷倍率（0.85 → 5.33 → 2.35）＝標準循環股，倍數要反讀</span></div>
+    <div><b>三個月新低</b><span>8/20 盤中 74.50，跌破 8/5 的 76.54。族群中位數當天是 +0.77%</span></div>
+    <div><b>12%</b><span>Synaptics 換股後的股數稀釋。FY27 共識<b>未</b>反映</span></div>
+  </div>
+
+  <h3>你的採信度盤（2026-08-20 親評，未改動）</h3>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>方向</th><th>賭注</th><th class="c">L×F×I</th><th class="r">權重</th><th class="r">與市場的差距</th></tr>
+    <tr><td>1</td><td><span class="chip short">空</span></td><td>Synaptics 併購拖累：12% 稀釋，加上消費與手機定位不合，獲利貢獻要等 2028–29，中間兩年是整合風險</td><td class="c num">75×72×60</td><td class="r num hi">32.4</td><td class="r num hi">+12pp</td></tr>
+    <tr><td>2</td><td><span class="chip long">多</span></td><td>AI 資料中心線上修兌現：由「翻倍」改口「一倍以上」，SiC＋GaN＋電源／備援／配電板在 MGX／800V 全鏈卡位</td><td class="c num">60×55×65</td><td class="r num">21.4</td><td class="r num">+5pp</td></tr>
+    <tr><td>3</td><td><span class="chip long">多</span></td><td>循環谷底翻身：每股盈餘由 2025 谷底 2.35 走向 FY27 共識，稼動率 83% 回升＋Q3 毛利率指引跳升 40–42%</td><td class="c num">65×70×35</td><td class="r num">15.9</td><td class="r num">+3pp</td></tr>
+    <tr><td>4</td><td><span class="chip short">空</span></td><td>車用二次探底＋中國替代，谷底變 L 型</td><td class="c num">40×39×70</td><td class="r num">10.9</td><td class="r num">−1pp</td></tr>
+  </table></div>
+  <p class="note">多方 37.3、空方 43.3、淨傾向 −6.0。七張盤首見淨空。</p>
+
+  <div class="box ok">
+    <h4>你這一注的優勢宣稱，8/20 查證後站得住</h4>
+    你賭「FY27 共識未完整含稀釋」。沒有任何資料商明講這件事，但三條算術指向同一個結論（<b>這是推斷，不是引述</b>）：<br>
+    ① <b>股數反推</b>——FY27 淨利共識 16.43 億美元 ÷ 每股盈餘 4.226 美元（一般公認會計原則口徑）≈ 3.888 億股，與現行流通股數 3.893 億股幾乎相同；若含 12% 稀釋應在 4.4 億股以上。<br>
+    ② <b>營收也沒併入</b>——FY26 65.6 億 → FY27 74.0 億（+12.8%），沒有中途併入 Synaptics 半年營收該有的跳升。<br>
+    ③ <b>Synaptics 仍被 13 位分析師當獨立公司在估</b>（其 FY2027 營收共識 12.9 億、每股盈餘 5.28 美元）。<br><br>
+    <b>結論：你的優勢來源從「指不出來」升級成「基準數字向下，且推斷可複核」。</b>這是七檔裡唯一一個在這三天內被證據強化的優勢宣稱。
+  </div>
+
+  <h3>查證重點（8/20 更新）</h3>
+  <ul>
+    <li><b>Synaptics 進度：</b>8/12 美國聯邦交易委員會提前終止等待期，8/13 以 8-K 揭露。<b>但併購的 S-4 註冊書尚未申報，因此股東特別會日期並不存在</b>（8 月的 S-4 全文檢索含 Synaptics 為 0 筆）。公司維持 2027 年中交割。交易條件：全股票，1.350 股 onsemi 換 1 股 Synaptics，企業價值約 70 億美元，分手費 3.2 億，綜效目標 2 億。</li>
+    <li><b>8/19 有 6 位 Synaptics 內部人同日申報 Form 4</b>（交易日均為 8/17），另有 8/18–8/19 的 Form 144 兩筆。逐筆明細本次未開檔查證，列為資料缺口。</li>
+    <li><b>AI 上修的市場反應弱：</b>8/3 上修口徑、隔日只 +0.5%；8/5 美銀降目標（138 → 120）並把估值基準由 32× 2027 年改成 20× 2028 年——賣方自己在降倍數。</li>
+    <li><b>循環證據雙面：</b>稼動率 83% 回升、Q3 毛利率指引 40–42%；同時車用季減 2%，回升未確認。這正是你第 4 注只給可發生度 39 的位置。</li>
+    <li><b>2Q26：</b>營收 16.035 億（+9%）、非一般公認會計原則每股盈餘 0.74 美元、自由現金流 4.254 億、庫藏股 3.32 億。2025 年自由現金流 14.2 億創高、100% 用於回購。</li>
+    <li><b>onsemi 本身 8/14–8/20 零申報、零新聞稿。</b></li>
+  </ul>
+
+  <div class="box conflict">
+    <h4>8/20 出現一個新的、屬於這一檔自己的訊號</h4>
+    8/20 族群中位數 +0.77%，七檔有四檔上漲；onsemi <b>−2.42%</b>，與中位數差 3.19 個百分點（約 0.61 倍常態日波動），<b>同時創下三個月新低 74.50</b>。
+    <br><br>
+    第三層規則 3.6 的讀法：同族群同時下跌，訊息是族群性的；<b>單一標的在同族群無恙時下跌，訊息是標的特有的</b>——而標的特有的壞消息在價格上出現得比在公開資訊上早。
+    <br><br>
+    <b>但要說清楚：本次查證沒有找到對應的公開消息。</b>規則說的是「先出場再查原因」，不是「已經查到原因」。這裡只記錄訊號成立，不推測內容。
+    可留意的相關事實只有一條：8/19 那 6 筆 Synaptics 內部人申報。
+  </div>
+
+  <h3>估值判定書</h3>
+  <div class="box">
+    <b>選定方法：</b>Forward PE，循環修正。<b>循環規則優先：</b>峰谷 6.3 倍，分母是循環取樣點，<b>倍數高低要反著讀</b>——低倍數年（2022 的 8.6×）是循環頂、高倍數年是循環谷。<br>
+    <b>排除：</b>企業價值／稅息折舊攤銷前獲利（2023 資本支出曾達折舊 2.5 倍，折舊是真成本）｜企業價值／營收、股價淨值比（獲利為正且現金流健全）｜重建折現現金流模型（Synaptics 併購尚未交割，重建的分母本身不存在）。<br><br>
+    <b>三道檢查：</b><br>
+    ① <b>循環位置</b>——峰谷 6.3 倍，標準循環股，目前在谷後修復初段。FY26 口徑 23.4× 貼近自身 forward 歷史區間 8.6–24.8 的上緣，<b>這是谷底盈餘的正常長相</b>。<br>
+    ② <b>盈餘轉現金比率 b</b>——五年自由現金流對淨利品質可接受，2025 年自由現金流 14.2 億創高。過關。<br>
+    ③ <b>商業模式轉折</b>——併購案在途，但尚未交割且 S-4 未申報，暫不重建。<br><br>
+    <b>反推：</b>現價 74.73 ÷ FY27 共識 4.53 = 16.5×（一般公認會計原則口徑 4.226 則為 17.7×）；賣方目標中位 110 = 24.3×。<br>
+    <b>可證偽的宣稱：</b>這個價格隱含車用溫和修復＋AI 線半信。要往上，需要<b>車用連兩季年增為正</b>，加上 <b>AI 資料中心給出絕對金額口徑</b>。<b>你的空方版本要成立，需要合併後首份指引把 FY27 共識往下拉</b>——而現在已經確認共識是獨立公司口徑，所以這件事只是時間問題，不是有無問題。<br><br>
+    <b>倍數歸因：</b>四天 −9.6%、公司零消息，主體歸因 r；但 8/20 那一天的 −2.42% 是族群外的個股偏離，不能算到 r 頭上，歸因不明。<br><br>
+    <b>失效條件：</b>①Synaptics 交易終止或條款改善（提高現金比例）②車用連兩季年增轉正且中國價格戰未擴大 ③AI 資料中心首次揭露絕對金額且超過 5.5 億美元。
+  </div>
+
+  <h3>股癌八規則判定</h3>
+  <div class="scroll"><table>
+    <tr><th style="width:20%">規則</th><th style="width:14%">判定</th><th>依據</th></tr>
+    <tr><td>四、分母循環</td><td class="hi"><b>是</b>→反讀</td><td>分母峰谷 6.3 倍，大於價格峰谷（粗估 2–3 倍）。比率主要在反映循環位置，高低訊號要反過來讀</td></tr>
+    <tr><td>二、橫向比較</td><td>通過</td><td>七檔第 1 低（16.5×）。外部同類：NXP 13.5×、STMicro 24.7×、Renesas 20.9×（2027 年）</td></tr>
+    <tr><td>三、縱向比較</td><td>適用</td><td>規則四判定為循環，縱向恢復效力。對齊 2020 年的谷後段</td></tr>
+    <tr><td>五、倍數位置</td><td>上緣（反讀後正常）／無追價</td><td>forward 歷史 8.6–24.8，FY26 口徑 23.4× 貼上緣；2026Q2 曾見十年高 29.4×。美銀降目標＝共識與價格同向下，無追價</td></tr>
+    <tr><td>六、重新歸類</td><td>無</td><td>AI 佔比太小，撐不起歸類</td></tr>
+    <tr><td>七、優勢來源</td><td class="hi">基準數字向下（已強化）</td><td>共識 4.53 美元；你認為含稀釋後更低；差異來源＝併購條款與整合成本，且 8/20 已用股數反推確認共識未含稀釋。<b>失效日：S-4 申報並經股東會後、共識重算之時</b></td></tr>
+    <tr><td>八、資金條件</td><td>不成立</td><td>族群層共用。<b>個股層另加：8/20 出現族群外的獨立下殺（3.6 訊號成立）</b></td></tr>
+    <tr><td>一、改寫成區間</td><td>13.5×–24.3×</td><td>見下表</td></tr>
+  </table></div>
+
+  <h3>情境倍數區間（倍數 × FY27 共識 4.53，並列含稀釋版）</h3>
+  <div class="scroll"><table class="pt">
+    <tr><th></th><th>下緣 13.5×</th><th>現價 16.5×</th><th>上緣 24.3×</th></tr>
+    <tr><td>倍數依據</td><td>對齊 NXP 未來十二個月 13.5×</td><td>市場現在付的價</td><td>賣方目標中位 110 隱含</td></tr>
+    <tr><td>目標價（共識分母 4.53）</td><td class="num hi">$61.2</td><td class="num">$74.8</td><td class="num hi">$110.1</td></tr>
+    <tr><td>對現價</td><td class="num dn">−18.2%</td><td class="num">0%</td><td class="num up">+47.3%</td></tr>
+    <tr><td>含 12% 稀釋（分母 4.04）</td><td class="num hi">$54.6</td><td class="num">$66.7</td><td class="num hi">$98.3</td></tr>
+    <tr><td>對現價</td><td class="num dn">−26.9%</td><td class="num dn">−10.7%</td><td class="num up">+31.5%</td></tr>
+    <tr><td>成立條件</td><td>合併後首份指引含糊＋車用二次探底</td><td>—</td><td>車用連兩季年增為正＋AI 資料中心金額化</td></tr>
+  </table></div>
+  <p class="note">
+    含稀釋版的算法：4.53 ÷ 1.12 = 4.04，<b>假設 Synaptics 首年獲利貢獻為零</b>。這是簡化，因為 Synaptics 目前每股盈餘共識 5.28 美元、不是零；
+    公司自己講的是「完成後 18 個月內對非一般公認會計原則每股盈餘具增益」。所以含稀釋版是下限估計，實際會落在兩列之間。
+    <b>把這兩列並排的用意，是讓你在 S-4 申報、共識重算的那一天，可以直接對照當時的價格落在哪一格。</b>
+  </p>
+
+  <h3>觀察點追蹤</h3>
+  <div class="scroll"><table>
+    <tr><th>賭注</th><th>證實它</th><th>推翻它</th><th>時點</th></tr>
+    <tr><td>Synaptics 拖累（32.4）</td><td>S-4 申報後共識重算、股數上修；合併後首季指引含糊</td><td>交割前終止，或條款改善（提高現金比例）</td><td>S-4 申報（未定）→ 股東會 → 2027 年中交割</td></tr>
+    <tr><td>AI 線（21.4）</td><td>AI 資料中心絕對金額口徑首次揭露且超過 5.5 億美元</td><td>「一倍以上」口徑收回</td><td>10 月底 Q3 財報</td></tr>
+    <tr><td>循環翻身（15.9）</td><td>Q3 毛利率落在 40–42% 且車用季增轉正</td><td>毛利率低於指引下緣</td><td>10 月底 Q3 財報</td></tr>
+    <tr><td>車用二次探底（10.9）</td><td>車用連兩季年增為負</td><td>車用連兩季年增為正</td><td>10 月底、2027/2</td></tr>
+  </table></div>
+</div>
+<div class="slide" id="s5">
+  <span class="rn">伍</span>
+  <h2>執行層與心法層：規則還原，不給進場點</h2>
+  <p class="sub">第三層與第四層。本報告不判斷進出場時點，這一章只做兩件事：把規則寫清楚，把規則需要的觀察值算出來。資料補不到的一律標「資料不足」。</p>
+
+  <h3>3.5　三到五天沒有新低才進：目前只有一檔通過</h3>
+  <div class="scroll"><table class="pt">
+    <tr><th>標的</th><th>距最近一次五日新低</th><th>距最近一次十日新低</th><th>8/20 盤中低點</th><th class="l">判定</th></tr>
+    <tr><td>光寶科</td><td class="num hi">16 天</td><td class="num hi">16 天</td><td class="num">265.5</td><td class="l"><b>唯一通過</b>：最近一次新低在 7/29</td></tr>
+    <tr><td>Navitas</td><td class="num">1 天</td><td class="num">17 天</td><td class="num">12.51</td><td class="l">未過。8/19 創五日新低，但仍守在 8/5 的 12.20 之上</td></tr>
+    <tr><td>Monolithic Power</td><td class="num">1 天</td><td class="num">1 天</td><td class="num">1,297.22</td><td class="l">未過</td></tr>
+    <tr><td>台達電</td><td class="num">0 天</td><td class="num">16 天</td><td class="num">1,705</td><td class="l">未過。8/20 當天創五日新低</td></tr>
+    <tr><td>Vertiv</td><td class="num">0 天</td><td class="num">0 天</td><td class="num">252.16</td><td class="l">未過。8/20 當天創十日新低</td></tr>
+    <tr><td>英飛凌（ADR）</td><td class="num">0 天</td><td class="num">0 天</td><td class="num">63.62</td><td class="l">未過。<span class="note">資料窗口只有 12 個交易日，二十日以上的判定資料不足</span></td></tr>
+    <tr><td>onsemi</td><td class="num">0 天</td><td class="num">0 天</td><td class="num">74.50</td><td class="l"><b>最差</b>：8/20 創三個月新低</td></tr>
+  </table></div>
+  <p class="note">這條規則的推導：連續創新低代表賣方尚未耗盡，「N 天沒有新低」是賣方耗盡的最低成本觀察。它用放棄最低價，換取不在未知深度的下跌中承接。<b>七檔有六檔目前不通過。</b></p>
+
+  <h3>3.6　異常下殺判別：與族群中位數的差距</h3>
+  <div class="scroll"><table class="pt">
+    <tr><th>標的</th><th>8/17</th><th>8/18</th><th>8/19</th><th>8/20</th><th>常態日波動</th><th class="l">判定</th></tr>
+    <tr><td>Vertiv</td><td class="num">−0.48</td><td class="num">−0.95</td><td class="num">−1.21</td><td class="num">+0.66</td><td class="num">4.69%</td><td class="l">貼族群中位 → 族群性</td></tr>
+    <tr><td>Monolithic Power</td><td class="num">+1.00</td><td class="num">0.00</td><td class="num">+0.54</td><td class="num">0.00</td><td class="num">4.29%</td><td class="l">貼族群中位 → 族群性</td></tr>
+    <tr><td>英飛凌</td><td class="num">−0.20</td><td class="num">−0.97</td><td class="num">−1.19</td><td class="num">+0.56</td><td class="num">2.82%</td><td class="l">貼族群中位 → 族群性</td></tr>
+    <tr><td>光寶科</td><td class="num">−1.31</td><td class="num up">+9.64</td><td class="num up">+3.02</td><td class="num">−3.15</td><td class="num">4.69%</td><td class="l">向上偏離兩天後回吐 → 不是壞消息</td></tr>
+    <tr><td>台達電</td><td class="num">0.00</td><td class="num">+2.40</td><td class="num">0.00</td><td class="num">−1.90</td><td class="num">4.14%</td><td class="l">在 0.5 倍常態波動內 → 族群性</td></tr>
+    <tr><td>Navitas</td><td class="num">+0.90</td><td class="num dn">−3.82</td><td class="num">+0.44</td><td class="num">+0.20</td><td class="num">7.20%</td><td class="l">8/18 偏離 0.53 倍常態波動 → 仍屬族群性</td></tr>
+    <tr><td>onsemi</td><td class="num">+0.87</td><td class="num">+1.10</td><td class="num">−0.55</td><td class="num dn hi">−3.19</td><td class="num">5.23%</td><td class="l"><b>8/20 訊號成立</b>：族群中位數為正、它獨跌，且同日創三個月新低</td></tr>
+  </table></div>
+  <p class="note">單位是百分點，正值代表比族群中位數強。判準：同族群同時下跌，訊息是族群性的；單一標的在同族群無恙時下跌，訊息是標的特有的。<b>四天裡只有 onsemi 8/20 這一格成立。</b>本報告沒有查到對應的公開消息——規則說的是「先出場再查原因」，不是「已經查到原因」。</p>
+
+  <h3>3.7　這是不是通殺</h3>
+  <div class="box">
+    <b>屬類股通殺，未達全市場通殺。</b>8/18 標普 500 −0.7%、那斯達克 −1.3%、道瓊 −0.2%，但費城半導體指數收盤 −4.98%，電力基建與記憶體、光通訊同步重挫。8/20 道瓊 −1.01%、標普 −0.33%、那斯達克 −0.52%。
+    <br><br>
+    這個區別有操作意義：全市場通殺時價格反映流動性與情緒、個股相對強弱被淹沒，所以可以逆勢承接，理由是「情緒會回」；
+    <b>類股通殺不一樣，它保留了個股相對強弱的資訊</b>——這四天裡光寶科的相對強勢、onsemi 的相對弱勢都是有意義的訊號，不是雜訊。
+    <br><br>
+    <span class="note">規則照錄（不構成本報告的建議）：逆勢承接的進場理由是情緒會回，所以出場必須用價格，停損設在進場點往下三到五個百分點。</span>
+  </div>
+
+  <h3>3.8　停損閾值有下界：這條在目前的波動下會出事</h3>
+  <div class="box warn">
+    規則說：閾值必須大於標的的常態波動，否則會被雜訊反覆觸發，累積的摩擦成本超過一次大停損。
+    <br><br>
+    <b>把常態日波動算出來，七檔有六檔的單日標準差在 4.1%–7.2% 之間</b>（Navitas 7.20%、onsemi 5.23%、Vertiv 與光寶科 4.69%、Monolithic Power 4.29%、台達電 4.14%），只有英飛凌 ADR 是 2.82%。
+    <br><br>
+    也就是說，<b>3–5% 的停損閾值目前小於這六檔的一個標準差</b>，單日的正常波動就能打到。規則原型裡的「三到五趴」是綁在當時的個案上的，個案會過期，推導不會——<b>推導要求的是「大於常態波動」，不是「三到五趴」這個數字。</b>
+    要在目前的波動環境用這條規則，閾值要重算。
+  </div>
+
+  <h3>3.9　部位上限由流動性決定</h3>
+  <div class="scroll"><table class="pt">
+    <tr><th>標的</th><th>日均成交量</th><th>日均成交金額</th><th class="l">備註</th></tr>
+    <tr><td>Vertiv</td><td class="num">279 萬股</td><td class="num">7.4 億美元</td><td class="l">充裕</td></tr>
+    <tr><td>台達電</td><td class="num">1,258 萬股</td><td class="num">220 億元（約 7.0 億美元）</td><td class="l">充裕</td></tr>
+    <tr><td>Monolithic Power</td><td class="num">33 萬股</td><td class="num">4.4 億美元</td><td class="l">充裕</td></tr>
+    <tr><td>onsemi</td><td class="num">441 萬股</td><td class="num">3.3 億美元</td><td class="l">充裕</td></tr>
+    <tr><td>光寶科</td><td class="num">3,293 萬股</td><td class="num">88 億元（約 2.8 億美元）</td><td class="l">充裕；台股有處置機制，流動性收縮時要另計</td></tr>
+    <tr><td>Navitas</td><td class="num">1,012 萬股</td><td class="num">1.3 億美元</td><td class="l">中等；常態波動 7.2%，恐慌時買方深度消失得比價格快</td></tr>
+    <tr><td>英飛凌 ADR（IFNNY）</td><td class="num">26 萬股</td><td class="num hi">0.17 億美元</td><td class="l"><b>最小，只有 Vertiv 的 2.3%。</b>要建部位走 Xetra 的 IFX，不要走 ADR</td></tr>
+  </table></div>
+  <p class="note">部位對日均量的比值＝<b>資料不足</b>（未提供部位規劃）。規則照錄：出場價格由當下的買方深度決定，部位超過深度時自己的賣單會壓低成交價。</p>
+
+  <h3>3.2 / 3.3　分批方向與上限：資料不足</h3>
+  <div class="box">
+    未提供部位規劃，這兩項無法判定。規則照錄：
+    <ul style="margin-bottom:0">
+      <li><b>越跌越買必須事先鎖總額</b>，否則曝險沒有上界。原型形式：這一檔規劃總資金的 15%、每批 3%、往下打滿 15% 就停，最壞情況是賠掉 15%。</li>
+      <li><b>越漲越買的最大虧損等於第一批</b>，因為沒漲就不加。</li>
+      <li><b>上限一律設在投入金額，不要設在市值佔比。</b>以市值佔比設上限，價格下跌時分子縮小、額度自動釋放，上限失效。用市值佔比設的，直接判不通過。</li>
+      <li><b>進場理由與出場理由必須同源。</b>技術面進場配基本面出場，是拗單的偽裝。</li>
+    </ul>
+  </div>
+
+  <h3>第四層：心法（資料不足＋規則照錄）</h3>
+  <div class="box">
+    部位上限、目前有沒有看不懂、後悔測試——<b>都需要你的持倉與自評，本報告無法代填</b>。規則照錄：
+    <ul style="margin-bottom:0">
+      <li>部位大小是判斷品質的自變數。上限要設在「不影響判斷品質」的水準，不是「期望報酬最大」的水準。<b>睡不著是上限已被突破的直接訊號。</b></li>
+      <li><b>降部位的觸發是看不懂，不是跌了。</b>加回來的條件是又看得懂了、有信心了，或市場出現明顯更便宜的東西。</li>
+      <li>降部位的正確性不能用隔天的漲跌檢驗。用隔天漲跌評價它，會讓人在下一次該降的時候不降。</li>
+      <li>第四層的部位上限低於第三層的規劃時，以第四層為準。</li>
+    </ul>
+    <br>
+    <b>這一層現在有一個具體的觸發點值得你自己回答：</b>這四天的跌幅來自一個跟七家公司都無關的原因（債市與一篇談表外承諾的報導）。
+    如果你在這四天裡感覺到需要做點什麼，按規則四之二，觸發應該是「我看不懂現在的主軸了」，不是「它跌了」。這兩者的差別，只有你答得出來。
+  </div>
+</div>
+<div class="slide" id="s6">
+  <span class="rn">陸</span>
+  <h2>組合層：分開評、合併算</h2>
+  <p class="sub">七張採信度盤是分開評的，但曝險是合併發生的。這一章處理只有把七檔擺在一起才看得到的東西。</p>
+
+  <h3>1　共用證偽訊號：8/18 那天已經示範過一次</h3>
+  <div class="box hl">
+    七檔的報酬由同一組變數驅動：<b>雲端資本支出、NVIDIA 平台節奏、全市場折現率</b>。
+    <br><br>
+    8/18 是這件事的實證：一個跟這七家公司都無關的事件（三十年期公債殖利率創十九年新高，加上一篇統計大型科技公司表外承諾的報導），
+    讓其中六檔在同一天跌 3.45%–9.67%。<b>一個共用變數動了一下，七檔就一起動。</b>
+    <br><br>
+    <b>操作意涵：</b>7 月報告的規矩——共用故事的部位合併計算 40% 額度——在這裡適用於<b>七檔加總</b>，不是各算各的。
+    分七次評分不會讓曝險變成七份，只會讓它看起來像七份。
+  </div>
+
+  <h3>2　二十八注的結構</h3>
+  <div class="stat">
+    <div><b>459.7</b><span>二十八注權重總和。多方 323.3、空方 136.4</span></div>
+    <div><b>8.4pp</b><span>權重加權平均絕對分歧。正分歧 11 注、負分歧 11 注、零分歧 2 注</span></div>
+    <div><b>17.9%</b><span>市場隱含採信度「無法計算」的注佔總權重（四注、合計 82.4）</span></div>
+    <div><b>1 注</b><span>觸發 ±20pp 差距說明關卡：英飛凌 AI 電源線 +30pp</span></div>
+  </div>
+  <div class="scroll"><table>
+    <tr><th>結構特徵</th><th>內容</th><th>意涵</th></tr>
+    <tr>
+      <td><b>兩個「無法定價」的頭號注</b></td>
+      <td>光寶科的電池備援標配化（39.0）與 Monolithic Power 的 800V 插槽（34.3），都是各該檔權重最重的一注，都沒有市場隱含採信度可以比對</td>
+      <td>這兩注在官方口徑出現前不會有新事實。按規則七，指不出優勢來源就寫指不出來——它們目前是選擇權，還沒有變成超額報酬的來源</td>
+    </tr>
+    <tr>
+      <td><b>分歧集中在少數幾注</b></td>
+      <td>最大正分歧：英飛凌 +30pp（權重 47.6）、光寶時程 +15pp（15.0）、onsemi 併購 +12pp（32.4）。最大負分歧：Navitas 放量落空 −15pp（5.9）</td>
+      <td>你真正跟市場不一樣的地方，權重集中在英飛凌與 onsemi 兩檔。其餘二十幾注大致是跟共識同向</td>
+    </tr>
+    <tr>
+      <td><b>三檔的優勢來源是「指不出來」</b></td>
+      <td>Vertiv（頭號注 Δ 0pp）、台達電（頭號注 Δ+3pp）、Navitas（兩邊都在市場定價內）</td>
+      <td>按規則七，這三檔的期望超額報酬是零，扣掉成本為負。持有的正當理由只剩「拿族群報酬」，部位大小要按跟單處理</td>
+    </tr>
+    <tr>
+      <td><b>兩檔的優勢來源可以指出來且可查證</b></td>
+      <td>英飛凌（基準數字向上，失效日 11 月法說）、onsemi（基準數字向下，8/20 已用股數反推確認共識未含稀釋）</td>
+      <td>這兩檔是七檔裡唯二「你知道自己在賭什麼、而且賭的東西有開獎日」的標的</td>
+    </tr>
+  </table></div>
+
+  <h3>3　內部對沖：這次數據證明它在運作</h3>
+  <div class="box">
+    你在光寶科放了一注影響幅度 90 的空方「台達壓縮份額」（權重 23.3）。同時持有光寶與台達，等於把那一注部分自我對沖。
+    <br><br>
+    <b>8/18 提供了一個乾淨的觀察：</b>台達電 −3.45%、光寶科 +3.80%，同一天、同一個總體事件、方向相反。四天累計台達 −7.4%、光寶 0.0%。
+    <br><br>
+    這是結構事實，不是建議。要注意的是對沖的方向：它抵消的是<b>兩家台廠之間的相對強弱</b>，抵消不了兩家共同承受的折現率與雲端資本支出風險。
+  </div>
+
+  <h3>4　驗證窗口的分布</h3>
+  <div class="scroll"><table class="pt">
+    <tr><th>期間</th><th>會開獎的東西</th><th class="l">影響到哪幾注</th></tr>
+    <tr><td>8/26（下週三）</td><td>NVIDIA FY2027 第二季財報</td><td class="l">族群層資金條件；七檔共用。這是本報告寫作時最近的一個時點明確催化劑</td></tr>
+    <tr><td>10 月下旬</td><td>Vertiv 3Q26 財報</td><td class="l">訂單動能（37.4）＋見頂訊號（5.6）＝Vertiv 全部權重的 52%</td></tr>
+    <tr><td>10 月底</td><td>Monolithic Power、onsemi、Navitas 第三季財報；光寶科第三季法說</td><td class="l">企業數據 130%（28.8）、AI 資料中心金額化（21.4）、循環翻身（15.9）、電池備援首次量化（39.0）</td></tr>
+    <tr><td>11 月</td><td><b>英飛凌 FY26 年報法說</b></td><td class="l">全場最大的一注（47.6）＋你那句 38% 說明的裁決</td></tr>
+    <tr><td>11–12 月</td><td>光寶科 800V 小量產與月營收；台達電 Q4 出貨口徑</td><td class="l">光寶時程（15.0）、台達 800V 如期（11.5）</td></tr>
+    <tr><td>2027/1–2</td><td>台達電法說放量指引；Navitas 4Q26 佔比；onsemi FY27 首次指引</td><td class="l">台達遞延（6.8）、Navitas 時程（10.2）、onsemi 車用（10.9）</td></tr>
+    <tr><td>未定 → 2027 年中</td><td>Synaptics 的 S-4 申報 → 股東會 → 交割；Navitas sidecar 量產爬坡；Monolithic Power 800V 時點死線</td><td class="l">onsemi 併購拖累（32.4）、Navitas 稀釋（16.0）、Monolithic Power 800V（34.3）</td></tr>
+  </table></div>
+  <p class="note"><b>時間結構：</b>從現在到 10 月下旬之間，除了 8/26 那份財報，沒有任何一注會有新事實。權重 82.4 的那四注（無法定價的）更要等到官方口徑出現。這段時間留檔的意義，就在事後對帳。</p>
+</div>
+
+<div class="slide" id="s7">
+  <span class="rn">柒</span>
+  <h2>判斷留檔與最可能錯的地方</h2>
+
+  <h3>留檔（2026-08-20）</h3>
+  <div class="scroll"><table>
+    <tr><th style="width:20%">項目</th><th>內容</th></tr>
+    <tr><td>七盤結果</td><td>Vertiv +61.6｜Monolithic Power +53.9｜英飛凌 +41.6｜光寶科 +26.8｜台達電 +8.6｜Navitas +0.4｜onsemi −6.0。分數為 8/17 與 8/20 親評，七份 JSON 不再修改，權重逐格複核（W＝L×F×I÷10000）無誤</td></tr>
+    <tr><td>價格座標</td><td>Vertiv 264.72｜Monolithic Power 1,310.15｜英飛凌 €55.90（IFNNY 64.70）｜光寶科 267｜台達電 1,745｜Navitas 12.955｜onsemi 74.73。全部為 2026/8/20 收盤</td></tr>
+    <tr><td>共識分母</td><td>次年度：Vertiv 9.10｜英飛凌 €2.78｜光寶科 12.06｜台達電 65.02｜onsemi 4.53（非一般公認會計原則）｜Navitas 營收 7,425 萬美元｜Monolithic Power <b>查無</b></td></tr>
+    <tr><td>族群層判定</td><td>三條件全過；輪動已到邊緣段之後的回檔；廣度收窄（四天累計 0 檔上漲、1 檔平盤）；同時創新高 1 檔；<b>資金條件不成立</b>，等族群止跌＋8/26 NVIDIA 財報，檢查期限 9 月第一週</td></tr>
+    <tr><td>本報告最強的一個主張</td><td>8/17–8/20 的跌幅歸因於 r（折現率與風險溢酬），不是 g。依據是七檔公司面零消息＋跨四個不相干次族群同步下跌＋觸發點在債市</td></tr>
+    <tr><td>對帳優先序</td><td>① 8/26 NVIDIA 財報是否推翻 r 歸因　② 11 月英飛凌法說（最大一注＋38% 衝突節）　③ Synaptics S-4 申報後 onsemi 共識是否重算　④ 光寶科電池備援是否首次被單獨量化</td></tr>
+  </table></div>
+
+  <h3>最可能錯在哪：逐層指名一項</h3>
+  <div class="scroll"><table>
+    <tr><th style="width:16%">層</th><th style="width:26%">最可能錯的一項</th><th>錯掉的話會怎麼變</th></tr>
+    <tr>
+      <td><b>歸因</b><br><span class="note">本報告第壹章</span></td>
+      <td class="hi">把整段跌幅歸給 r</td>
+      <td>如果 <b>8/26 NVIDIA 財報顯示雲端資本支出放緩</b>，8/18–8/20 就要被重新解讀成 g 下修的提前反應——市場在財報前先跑，而不是被債市拖累。
+      那樣的話第壹章整章作廢，七檔的失效條件要同步重寫，而且「倍數壓縮不是公司的問題」這個結論會反過來變成最貴的一個誤判。<b>這是本報告單一風險最高的主張。</b></td>
+    </tr>
+    <tr>
+      <td><b>第二層</b><br><span class="note">族群與輪動</span></td>
+      <td>資金條件的判定只用了四天</td>
+      <td>四天是很短的樣本。8/20 上漲檔數已回到 4/7。如果 8/26 之後族群止跌，「不成立」會在一週內作廢——
+      <b>而我在這份報告裡沒有把「作廢」寫成一個對稱的觸發條件</b>。補上：連續三個交易日上漲檔數 ≥5/7，且至少兩檔創二十日新高，資金條件改判成立。</td>
+    </tr>
+    <tr>
+      <td><b>第一層</b><br><span class="note">基本面估值</span></td>
+      <td>Monolithic Power 的次年度分母查無</td>
+      <td>七檔倍數排名裡，它是唯一用本年度分母排的。若換成次年度非一般公認會計原則分母，它的倍數會下降，
+      <b>「七檔最貴」這個排名可能與 Navitas 或 Vertiv 換位</b>，而排名是規則二橫向比較的全部產出。這個缺口要在 10 月底財報後補。</td>
+    </tr>
+    <tr>
+      <td><b>個股</b><br><span class="note">英飛凌</span></td>
+      <td>全場最大的一注（47.6）依據裡有一個未裁決的數字</td>
+      <td>「電線佔營收 38 左右」與查證的約 10% 衝突。如果影響幅度 70 是建立在 38% 上，該注的權重應該下修；
+      如果是建立在電源與感測部門 34.6% 上，佔比成立但傳導強度要打折。<b>11 月法說同時裁決這一項與那一注。</b></td>
+    </tr>
+    <tr>
+      <td><b>第三層</b><br><span class="note">執行</span></td>
+      <td>停損閾值的原型數字已經過期</td>
+      <td>3–5% 小於七檔中六檔的一個標準差。照抄那個數字會被日常波動反覆觸發，摩擦成本累積。要用這條規則，閾值必須按目前的常態波動重算。</td>
+    </tr>
+  </table></div>
+
+  <h3>帶走三句話</h3>
+  <div class="box hl">
+    <b>一、</b>這四天六檔跌了 6.6%–10.4%、光寶科持平，而七家公司在這四天裡沒有發生任何事。倍數壓縮的來源是折現率與風險溢酬，那不屬於任何一家公司——
+    也就是說，這段跌幅不構成任何一注的證偽。<br><br>
+    <b>二、</b>二十八注裡，你真正跟市場不一樣、而且指得出來源、而且有開獎日的，只有兩注：英飛凌的基準數字向上（11 月法說）、onsemi 的基準數字向下（S-4 申報後）。
+    其餘的權重大多在「跟共識同向」或「市場無法定價」兩類。這不影響好壞判斷，但它決定了部位該怎麼配：跟共識同向的部分只能算族群曝險。<br><br>
+    <b>三、</b>族群層的資金條件目前不成立，而這個變數在族群層決定，個股估值推不出來。下一個檢查點是 8/26。
+  </div>
+</div>
+<div class="slide" id="s8">
+  <span class="rn">捌</span>
+  <h2>附錄</h2>
+
+  <h3>附錄 A・資料缺口清單（要補什麼、什麼時候補）</h3>
+  <div class="scroll"><table>
+    <tr><th>缺口</th><th>影響到什麼</th><th>什麼時候補得到</th></tr>
+    <tr><td><b>Monolithic Power FY27 非一般公認會計原則每股盈餘共識</b></td><td>七檔倍數排名；該檔的次年度倍數與情境區間分母。免費層只到一般公認會計原則 29.90 美元</td><td>10 月底第三季財報後，或改用付費資料源</td></tr>
+    <tr><td>Vertiv、Monolithic Power、光寶科、台達電的 forward 倍數完整歷史序列</td><td>估值八規則之規則五（倍數在歷史分布的位置）。這四檔目前只能寫「資料不足」</td><td>需要付費資料源</td></tr>
+    <tr><td>英飛凌 Xetra 的直接收盤價</td><td>本報告以 IFNNY 美國存託憑證換算（€55.90）；各來源在 €55.2–€56.7 之間，對應倍數 19.9–20.4×</td><td>可用交易所原始資料補；差異不影響任何判定</td></tr>
+    <tr><td>英飛凌共識每股盈餘的基礎與離散度</td><td>FY27 的 €2.78 只有 finanzen.net（23 位，調整後）撐得住；MarketScreener €2.42、stocksguide €2.66，離散度達 15%。本報告的 20.1× 若改用 €2.42 會變成 23.1×，排名仍為七檔第 2 低</td><td>11 月年報後各家重新出估</td></tr>
+    <tr><td>光寶科 2021–24 資本支出細項</td><td>盈餘轉現金比率 b 的五年序列只算得到 2025</td><td>年報附註（免費來源鎖住）</td></tr>
+    <tr><td>Navitas 同口徑可比的企業價值／營收</td><td>規則二橫向比較。8/20 備料記載的 Power Integrations 6.7×、Innoscience 48× 本次未重查。另：目標價家數各站不一（stockanalysis 8 位、TipRanks 5 位）</td><td>下次重查時一併更新</td></tr>
+    <tr><td>Synaptics 6 位內部人 8/19 Form 4 的逐筆明細</td><td>onsemi 8/20 獨立下殺的可能相關事實</td><td>已確認申報存在（交易日均為 8/17），開檔即可</td></tr>
+    <tr><td>七檔的部位規劃、持倉與自評</td><td>第三層的分批方向與總額、第四層的部位上限與後悔測試，全部無法判定</td><td>需要你提供</td></tr>
+    <tr><td>台達電 800V／高壓直流的營收金額或佔比</td><td>該檔頭號注只能用整體 AI 佔比與月營收間接對帳</td><td>公司未單獨揭露，可能長期缺</td></tr>
+  </table></div>
+
+  <h3>附錄 B・口徑對照（兩套數字都有出處，量的東西不同）</h3>
+  <div class="scroll"><table>
+    <tr><th>主題</th><th>本報告採用</th><th>另一個口徑</th><th>差在哪</th></tr>
+    <tr><td>台達電 2027 共識每股盈餘</td><td>65.02 元（MarketScreener，8/20）</td><td>59.00 元（FactSet 中位，5/2，23 位）</td><td>時間差三個半月。用舊口徑則倍數為 29.6×，情境三格變成 1,292／1,582／2,331</td></tr>
+    <tr><td>台達電 2026 共識每股盈餘</td><td>41.11 元（8/20）</td><td>39.30 元（FactSet，5/2）；某美系外資 7/23 下修至 35.9 元</td><td>同上；外資那份的下修理由包含 800V 導入較預期慢</td></tr>
+    <tr><td>Vertiv FY27 每股盈餘</td><td>9.10 美元（stockanalysis，8/12）</td><td>8.89 美元（WallStreetZen，36 位）；8.43 美元（報導基礎）</td><td>調整後與報導基礎之別。用 8.89 則倍數 29.8× 而非 29.1×</td></tr>
+    <tr><td>onsemi FY27 每股盈餘</td><td>4.53 美元（非一般公認會計原則）</td><td>4.226 美元（一般公認會計原則）</td><td>8/20 第二批報告用的是 4.226，因此當時算出 18.7×；本報告用非一般公認會計原則口徑，得 16.5×。<b>兩者都對，基礎不同</b></td></tr>
+    <tr><td>Navitas 企業價值／營收</td><td>38.1×（分母為 FY27 共識營收 7,425 萬）</td><td>59.3×（分母為 FY26 共識營收 4,769 萬）；8/20 報告用的是 60×</td><td>分母年度不同。本報告改用次年度分母，與其他六檔對齊</td></tr>
+    <tr><td>省銅</td><td>−45%（NVIDIA 官方，全廠端到端，54V 基準）</td><td>−94%（7 月報告，48V 基準、單櫃匯流排）</td><td>範圍：一條銅排 vs 整座廠</td></tr>
+    <tr><td>電流倍數</td><td>÷15（54V→800V）</td><td>÷17（48V→800V）</td><td>基準電壓不同</td></tr>
+    <tr><td>滲透率</td><td>外資供應鏈實查 2027 約 20%（台達電）</td><td>SemiAnalysis「未來一年 5%」</td><td>時間窗與母數不同（全球既有資料中心 vs 新建 AI 機櫃），兩者可同時為真</td></tr>
+    <tr><td>NVIDIA 生態系家數</td><td>超過 80 家（官方 8/11）</td><td>29 家（官方 2025/10 首批名單）</td><td>名單擴大，非兩份資料衝突</td></tr>
+  </table></div>
+
+  <h3>附錄 C・待技術分析模組（估值位階與價格位置論述，原文保留、不進正文）</h3>
+  <p class="note">以下論述以估值位階或價格位置為理由。依 stock-research-pipeline 規定不得進正文、不得當多空理由；待技術分析模組接上後再處理。本次沿用 8/17 報告的清單，未新增。</p>
+  <ul class="note" style="font-size:12.5px">
+    <li>納蘭雪敏（vocus 8/11，台達電）：本益比約 58 倍 vs 鴻海約 14 倍；自由現金流回本期 55–90 年。</li>
+    <li>蔡昀庭（CMoney 6/22，台達電）：2,800 元目標價應對照歷史均值與同業檢驗；風險來自估值修正而非基本面。</li>
+    <li>艾蜜莉（今周刊 5/12，光寶科）：漲幅已提前反映 2027–28。</li>
+    <li>Zephyr（Substack 3/25，光寶科）：外資測算 GB200 增量每股盈餘僅 0.2–0.5 元。</li>
+    <li>UmiCrypto（TOPONE 8/14，Vertiv）：「在 65 倍的股票上，需求放緩的第一季看起來就是 timing」。</li>
+    <li>Seeking Alpha 標題（財報後）：Monolithic Power〈Why I'm Selling The Best Quarter〉〈Robust Growth, But Price Is Stretched〉；Vertiv〈When Even A Great Quarter Isn't Enough〉。</li>
+  </ul>
+
+  <h3>附錄 D・來源</h3>
+  <div class="src">
+    <b>價格與成交量：</b>Interactive Brokers 日線（美股、台股，2026/8/20 收盤後抓取；美股當日成交量尚未結算）；台灣證券交易所個股日成交資訊與本益比殖利率股價淨值比（2026/8/20）。<br>
+    <b>共識與目標價：</b>stockanalysis.com 預測頁（Vertiv 8/12、onsemi 8/17、Monolithic Power 與 Navitas 7/28–7/31、英飛凌 8/7）｜finanzen.net 英飛凌估值頁（8/20 抓取，23 位分析師）｜WallStreetZen（Vertiv FY27，36 位）｜MarketScreener（Monolithic Power、onsemi、台達電、光寶科、Navitas 財務頁，8/18–8/20 抓取）｜Simply Wall St（交叉驗證）｜鉅亨網轉 FactSet（光寶科 8/3 news/id/6556909、6556907；台達電 7/31 news/id/6554155、5/2 news/id/6440141）。<br>
+    <b>公司一手：</b>Vertiv 2Q26 新聞稿與法說簡報（prnewswire 302837598；s205.q4cdn.com 簡報）｜Monolithic Power 2Q26（7/30）｜英飛凌 FY26 Q3（8/5）與 8/17 庫藏股執行揭露（EQS-CMS）｜光寶科 7/31 法說、8/3 總經理受訪（MoneyDJ）、7/14 德州設廠（經濟日報）｜台達電 7/30 法說、7 月營收、8/12 重慶二期公告｜Navitas 2Q26（globenewswire 3333878）、8/10 專利訴訟、8/13 投資人會議｜onsemi 2Q26（8/3）、Synaptics 8/13 的 8-K/425（stocktitan）｜onsemi 併購新聞稿（investor.onsemi.com，6/25）。<br>
+    <b>800VDC 產業：</b>NVIDIA 官方部落格〈Why Scaling AI Compute Performance Requires a New Power Architecture〉（8/11）｜NVIDIA developer blog 生態系名單（2025/10/13）｜StorageReview 三階段時程（8/15）｜經濟日報〈輝達官網更新 800 VDC 藍圖〉（8/16）｜TechNews 7/23 外資供應鏈實查｜ETtoday 財經與 FTNN 7/23 外資下修台達電目標價（FTNN 報導指為花旗）｜Wolfspeed 8/6 新聞稿（與光寶科的 800VDC 戰略合作）。<br>
+    <b>盤面歸因：</b>thestreet.com 8/18 與 8/20 盤後彙整｜cnbc.com 8/19–8/20 即時｜247wallst.com 8/18 電力族群｜《華爾街日報》8/16 原文，經 tipranks.com 8/17 轉述｜yahoo finance 8/19 市場彙整｜ad-hoc-news.de 8/19 英飛凌｜工商時報與中時 8/19 台股｜NVIDIA 財報日期新聞稿（nvidianews，7/29）｜費城半導體指數 8/18 收盤變動取自 investing.com 歷史資料與 SOXX ETF 交叉驗證。<br>
+    <b>查證工具：</b>美國證管會 EDGAR 全文檢索（各標的 8/13–8/20 申報，含 S-4 與 Form 4 檢索）。
+  </div>
+</div>
+
+<footer>
+  <b>免責與方法聲明。</b>台大控股社團內部研究，非投資建議。
+  七張採信度盤的分數為使用者於 2026-08-17 與 2026-08-20 親評之個人信念留檔，JSON 不再修改，差距說明原文保留；本報告未改動任何一格分數。
+  四層判定與估值八規則還原的是 podcast 主持人謝孟恭的公開說法加上推導——那是個人看法、非投資建議、不代表其持倉；他自己反覆講沒有交易聖杯、估值沒有標準答案，本輸出為風險清單而非正解。
+  逐字稿為人工智慧聽寫加人工修正，人名與代碼請自行核對（已知誤標前例：「發哥」曾誤標為 NVIDIA、Dylan Patel 曾寫成 Dhruvil）。標「延伸推論」處為逐字稿未明講的操作化判準。
+  本報告不含技術分析、不判斷進出場時點、不以估值高低作為多空理由（相關素材見附錄 C）。目標價為「情境倍數 × 共識分母」的區間算術，倍數依據與驗算式均已標示。
+  資料截至 2026-08-20；美股與台股皆為 8/20 收盤，英飛凌以美國存託憑證換算。
+  <br><br>
+  有機體流程・800VDC 七檔整合對內報告 2026-08-20｜前情：800VDC對內報告_2026-08-17.html（第一批四檔）、800VDC_第二批_IFX_NVTS_ON_2026-08-20.html（第二批三檔）、800VDC_社團版_2026-08-18.html｜七份評分 JSON 存於 台大控股／05_800VDC
+</footer>
+
+</div>
+</body>
+</html>

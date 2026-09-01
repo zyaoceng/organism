@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>記憶體：AI 時代的儲存生意｜台大控股</title>
+<style>
+:root{--ink:#23211c;--sub:#6f6a5e;--line:#e7e1d6;--bg:#f5f2ec;--card:#fffdf9;--acc:#c9702b;--mu:#c9702b;--sn:#2b6bb0;--ph:#587f35;--green:#5a7d4a;--red:#c9302b;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Serif TC","PingFang TC",serif;font-size:15.5px;line-height:1.8;padding-bottom:80px}
+.wrap{max-width:920px;margin:0 auto;padding:0 20px}
+.slide{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:26px 28px;margin:22px 0;box-shadow:0 1px 0 rgba(35,33,28,.04)}
+.kick{font-size:11px;letter-spacing:.2em;color:var(--acc);font-weight:700}
+h1{font-size:34px;line-height:1.2;margin:8px 0 6px;font-weight:800}
+h2{font-size:23px;margin:0 0 10px;font-weight:800}
+h3{font-size:17px;margin:16px 0 6px;font-weight:700}
+.sub{color:var(--sub);font-size:13px}
+p{margin:0 0 10px}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13.5px}
+th{text-align:left;color:var(--sub);font-weight:600;font-size:12px;border-bottom:2px solid var(--ink);padding:5px 8px}
+td{border-bottom:1px solid var(--line);padding:6px 8px;vertical-align:top}
+.num{font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,monospace}
+.stat{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}
+.stat>div{flex:1;min-width:120px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.stat b{display:block;font-size:21px}
+.stat span{font-size:11.5px;color:var(--sub)}
+.quote{background:var(--bg);border-left:4px solid var(--acc);padding:10px 16px;margin:12px 0;font-size:14px}
+.quote i{display:block;font-style:normal;color:var(--sub);font-size:11.5px;margin-top:4px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.chip{font-size:12px;border-radius:20px;padding:4px 12px;border:1.5px solid}
+.chip.ok{color:var(--green);border-color:var(--green)}
+.chip.warn{color:var(--acc);border-color:var(--acc)}
+.chip.na{color:var(--sub);border-color:var(--line);background:var(--bg)}
+.sl{display:grid;grid-template-columns:150px 1fr 70px;gap:10px;align-items:center;font-size:13px;margin:7px 0}
+.sl output{font-family:ui-monospace,monospace;font-weight:700;text-align:right}
+input[type=range]{width:100%;accent-color:var(--acc);height:22px}
+.readout{font-family:ui-monospace,monospace;font-size:14px;background:var(--bg);border:1.5px dashed var(--acc);border-radius:8px;padding:10px 14px;margin:10px 0}
+.readout b{font-size:18px}
+.note{font-size:12px;color:var(--sub)}
+.warnbox{background:#faf1e8;border:1px solid var(--acc);border-radius:8px;padding:12px 16px;font-size:13.5px;margin:12px 0}
+svg{display:block;width:100%;height:auto;margin:8px 0}
+svg text{font-family:"Noto Serif TC","PingFang TC",serif}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--sub);margin:2px 0 6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.radio-row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.radio-row label{font-size:12.5px;border:1px solid var(--line);border-radius:6px;padding:5px 10px;background:var(--bg);cursor:pointer}
+footer{color:var(--sub);font-size:12px;max-width:920px;margin:30px auto 0;padding:16px 20px;border-top:2px solid var(--ink)}
+@media(max-width:640px){h1{font-size:26px}.sl{grid-template-columns:110px 1fr 60px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ═══ 封面 ═══ -->
+<div class="slide" style="border-top:5px solid var(--acc)">
+  <div class="kick">台大控股・產業深度 04</div>
+  <h1>記憶體：AI 時代的「儲存生意」</h1>
+  <p style="font-size:16.5px;margin-top:4px">美光 MU・SanDisk SNDK・群聯 8299 —— 三家深度評比</p>
+  <div class="sub">2026-08-15・研究與判斷：祖曜筬｜價格座標：美光 $964（8/14 盤中）、SanDisk $1,631（8/14 盤中）、群聯 NT$2,210（8/12 收）</div>
+  <div class="warnbox" style="margin-top:14px"><b>估值狀態：等講者最終拍板。</b>本報告的估值採股癌方法——每股盈餘取分析師共識、倍數只給區間（EP84 台積電算例：20 到 40 倍之間都是合理價）。每檔的互動區已備好，倍數由講者現場拉，本檔不代填。所有價格皆為估值輸入，與進出場時點無關。</div>
+</div>
+
+<!-- ═══ 壹 產業基本介紹 ═══ -->
+<div class="slide">
+  <div class="kick">壹｜產業基本介紹</div>
+  <h2>先學三個詞，全場就這三個</h2>
+  <div class="stat">
+    <div><b>DRAM</b><span>電腦的工作桌。斷電就清空、速度快。AI 伺服器越大，桌子要越大。</span></div>
+    <div><b>NAND</b><span>倉庫。斷電資料還在——固態硬碟、手機儲存的本體。AI 資料湖住在這裡。</span></div>
+    <div><b>HBM</b><span>把 DRAM 疊成大樓、貼著 AI 晶片供資料。這輪 AI 需求的核心零件。</span></div>
+  </div>
+  <h3>賺錢公式很誠實：營收 ＝ 出貨量 × 價格，而價格由缺不缺貨決定</h3>
+  <svg viewBox="0 0 900 190" role="img" aria-label="記憶體循環機制示意圖">
+    <text x="16" y="22" font-size="15" font-weight="700">循環怎麼來：蓋一座廠要兩三年，供給永遠慢半拍</text>
+    <path d="M30 120 Q 140 40 250 110 Q 360 175 470 95 Q 580 30 690 105 Q 780 160 870 110" fill="none" stroke="#c9702b" stroke-width="2.5"/>
+    <g font-size="12" fill="#6f6a5e">
+      <text x="90" y="160">缺貨・漲價</text><text x="230" y="60">全行業擴產</text>
+      <text x="345" y="80">供給一起到位</text><text x="330" y="97">價格崩・砍產能</text>
+      <text x="560" y="165">再缺貨</text><text x="700" y="60">又擴產…</text>
+    </g>
+    <text x="16" y="185" font-size="12" fill="#6f6a5e">過去三十年重複七八次。每次高峰，市場都說「這次結構不一樣」。</text>
+  </svg>
+  <h3>這輪走到哪：漲勢還在，但明顯降速</h3>
+  <div class="legend"><span><i style="background:#c9702b"></i>DRAM 合約價季漲幅</span><span><i style="background:#2b6bb0"></i>NAND 合約價季漲幅</span></div>
+  <svg viewBox="0 0 900 170" role="img" aria-label="合約價季漲幅：第二季對第三季">
+    <g font-size="13">
+      <text x="70" y="30" fill="#6f6a5e">4–6 月</text>
+      <rect x="150" y="14" width="484" height="20" rx="4" fill="#c9702b"><title>DRAM 4–6月 +60.5%</title></rect>
+      <text x="644" y="30" class="num" font-weight="700">+60.5%</text>
+      <rect x="150" y="40" width="580" height="20" rx="4" fill="#2b6bb0"><title>NAND 4–6月 +72.5%</title></rect>
+      <text x="740" y="56" class="num" font-weight="700">+72.5%</text>
+      <text x="70" y="106" fill="#6f6a5e">7–9 月</text>
+      <rect x="150" y="90" width="124" height="20" rx="4" fill="#c9702b"><title>DRAM 7–9月 +15.5%（TrendForce 預測中值）</title></rect>
+      <text x="284" y="106" class="num" font-weight="700">+15.5%</text>
+      <rect x="150" y="116" width="100" height="20" rx="4" fill="#2b6bb0"><title>NAND 7–9月 +12.5%（TrendForce 預測中值）</title></rect>
+      <text x="260" y="132" class="num" font-weight="700">+12.5%</text>
+    </g>
+    <text x="16" y="162" font-size="12" fill="#6f6a5e">資料：TrendForce 季度合約價（7–9 月為預測中值）。漲勢的加速度已崩，這是空方論點的起點。</text>
+  </svg>
+  <h3>缺貨到什麼時候——產業鏈上的四種說法</h3>
+  <svg viewBox="0 0 900 150" role="img" aria-label="缺貨時間表：各方說法">
+    <line x1="60" y1="70" x2="860" y2="70" stroke="#23211c" stroke-width="2"/>
+    <g font-size="13" text-anchor="middle">
+      <line x1="140" y1="62" x2="140" y2="78" stroke="#23211c" stroke-width="2"/><text x="140" y="95">現在</text>
+      <line x1="360" y1="62" x2="360" y2="78" stroke="#23211c" stroke-width="2"/><text x="360" y="95">2027 初</text>
+      <line x1="580" y1="62" x2="580" y2="78" stroke="#23211c" stroke-width="2"/><text x="580" y="95">2027 下半</text>
+      <line x1="800" y1="62" x2="800" y2="78" stroke="#23211c" stroke-width="2"/><text x="800" y="95">2028</text>
+    </g>
+    <g font-size="12.5">
+      <circle cx="360" cy="40" r="5" fill="#587f35"/><text x="360" y="26" text-anchor="middle" fill="#587f35" font-weight="700">群聯潘健成：缺到這裡</text>
+      <circle cx="580" cy="118" r="5" fill="#c9302b"/><text x="580" y="140" text-anchor="middle" fill="#c9302b" font-weight="700">TrendForce：這裡供過於求</text>
+      <circle cx="800" cy="40" r="5" fill="#2b6bb0"/><text x="785" y="26" text-anchor="middle" fill="#2b6bb0" font-weight="700">SanDisk 財務長＋美銀：緊到這裡</text>
+    </g>
+  </svg>
+  <p class="note">兩個內行人給的期限差了一年——2027 年中之後其實是資訊真空。裁判：10 月初 TrendForce 第四季報價。</p>
+</div>
+
+<!-- ═══ 貳 格局組成概要 ═══ -->
+<div class="slide">
+  <div class="kick">貳｜格局組成概要</div>
+  <h2>錢在鏈上怎麼分：原廠賺價差，模組賺稀缺</h2>
+  <svg viewBox="0 0 900 210" role="img" aria-label="記憶體產業鏈分工圖">
+    <g font-size="13.5">
+      <rect x="20" y="30" width="270" height="140" rx="8" fill="#f5f2ec" stroke="#e7e1d6"/>
+      <text x="36" y="54" font-weight="800">原廠（有晶圓廠）</text>
+      <text x="36" y="76" fill="#6f6a5e">三星・SK 海力士</text>
+      <text x="36" y="98" fill="#c9702b" font-weight="700">美光 MU（DRAM＋HBM＋NAND）</text>
+      <text x="36" y="120" fill="#2b6bb0" font-weight="700">SanDisk（純 NAND，與 Kioxia 合資）</text>
+      <text x="36" y="142" fill="#6f6a5e">長江存儲（中國，擴產中）</text>
+      <path d="M295 100 L 345 100" stroke="#23211c" stroke-width="2" marker-end="url(#arr)"/>
+      <rect x="350" y="30" width="250" height="140" rx="8" fill="#f5f2ec" stroke="#e7e1d6"/>
+      <text x="366" y="54" font-weight="800">模組廠（買顆粒加工）</text>
+      <text x="366" y="76" fill="#587f35" font-weight="700">群聯 8299</text>
+      <text x="366" y="94" fill="#6f6a5e" font-size="12">自研控制晶片＋韌體＝別人做不出</text>
+      <text x="366" y="116" fill="#6f6a5e">威剛・創見・十銓（純模組）</text>
+      <text x="366" y="142" fill="#6f6a5e" font-size="12">缺貨時：有貨＋有晶片＝雙重稀缺</text>
+      <path d="M605 100 L 655 100" stroke="#23211c" stroke-width="2" marker-end="url(#arr)"/>
+      <rect x="660" y="30" width="220" height="140" rx="8" fill="#f5f2ec" stroke="#e7e1d6"/>
+      <text x="676" y="54" font-weight="800">終端</text>
+      <text x="676" y="80" fill="#6f6a5e">AI 資料中心（最搶）</text>
+      <text x="676" y="102" fill="#6f6a5e">伺服器・筆電</text>
+      <text x="676" y="124" fill="#6f6a5e">手機・消費（正在縮）</text>
+    </g>
+    <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#23211c"/></marker></defs>
+    <text x="20" y="196" font-size="12" fill="#6f6a5e">NAND 市佔約值：三星 ~37%＞SK＋Solidigm＞Kioxia＋SanDisk（合資產能）＞美光；中國長江存儲 ~19% 位元產出、2026 年底三期投產。</text>
+  </svg>
+  <h3>格局此刻的溫度：兩條鏈已經分家（台股 7 月月營收，免費的一手數據）</h3>
+  <svg viewBox="0 0 900 168" role="img" aria-label="台股記憶體公司七月營收月增率">
+    <g font-size="13">
+      <text x="20" y="32" fill="#6f6a5e">南亞科（DRAM 原廠）</text><rect x="215" y="16" width="493" height="20" rx="4" fill="#c9702b"><title>南亞科 7月營收月增 +49.3%</title></rect><text x="716" y="32" class="num" font-weight="700">+49.3%</text>
+      <text x="20" y="62" fill="#6f6a5e">華邦電（DRAM 原廠）</text><rect x="215" y="46" width="300" height="20" rx="4" fill="#c9702b"><title>華邦電 7月營收月增 +30.0%</title></rect><text x="523" y="62" class="num" font-weight="700">+30.0%</text>
+      <text x="20" y="92" fill="#6f6a5e">群聯（NAND 模組）</text><rect x="215" y="76" width="93" height="20" rx="4" fill="#587f35"><title>群聯 7月營收月增 +9.3%</title></rect><text x="316" y="92" class="num" font-weight="700">+9.3%</text>
+      <rect x="20" y="106" width="195" height="20" rx="4" fill="#c9302b" opacity=".85"><title>創見 6月營收月減 19.5%</title></rect><text x="28" y="121" class="num" font-weight="700" fill="#fff" font-size="12.5">−19.5%</text><text x="226" y="122" fill="#6f6a5e">創見（純模組，6 月）</text>
+    </g>
+    <text x="20" y="152" font-size="12" fill="#6f6a5e">DRAM 鏈極熱、NAND 鏈溫和、純模組已見轉負——同一個「缺貨」，鏈上位置不同溫度差三倍。資料：各公司月營收公告（statementdog 轉載）。</text>
+  </svg>
+  <div class="quote">我的訊號學（全場反覆用到）：<b>有定價權的人不簽長約——想鎖價的那一刻，就是管理層自己看到頂了。</b>群聯拒簽長約、謹慎調價 → 話語權還在。SanDisk 一口氣簽 8 份、鎖住 2028 財年三分之二出貨 → 市場讀成「地板」，我讀成「原廠在鎖高點」。<i>— 祖曜筬，群聯評分盤 G3 差距說明，2026-08-14</i></div>
+</div>
+
+<!-- ═══ 參 深度三家評比（70%） ═══ -->
+<div class="slide" style="border-top:4px solid var(--mu)">
+  <div class="kick" style="color:var(--mu)">參｜深度評比 1/3</div>
+  <h2>美光 MU —— 我賭 HBM 在 2027 年繼續漲價</h2>
+  <div class="stat">
+    <div><b class="num">$964</b><span>8/14 盤中（+1.5%）</span></div>
+    <div><b class="num">21.8×</b><span>本益比（近四季）——循環股要反著讀</span></div>
+    <div><b class="num">4.85×</b><span>預測本益比（隱含明年 EPS 約 $199）</span></div>
+    <div><b class="num">54%</b><span>近四季淨利率，史上最高</span></div>
+  </div>
+  <h3>9/29 財報的四方對帳——我的落點 $53</h3>
+  <svg viewBox="0 0 900 190" role="img" aria-label="美光下季營收四方預估對照">
+    <rect x="150" y="20" width="620" height="120" fill="#f5f2ec"/>
+    <g font-size="13">
+      <text x="20" y="47" fill="#6f6a5e">官方財測中值</text><rect x="150" y="32" width="500" height="19" rx="4" fill="#eecaa4"><title>官方財測 $50.0B ±1</title></rect><text x="658" y="47" class="num">$50.0B</text>
+      <text x="20" y="77" fill="#6f6a5e">賣方共識</text><rect x="150" y="62" width="508" height="19" rx="4" fill="#e3a86b"><title>賣方共識 $50.84B</title></rect><text x="666" y="77" class="num">$50.84B</text>
+      <text x="20" y="107" fill="#6f6a5e">我的模型（基準）</text><rect x="150" y="92" width="529" height="19" rx="4" fill="#d68a3f"><title>模型基準 $52.89B（回測上季誤差 +0.8%）</title></rect><text x="687" y="107" class="num">$52.89B</text>
+      <text x="20" y="137" font-weight="800">我的落點</text><rect x="150" y="122" width="530" height="19" rx="4" fill="#c9702b"><title>我的判斷 $53B（第一版 $57.75 自行下修）</title></rect><text x="688" y="137" class="num" font-weight="800">$53B ←</text>
+    </g>
+    <text x="150" y="172" font-size="12" fill="#6f6a5e">軸起點 $45B。判斷存底：我第一版給 $57.75，模型對打後自己砍到 $53——超越財測的引擎已從「暴力漲價」換成「位元接棒」。</text>
+  </svg>
+  <h3>我的評分盤（權重＝邏輯×可發生性×影響）</h3>
+  <svg viewBox="0 0 900 150" role="img" aria-label="美光評分盤前三名賭注權重">
+    <g font-size="13">
+      <text x="20" y="34">多｜HBM 2027 年價格不跌反漲</text><rect x="360" y="20" width="360" height="18" rx="4" fill="#c9702b"><title>權重 36.0，全盤第一</title></rect><text x="728" y="34" class="num" font-weight="700">36.0</text>
+      <text x="20" y="64">多｜本季出貨量超常態</text><rect x="360" y="50" width="315" height="18" rx="4" fill="#c9702b" opacity=".75"><title>權重 31.5</title></rect><text x="683" y="64" class="num">31.5</text>
+      <text x="20" y="94">多｜缺貨延續到 2027 全年</text><rect x="360" y="80" width="244" height="18" rx="4" fill="#c9702b" opacity=".55"><title>權重 24.4，與市場分歧 +25 個百分點</title></rect><text x="612" y="94" class="num">24.4</text>
+      <text x="20" y="124" fill="#6f6a5e">（空方最高：週期見頂，13.5）</text><rect x="360" y="110" width="135" height="18" rx="4" fill="#c9302b" opacity=".7"/><text x="503" y="124" class="num">13.5</text>
+    </g>
+  </svg>
+  <p><b>淨傾向 +75.5（強多）。</b>我最大的分歧：「缺貨延續到 2027 全年」我比市場多信 25 個百分點，但影響幅度只給 35——市場會把缺貨當常態，利多鈍化。</p>
+  <h3>估值（股癌法：共識 EPS × 倍數區間——倍數等講者拍板）</h3>
+  <div class="warnbox">循環股警語（EP338／EP151）：本益比低出現在循環頂，「4.85 倍好便宜」的讀法方向是反的。下面的基準請留意「今年高峰」與「常態」的差別——高峰盈餘配倍數會雙重計價。</div>
+  <div class="radio-row" id="mu-base">
+    <label><input type="radio" name="mub" value="199" checked>共識明年 EPS $199</label>
+    <label><input type="radio" name="mub" value="80">市場隱含常態 $80</label>
+    <label><input type="radio" name="mub" value="3.17">舊循環常態 $3.17</label>
+  </div>
+  <div class="sl"><label>倍數下緣</label><input type="range" id="mu-lo" min="3" max="20" step="0.5" value="5"><output id="mu-lo-o">5.0×</output></div>
+  <div class="sl"><label>倍數上緣</label><input type="range" id="mu-hi" min="3" max="25" step="0.5" value="8"><output id="mu-hi-o">8.0×</output></div>
+  <div class="readout" id="mu-out"></div>
+  <div class="chips"><span class="chip ok">✓ 同業橫向：最便宜端</span><span class="chip ok">✓ 循環反讀已做</span><span class="chip warn">△ 上修潮警戒（共識一週 +37%）</span><span class="chip ok">✓ 故事＋Alpha（月營收矩陣）</span><span class="chip ok">✓ 資金在推</span></div>
+  <p class="note">失效條件：8 月底 DRAM 合約價轉負／9/29 低於財測下緣／HBM 2027 談判跌價定案。</p>
+</div>
+
+<div class="slide" style="border-top:4px solid var(--sn)">
+  <div class="kick" style="color:var(--sn)">參｜深度評比 2/3</div>
+  <h2>SanDisk SNDK —— 市場信地板，我還不信</h2>
+  <div class="stat">
+    <div><b class="num">$1,631</b><span>8/14 盤中（+6.8%；投資人日隔天）</span></div>
+    <div><b class="num">$93.9B</b><span>長約最低承諾（一週前揭露 $41.6B）</span></div>
+    <div><b class="num">50%→⅔</b><span>長約覆蓋：2027 財年一半、2028 三分之二</span></div>
+    <div><b class="num">~80%</b><span>官方長期模型的常態毛利率（現在 84.6%）</span></div>
+  </div>
+  <h3>本季財測帶與模型三情境——我押「超過上緣」，公式不支持我</h3>
+  <svg viewBox="0 0 900 160" role="img" aria-label="SanDisk 本季營收：財測帶與三情境">
+    <rect x="330" y="20" width="330" height="90" fill="#e8eef6"><title>官方財測帶 $10.3–10.8B</title></rect>
+    <text x="340" y="36" font-size="12" fill="#2b6bb0">財測帶 $10.3–10.8B</text>
+    <line x1="150" y1="110" x2="860" y2="110" stroke="#23211c" stroke-width="1.5"/>
+    <g font-size="12.5" text-anchor="middle">
+      <circle cx="363" cy="80" r="7" fill="#9db8d6"><title>模型保守 $10.35B</title></circle><text x="363" y="132">保守 10.35</text>
+      <circle cx="508" cy="80" r="7" fill="#5d8cc0"><title>模型基準 $10.57B（照公式＝財測中值）</title></circle><text x="508" y="132">基準 10.57</text>
+      <circle cx="719" cy="80" r="8" fill="#2b6bb0"><title>模型樂觀 $10.89B（傳導率回 0.50 才到）</title></circle><text x="719" y="132">樂觀 10.89</text>
+      <path d="M660 52 L 690 52" stroke="#23211c" stroke-width="2" marker-end="url(#arr2)"/>
+      <text x="770" y="56" font-weight="800">我押破頂（把握 86%）</text>
+    </g>
+    <defs><marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#23211c"/></marker></defs>
+    <text x="150" y="155" font-size="12" fill="#6f6a5e">軸：$9.8–11.2B。SanDisk 的財測中值就是照公式算的結果（沒藏保守緩衝）——我押的是連五季超越紀錄，公式端邏輯我只給 51 分，10 月底對帳。</text>
+  </svg>
+  <h3>一週劇情：折價又翻回溢價（對美光的預期本益比）</h3>
+  <svg viewBox="0 0 900 140" role="img" aria-label="SanDisk 對美光預期本益比溢價變化">
+    <line x1="150" y1="70" x2="860" y2="70" stroke="#6f6a5e" stroke-dasharray="4 4"/>
+    <text x="90" y="74" font-size="12" fill="#6f6a5e">平價線</text>
+    <g font-size="13" text-anchor="middle">
+      <rect x="220" y="18" width="56" height="52" rx="4" fill="#2b6bb0"><title>8/4：溢價 +26%</title></rect><text x="248" y="12" class="num" font-weight="700">+26%</text><text x="248" y="92">8/4</text>
+      <rect x="440" y="70" width="56" height="12" rx="4" fill="#c9702b"><title>8/7：折價 −6%（財報後跌一週）</title></rect><text x="468" y="100" class="num" font-weight="700">−6%</text><text x="468" y="118">8/7</text>
+      <rect x="660" y="50" width="56" height="20" rx="4" fill="#2b6bb0"><title>8/14 盤中：溢價約 +10~15%（投資人日 +14% 後）</title></rect><text x="688" y="44" class="num" font-weight="700">≈+12%</text><text x="688" y="92">8/14</text>
+    </g>
+    <text x="150" y="132" font-size="12" fill="#6f6a5e">「純 NAND 應折價」一週內兌現又被收回——真正的考題（下行期折價擴大）還沒開考，每季重測。</text>
+  </svg>
+  <h3>我的評分盤：押最重的是空方</h3>
+  <svg viewBox="0 0 900 120" role="img" aria-label="SanDisk 評分盤前三名">
+    <g font-size="13">
+      <text x="20" y="34" fill="#c9302b" font-weight="700">空｜2027 下半供給追上（我的頭牌）</text><rect x="380" y="20" width="210" height="18" rx="4" fill="#c9302b"><title>權重 21.0；影響只給 35：「需求不會消退」</title></rect><text x="598" y="34" class="num" font-weight="700">21.0</text>
+      <text x="20" y="64">多｜本季營收破財測上緣</text><rect x="380" y="50" width="197" height="18" rx="4" fill="#2b6bb0"><title>權重 19.7</title></rect><text x="585" y="64" class="num">19.7</text>
+      <text x="20" y="94">多｜長約給下行期地板</text><rect x="380" y="80" width="189" height="18" rx="4" fill="#2b6bb0" opacity=".7"><title>權重 18.9；可發生性只給 21——評分後幾小時投資人日就把覆蓋率上修到 50%，這筆時間差在存底裡</title></rect><text x="577" y="94" class="num">18.9</text>
+    </g>
+  </svg>
+  <p><b>淨傾向 +15.0（三檔最保守）。</b>投資人日把長約翻倍、股價一天 +14%——市場先我一步把地板信用加回去；但「跌的時候守不守得住」還沒有人對過，包括漲的市場。</p>
+  <h3>估值（倍數等講者拍板）</h3>
+  <div class="radio-row" id="sn-base">
+    <label><input type="radio" name="snb" value="213" checked>共識明年 EPS $213（重估中）</label>
+    <label><input type="radio" name="snb" value="216">官方長期模型常態 $216</label>
+    <label><input type="radio" name="snb" value="136">市場隱含常態 $136</label>
+  </div>
+  <div class="sl"><label>倍數下緣</label><input type="range" id="sn-lo" min="3" max="20" step="0.5" value="5"><output id="sn-lo-o">5.0×</output></div>
+  <div class="sl"><label>倍數上緣</label><input type="range" id="sn-hi" min="3" max="25" step="0.5" value="8"><output id="sn-hi-o">8.0×</output></div>
+  <div class="readout" id="sn-out"></div>
+  <div class="chips"><span class="chip ok">✓ 橫向：溢價有名目（長約）</span><span class="chip ok">✓ 循環反讀已做</span><span class="chip warn">△ 最貼近「上修潮＋股價已飆」場景（EP681）</span><span class="chip warn">△ 我的反向 Alpha：簽長約＝鎖頂</span><span class="chip ok">✓ 資金最熱</span></div>
+  <p class="note">失效條件：第四季 NAND 報價轉負且毛利率跌破 83%／長約客戶違約／2028 覆蓋率路線圖撤回。</p>
+</div>
+
+<div class="slide" style="border-top:4px solid var(--ph)">
+  <div class="kick" style="color:var(--ph)">參｜深度評比 3/3</div>
+  <h2>群聯 8299 —— 我最有信心的一檔</h2>
+  <div class="stat">
+    <div><b class="num">NT$2,210</b><span>8/12 收（法說前一天 +5.7%）</span></div>
+    <div><b class="num">118.57</b><span>第二季 EPS，台股單季紀錄</span></div>
+    <div><b class="num">65.3%</b><span>第二季毛利率，連兩季上升</span></div>
+    <div><b class="num">918 億</b><span>庫存——獲利放大器，漲跌都放大</span></div>
+  </div>
+  <h3>月營收 13 個月連增——循環的形狀親眼看</h3>
+  <svg viewBox="0 0 900 190" role="img" aria-label="群聯近十三個月月營收（億元）">
+    <g font-size="10.5" text-anchor="middle">
+      <rect x="60"  y="129" width="42" height="31" rx="3" fill="#587f35" opacity=".45"><title>2025-07：56.9 億</title></rect><text x="81" y="124" class="num">57</text><text x="81" y="175" fill="#6f6a5e">7月</text>
+      <rect x="120" y="127" width="42" height="33" rx="3" fill="#587f35" opacity=".45"><title>2025-08：59.3 億</title></rect><text x="141" y="122" class="num">59</text><text x="141" y="175" fill="#6f6a5e">8月</text>
+      <rect x="180" y="124" width="42" height="36" rx="3" fill="#587f35" opacity=".5"><title>2025-09：65.2 億</title></rect><text x="201" y="119" class="num">65</text><text x="201" y="175" fill="#6f6a5e">9月</text>
+      <rect x="240" y="121" width="42" height="39" rx="3" fill="#587f35" opacity=".5"><title>2025-10：70.7 億</title></rect><text x="261" y="116" class="num">71</text><text x="261" y="175" fill="#6f6a5e">10月</text>
+      <rect x="300" y="121" width="42" height="39" rx="3" fill="#587f35" opacity=".5"><title>2025-11：70.2 億</title></rect><text x="321" y="116" class="num">70</text><text x="321" y="175" fill="#6f6a5e">11月</text>
+      <rect x="360" y="112" width="42" height="48" rx="3" fill="#587f35" opacity=".55"><title>2025-12：87.1 億</title></rect><text x="381" y="107" class="num">87</text><text x="381" y="175" fill="#6f6a5e">12月</text>
+      <rect x="420" y="102" width="42" height="58" rx="3" fill="#587f35" opacity=".6"><title>2026-01：104.5 億</title></rect><text x="441" y="97" class="num">105</text><text x="441" y="175" fill="#6f6a5e">1月</text>
+      <rect x="480" y="93" width="42" height="67" rx="3" fill="#587f35" opacity=".65"><title>2026-02：122.0 億</title></rect><text x="501" y="88" class="num">122</text><text x="501" y="175" fill="#6f6a5e">2月</text>
+      <rect x="540" y="59" width="42" height="101" rx="3" fill="#587f35" opacity=".75"><title>2026-03：183.2 億</title></rect><text x="561" y="54" class="num">183</text><text x="561" y="175" fill="#6f6a5e">3月</text>
+      <rect x="600" y="49" width="42" height="111" rx="3" fill="#587f35" opacity=".8"><title>2026-04：202.1 億</title></rect><text x="621" y="44" class="num">202</text><text x="621" y="175" fill="#6f6a5e">4月</text>
+      <rect x="660" y="35" width="42" height="125" rx="3" fill="#587f35" opacity=".88"><title>2026-05：228.3 億</title></rect><text x="681" y="30" class="num">228</text><text x="681" y="175" fill="#6f6a5e">5月</text>
+      <rect x="720" y="24" width="42" height="136" rx="3" fill="#587f35" opacity=".94"><title>2026-06：248.5 億</title></rect><text x="741" y="19" class="num">249</text><text x="741" y="175" fill="#6f6a5e">6月</text>
+      <rect x="780" y="11" width="42" height="149" rx="3" fill="#587f35"><title>2026-07：271.6 億，40 個月新高</title></rect><text x="801" y="8" class="num" font-weight="800">272</text><text x="801" y="175" fill="#6f6a5e">7月</text>
+    </g>
+    <line x1="55" y1="160" x2="830" y2="160" stroke="#23211c" stroke-width="1.5"/>
+  </svg>
+  <p class="note">單位：億元。資料：公司月營收公告。第三季只剩 8、9 月兩格未知——9/10 就開第一格，是全場對帳最快的賭注。</p>
+  <h3>第三季四情境——我的兩張快槍卡</h3>
+  <svg viewBox="0 0 900 150" role="img" aria-label="群聯第三季營收情境">
+    <g font-size="13" text-anchor="middle">
+      <rect x="130" y="52" width="120" height="58" rx="4" fill="#8fa878"><title>回落（月減5%）：775 億</title></rect><text x="190" y="46" class="num">775</text><text x="190" y="128" fill="#6f6a5e">回落</text>
+      <rect x="330" y="41" width="120" height="69" rx="4" fill="#6f9252"><title>持平（8、9月＝7月）：815 億＝我的門檻</title></rect><text x="390" y="35" class="num" font-weight="800">815 ←門檻</text><text x="390" y="128" fill="#6f6a5e">持平</text>
+      <rect x="530" y="30" width="120" height="80" rx="4" fill="#587f35"><title>續升（月增5%）：856 億</title></rect><text x="590" y="24" class="num">856</text><text x="590" y="128" fill="#6f6a5e">續升</text>
+      <rect x="730" y="20" width="120" height="90" rx="4" fill="#43652a"><title>7月動能延伸（月增9.3%）：893 億</title></rect><text x="790" y="14" class="num">893</text><text x="790" y="128" fill="#6f6a5e">7月動能</text>
+    </g>
+    <line x1="120" y1="110" x2="860" y2="110" stroke="#23211c" stroke-width="1.5"/>
+    <text x="130" y="145" font-size="12" fill="#6f6a5e">快槍卡一：第三季 ≥815 億（把握 84%）。快槍卡二：毛利率守 60% 以上（把握 100——三張盤唯一滿分，11 月中對帳，沒有退路）。</text>
+  </svg>
+  <h3>我與市場最大的分歧（+50 個百分點，三盤歷史最大）</h3>
+  <div class="quote">「群聯在控制器模組與 NAND 上有絕對的領先與常年客製化的經驗……開始轉弱的跡象是他們開始想要簽長約鎖定長期利益，目前還沒看到，反而看到他們壟斷地位與謹慎上修 NAND 報價的態度，我相信市場話語權還會掌握在他們手中至少一季。」<i>— 祖曜筬，G3 卡差距說明原文，2026-08-14。市場給話語權的長期信任只有 10–30%（本益比 4.7 倍的含義），我給 70。</i></div>
+  <p><b>淨傾向 +97.3（三盤最鷹派）。</b>空方卡（918 億庫存撞上 2027 跌價）我給的比市場低 20 個百分點——理由：AI 基建會把這輪跌價循環的低點墊得比正常循環高很多。這與股癌引 Peter Lynch 的警告（循環股低本益比進場「很高機率賠很多錢」，EP151）正面對撞，兩邊都可能錯，11 月中毛利率對帳給第一個裁決。</p>
+  <h3>估值（倍數等講者拍板；同業橫向比較資料未齊，依股癌硬規則暫不下貴賤結論）</h3>
+  <div class="radio-row" id="ph-base">
+    <label><input type="radio" name="phb" value="475" checked>今年全年粗估 EPS 475（450–500 中值）</label>
+    <label><input type="radio" name="phb" value="184">市場隱含常態 184</label>
+    <label><input type="radio" name="phb" value="83">歷史常態 83</label>
+  </div>
+  <div class="sl"><label>倍數下緣</label><input type="range" id="ph-lo" min="2" max="15" step="0.5" value="4"><output id="ph-lo-o">4.0×</output></div>
+  <div class="sl"><label>倍數上緣</label><input type="range" id="ph-hi" min="2" max="20" step="0.5" value="6"><output id="ph-hi-o">6.0×</output></div>
+  <div class="readout" id="ph-out"></div>
+  <div class="chips"><span class="chip na">✕ 橫向比較：台系模組同業倍數待補</span><span class="chip warn">△ 循環股低倍數警語命中（EP151）</span><span class="chip ok">✓ 故事我最信＋Alpha 最強</span><span class="chip warn">△ 8/13 後價量待更新</span></div>
+  <p class="note">失效條件：群聯公告簽長期供貨合約（我的訊號觸發，週掃描常時監測）／庫存周轉連兩季超過 320 天且合約價轉負／第三季毛利率跌破 60%。</p>
+</div>
+
+<!-- ═══ 對帳與收尾 ═══ -->
+<div class="slide">
+  <div class="kick">對帳日曆</div>
+  <h2>每個判斷都有開獎日</h2>
+  <table>
+    <tr><th>時點</th><th>事件</th><th>對什麼帳</th></tr>
+    <tr><td class="num">8 月底</td><td>TrendForce 月度合約價</td><td>美光「合約價衝破 +13~18%」</td></tr>
+    <tr><td class="num"><b>9/10</b></td><td>台股 8 月營收</td><td><b>群聯快槍卡第一驗</b>（8 月 ≥271.6 億？）</td></tr>
+    <tr><td class="num">9/29</td><td>美光財報</td><td>四方對帳：50／50.84／52.89／<b>53（我）</b></td></tr>
+    <tr><td class="num">10 月初</td><td>TrendForce 第四季報價</td><td>供給時間表之爭的主裁判</td></tr>
+    <tr><td class="num">10 月底</td><td>SanDisk 財報</td><td>「破財測上緣」快槍卡</td></tr>
+    <tr><td class="num"><b>11 月中</b></td><td>群聯第三季財報</td><td><b>我的滿分賭注對帳</b>（毛利率 ≥60%？）</td></tr>
+    <tr><td class="num">常時</td><td>每週一自動掃描</td><td>群聯簽長約＝話語權轉弱訊號</td></tr>
+  </table>
+  <h3>帶走三句話</h3>
+  <p>一、記憶體是循環股，本益比要反著讀——便宜出現在頂、貴出現在底，先問「常態賺多少」再談倍數。<br>二、缺貨是真的，頂也是真的；分歧只在「下一輪的谷底比過去高多少」——這是三檔估值唯一真正的變數。<br>三、有定價權的人不簽長約。看誰在搶著簽約，就知道誰自己覺得站在頂上。</p>
+</div>
+
+</div>
+<footer>
+本報告為台大控股社團內部研究材料，非投資建議。估值方法：EPS 取分析師共識或常態座標、倍數只給區間（股癌 EP84／EP165／EP681 方法，倍數由講者最終拍板）；循環股處理依 EP338／EP151 反讀規則。所有數字可回溯：公司財報與法說、TrendForce、statementdog、富途截圖、盈透證券報價；完整模型與評分存底在記憶體資料夾。圖表為自製（調色盤經色覺無障礙驗證）。2026-08-15。
+</footer>
+<script>
+const $=s=>document.querySelector(s);
+function fmt(x){return x.toLocaleString('en-US',{maximumFractionDigits:0})}
+function wire(id, price, cur){
+  const upd=()=>{
+    const base=+document.querySelector(`input[name="${id}b"]:checked`).value;
+    let lo=+$('#'+id+'-lo').value, hi=+$('#'+id+'-hi').value;
+    if(hi<lo){hi=lo; $('#'+id+'-hi').value=lo;}
+    $('#'+id+'-lo-o').textContent=lo.toFixed(1)+'×'; $('#'+id+'-hi-o').textContent=hi.toFixed(1)+'×';
+    const plo=base*lo, phi=base*hi;
+    $('#'+id+'-out').innerHTML=`講者拍板區：EPS ${cur}${base} × ${lo.toFixed(1)}–${hi.toFixed(1)} 倍 ＝ 合理區間 <b>${cur}${fmt(plo)} – ${cur}${fmt(phi)}</b>　<span class="note">現價 ${cur}${fmt(price)}（估值輸入，非進出場訊號）</span>`;
+  };
+  document.querySelectorAll(`#${id}-base input, #${id}-lo, #${id}-hi`).forEach(el=>el.addEventListener('input',upd));
+  upd();
+}
+wire('mu', 964, '$'); wire('sn', 1631, '$'); wire('ph', 2210, 'NT$');
+</script>
+</body>
+</html>
