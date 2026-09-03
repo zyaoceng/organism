@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>有機體｜小工具與網站</title>
+<style>
+:root{--bg:#EAE7E1;--card:#F7F5F1;--card2:#F1EEE8;--ink:#3E3A36;--sub:#7E786F;--line:#DCD6CC;--line2:#CBC3B6;--mu:#B4735A;--sn:#5B7FA3;--ph:#849A5C;--sand:#C0A170;--slate:#8C8880}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Serif TC","Songti TC","PingFang TC",serif;font-size:15.5px;line-height:1.82;padding-bottom:70px}
+.wrap{max-width:820px;margin:0 auto;padding:0 20px}
+.top{font-size:12.5px;color:var(--sub);padding:18px 0 0}
+.top a{color:var(--sn);text-decoration:none}
+.slide{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:28px 30px;margin:14px 0 22px;box-shadow:0 1px 2px rgba(62,58,54,.05)}
+.kick{font-size:11px;letter-spacing:.22em;color:var(--sub);font-weight:700;text-transform:uppercase}
+h1{font-size:33px;line-height:1.22;margin:10px 0 8px;font-weight:800;letter-spacing:-.01em}
+.sub{color:var(--sub);font-size:13px;line-height:1.7;margin:0}
+a{color:inherit;text-decoration:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:6px}
+.item{display:block;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;transition:border-color .15s}
+.item:hover{border-color:var(--sn)}
+.item .tag{display:inline-block;font-size:11px;padding:2px 9px;border-radius:11px;border:1px solid var(--sn);color:var(--sn);margin-bottom:8px}
+.item h3{font-size:16.5px;margin:0 0 5px;font-weight:700}
+.item p.desc{font-size:13.5px;color:var(--sub);margin:0 0 6px;line-height:1.7}
+.item .meta{font-size:11.5px;color:var(--sub);font-family:ui-monospace,Menlo,monospace}
+.empty{border:1px dashed var(--line2);border-radius:10px;padding:26px 22px;color:var(--sub);font-size:14px;line-height:1.8;background:var(--card2)}
+.empty b{color:var(--ink)}
+footer{color:var(--sub);font-size:11.5px;max-width:820px;margin:34px auto 0;padding:18px 20px;border-top:2px solid var(--ink);line-height:1.85}
+footer a{color:var(--sn)}
+@media(max-width:680px){h1{font-size:26px}.slide{padding:20px 17px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="top"><a href="../">← 回研究報告集</a></div>
+
+<div class="slide" style="border-top:5px solid var(--sn)">
+  <div class="kick">有機體・小工具與網站</div>
+  <h1>小工具與網站</h1>
+  <p class="sub">自己動手做的小網站、計算器與互動工具。與產業研究報告分開放，這裡的東西以「能用」為主。</p>
+</div>
+
+<div class="slide">
+  <div class="empty"><b>還沒放東西。</b><br>
+    之後每個小工具放在 <code>tools/工具名稱/</code> 一個資料夾，裡面有 <code>index.html</code> 就能直接開；這一頁會列出每個工具的入口。</div>
+</div>
+
+</div>
+<footer><div class="wrap" style="padding:0">製作：祖曜筬　·　原始檔案：<a href="https://github.com/zyaoceng/organism">github.com/zyaoceng/organism</a></div></footer>
+</body>
+</html>

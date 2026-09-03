@@ -27,6 +27,8 @@ a{color:inherit;text-decoration:none}
 .toc a{font-size:12.5px;padding:4px 12px;border:1px solid var(--line2);border-radius:14px;color:var(--sub);background:var(--card2)}
 .toc a:hover{border-color:var(--ink);color:var(--ink)}
 .toc a b{color:var(--ink);font-weight:700;margin-right:4px}
+.toc a.tools{margin-left:auto;border-color:var(--sn);color:var(--sn);background:transparent}
+.toc a.tools:hover{background:var(--sn);color:#fff}
 .list{display:flex;flex-direction:column;gap:14px;margin-top:6px}
 .item{display:block;background:var(--card2);border:1px solid var(--line);border-radius:10px;
  padding:18px 20px;transition:border-color .15s}
@@ -69,15 +71,138 @@ footer a{color:var(--sn)}
 <div class="slide" style="border-top:5px solid var(--mu)">
   <div class="kick">有機體・研究報告集</div>
   <h1>有機體</h1>
-  <p class="sub">台大控股同學間定期線上交流會的講義與產業研究，一個主題一個資料夾，持續更新。<br>HTML 與 PDF 點了直接看；標「下載」的是原始檔。</p>
+  <p class="sub">台大控股同學間定期線上交流會的講義與產業研究，一個主題一個資料夾，持續更新。<br>HTML 與 PDF 點了直接看；標「下載」的是原始檔。自己做的小工具與網站另外放在<a href="./tools/" style="color:var(--sn)">工具頁</a>。</p>
   <div class="toc">
-    <a href="#800vdc"><b>05</b>800VDC 供電架構</a>
-    <a href="#memory"><b>04</b>記憶體</a>
-    <a href="#cpu"><b>07</b>CPU</a>
-    <a href="#optical"><b>03</b>光通訊</a>
-    <a href="#asic"><b>02</b>ASIC</a>
-    <a href="#substrate"><b>06</b>IC 載板</a>
     <a href="#power"><b>01</b>功率半導體</a>
+    <a href="#asic"><b>02</b>ASIC</a>
+    <a href="#optical"><b>03</b>光通訊</a>
+    <a href="#memory"><b>04</b>記憶體</a>
+    <a href="#800vdc"><b>05</b>800VDC 供電架構</a>
+    <a href="#substrate"><b>06</b>IC 載板</a>
+    <a href="#cpu"><b>07</b>CPU</a>
+    <a href="#cooling"><b>08</b>資料中心散熱</a>
+    <a href="#avgo"><b>09</b>AVGO 博通</a>
+    <a class="tools" href="./tools/">小工具與網站 →</a>
+  </div>
+</div>
+
+<!-- ══════ 01 功率半導體 ══════ -->
+<div class="slide" id="power">
+  <div class="section-h"><span class="num">01</span><h2>功率半導體</h2><span class="en">POWER SEMI</span><span class="date">2026-07-11</span></div>
+  <p class="blurb">AI 時代的電力生意：第一場交流會的講義。</p>
+  <div class="list">
+
+    <a class="item" href="./01_%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94/%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94_%E7%A4%BE%E5%9C%98%E6%8A%95%E5%BD%B1%E7%89%88_2026-07-11.html">
+      <span class="tag sand">投影版</span>
+      <h3>功率半導體：AI 時代的電力生意（社團投影版）</h3>
+      <p class="desc">交流會投影用版本</p>
+      <span class="meta">2026-07-11 · HTML</span>
+    </a>
+
+    <a class="item" href="./01_%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94/%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94_%E8%AC%9B%E8%80%85%E5%AE%8C%E6%95%B4%E7%89%88_2026-07-11.html">
+      <span class="tag sand">完整版</span>
+      <h3>功率半導體 講者完整版</h3>
+      <p class="desc">含講者口述與補充資料</p>
+      <span class="meta">2026-07-11 · HTML</span>
+    </a>
+
+    <a class="item" href="./01_%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94/%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94_%E9%80%B2%E9%9A%8EQA%E5%9B%9B%E9%A1%8C_2026-07-11.html">
+      <span class="tag sand">QA</span>
+      <h3>功率半導體 進階 QA 四題</h3>
+      <p class="desc">四題進階問答，完整語句版</p>
+      <span class="meta">2026-07-11 · HTML</span>
+    </a>
+
+  </div>
+</div>
+
+<!-- ══════ 02 ASIC ══════ -->
+<div class="slide" id="asic">
+  <div class="section-h"><span class="num">02</span><h2>ASIC</h2><span class="en">CUSTOM SILICON</span><span class="date">2026-07-19</span></div>
+  <p class="blurb">從通用 GPU 到客戶自研晶片的結構性轉變：Broadcom、Marvell、世芯、創意。</p>
+  <div class="list">
+
+    <a class="item" href="./02_ASIC/ASIC%20%E7%94%A2%E6%A5%AD%E8%AC%9B%E8%A7%A3.pdf">
+      <span class="tag sn">投影片</span>
+      <h3>ASIC 產業講解（60 分鐘討論會投影片）</h3>
+      <p class="desc">ASIC 是什麼、產業怎麼賺錢、現況與趨勢、四家公司深度分析、估值與目標價、風險</p>
+      <span class="meta">2026-07-19 · PDF 43 頁</span>
+    </a>
+
+    <a class="item" href="./02_ASIC/ASIC%20%E4%B8%BB%E8%AC%9B%E8%80%85%E8%AC%9B%E7%A8%BF.pdf">
+      <span class="tag sn">講稿</span>
+      <h3>ASIC 主講者講稿</h3>
+      <p class="desc">對應 43 頁投影片的逐頁口述稿，含轉場句與時間提示</p>
+      <span class="meta">2026-07-19 · PDF 21 頁</span>
+    </a>
+
+    <a class="item" href="./02_ASIC/ASIC%20%E7%94%A2%E6%A5%AD%E8%AC%9B%E8%A7%A3.pptx">
+      <span class="tag slate">下載</span>
+      <h3>ASIC 產業講解 原始 PowerPoint</h3>
+      <p class="desc">同一份投影片的 .pptx 原檔，點了會下載</p>
+      <span class="meta">2026-07-19 · PPTX</span>
+    </a>
+
+  </div>
+</div>
+
+<!-- ══════ 03 光通訊 ══════ -->
+<div class="slide" id="optical">
+  <div class="section-h"><span class="num">03</span><h2>光通訊</h2><span class="en">OPTICAL / InP</span><span class="date">2026-07-25 → 07-31</span></div>
+  <p class="blurb">從「銦」到 GPU：AI 瓶頸往光移動，InP 基板與雷射產能是這一輪的 CoWoS。</p>
+  <div class="list">
+
+    <a class="item" href="./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A%E7%94%A2%E6%A5%AD%E6%B7%B1%E5%BA%A6%E5%A0%B1%E5%91%8A_2026-07-31.pdf">
+      <span class="tag ph">報告</span>
+      <h3>光通訊產業深度報告</h3>
+      <p class="desc">第一性原理、10 大技術瓶頸、全鏈玩家市佔、技術面與籌碼、循環時差模型、Channel Check｜LITE・COHR・AAOI・AXTI・VECO・AIXTRON・聯亞・穎崴</p>
+      <span class="meta">2026-07-31 · PDF 37 頁</span>
+    </a>
+
+    <a class="item" href="./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A_%E5%B0%8D%E5%85%A7%E5%AE%8C%E6%95%B4%E7%89%88v2_2026-07-30.html">
+      <span class="tag ph">講義</span>
+      <h3>光通訊產業深度研究與投資策略報告 v2（對內完整版）</h3>
+      <p class="desc">壹 第一性與 10 大瓶頸｜貳 供應鏈全景｜參 七檔兩軸＋財報週觀戰｜肆 技術面指引｜伍 循環時差模型｜陸 蒸餾賭注｜柒 Channel Check｜v2.1 增補 AIXTRON、穎崴</p>
+      <span class="meta">2026-07-30 · HTML</span>
+    </a>
+
+    <a class="item" href="./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A%E7%94%A2%E6%A5%AD_%E6%95%85%E4%BA%8B%E7%B7%9A_2026-07-26.html">
+      <span class="tag ph">故事線</span>
+      <h3>光通訊產業全景故事線：從「銦」到 GPU</h3>
+      <p class="desc">一條供應鏈，六個標的，一個瓶頸｜AAOI、AXTI、LITE、COHR、VECO、AIXTRON</p>
+      <span class="meta">2026-07-26 · HTML</span>
+    </a>
+
+    <a class="item" href="./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A_%E5%B0%8D%E5%85%A7%E5%AE%8C%E6%95%B4%E7%89%88_2026-07-25.html">
+      <span class="tag slate">前一版</span>
+      <h3>光通訊產業報告 對內完整版 v1</h3>
+      <p class="desc">v2 的前一版，保留供對照</p>
+      <span class="meta">2026-07-25 · HTML</span>
+    </a>
+
+  </div>
+</div>
+
+<!-- ══════ 04 記憶體 ══════ -->
+<div class="slide" id="memory">
+  <div class="section-h"><span class="num">04</span><h2>記憶體</h2><span class="en">MEMORY / STORAGE</span><span class="date">2026-08-15 → 08-16</span></div>
+  <p class="blurb">AI 時代的儲存生意：缺貨走到哪、市佔格局、共識每股盈餘與目標價區間。</p>
+  <div class="list">
+
+    <a class="item" href="./04_%E8%A8%98%E6%86%B6%E9%AB%94/%E8%A8%98%E6%86%B6%E9%AB%94_%E7%A4%BE%E5%9C%98%E7%89%88_2026-08-16.html">
+      <span class="tag mu">最新</span>
+      <h3>記憶體產業分析：美光・SanDisk・群聯（社團版）</h3>
+      <p class="desc">美光 MU・SanDisk SNDK・群聯 8299｜產業定義、缺貨週期、市佔、共識 EPS、目標價區間</p>
+      <span class="meta">2026-08-16 · HTML</span>
+    </a>
+
+    <a class="item" href="./04_%E8%A8%98%E6%86%B6%E9%AB%94/%E8%A8%98%E6%86%B6%E9%AB%94_%E7%A4%BE%E5%9C%98%E7%89%88_2026-08-15.html">
+      <span class="tag slate">前一版</span>
+      <h3>記憶體：AI 時代的儲存生意（社團版 08-15）</h3>
+      <p class="desc">先學三個詞、鏈上怎麼分錢、美光・SanDisk・群聯初版判斷</p>
+      <span class="meta">2026-08-15 · HTML</span>
+    </a>
+
   </div>
 </div>
 
@@ -138,24 +263,17 @@ footer a{color:var(--sn)}
   </div>
 </div>
 
-<!-- ══════ 04 記憶體 ══════ -->
-<div class="slide" id="memory">
-  <div class="section-h"><span class="num">04</span><h2>記憶體</h2><span class="en">MEMORY / STORAGE</span><span class="date">2026-08-15 → 08-16</span></div>
-  <p class="blurb">AI 時代的儲存生意：缺貨走到哪、市佔格局、共識每股盈餘與目標價區間。</p>
+<!-- ══════ 06 IC 載板 ══════ -->
+<div class="slide" id="substrate">
+  <div class="section-h"><span class="num">06</span><h2>IC 載板</h2><span class="en">IC SUBSTRATE</span><span class="date">2026-07</span></div>
+  <p class="blurb">欣興、景碩、南電、臻鼎-KY 四雄解析，含 2026／2027 三情境目標價。</p>
   <div class="list">
 
-    <a class="item" href="./04_%E8%A8%98%E6%86%B6%E9%AB%94/%E8%A8%98%E6%86%B6%E9%AB%94_%E7%A4%BE%E5%9C%98%E7%89%88_2026-08-16.html">
-      <span class="tag mu">最新</span>
-      <h3>記憶體產業分析：美光・SanDisk・群聯（社團版）</h3>
-      <p class="desc">美光 MU・SanDisk SNDK・群聯 8299｜產業定義、缺貨週期、市佔、共識 EPS、目標價區間</p>
-      <span class="meta">2026-08-16 · HTML</span>
-    </a>
-
-    <a class="item" href="./04_%E8%A8%98%E6%86%B6%E9%AB%94/%E8%A8%98%E6%86%B6%E9%AB%94_%E7%A4%BE%E5%9C%98%E7%89%88_2026-08-15.html">
-      <span class="tag slate">前一版</span>
-      <h3>記憶體：AI 時代的儲存生意（社團版 08-15）</h3>
-      <p class="desc">先學三個詞、鏈上怎麼分錢、美光・SanDisk・群聯初版判斷</p>
-      <span class="meta">2026-08-15 · HTML</span>
+    <a class="item" href="./06_IC%E8%BC%89%E6%9D%BF/IC%E8%BC%89%E6%9D%BF%E7%94%A2%E6%A5%AD%E5%88%86%E6%9E%90_%E6%AC%A3%E8%88%88-%E6%99%AF%E7%A2%A9-%E5%8D%97%E9%9B%BB-%E8%87%BB%E9%BC%8EKY_2026-07.pdf">
+      <span class="tag mu">報告</span>
+      <h3>IC 載板產業分析：欣興・景碩・南電・臻鼎-KY</h3>
+      <p class="desc">載板是什麼、AI 晶片放大如何驅動缺產能、內埋式／EMIB-T／玻璃核心三大新戰場、四雄解析、2026／2027 悲觀・中性・樂觀目標價</p>
+      <span class="meta">2026-07 · PDF 20 頁</span>
     </a>
 
   </div>
@@ -177,114 +295,33 @@ footer a{color:var(--sn)}
   </div>
 </div>
 
-<!-- ══════ 03 光通訊 ══════ -->
-<div class="slide" id="optical">
-  <div class="section-h"><span class="num">03</span><h2>光通訊</h2><span class="en">OPTICAL / InP</span><span class="date">2026-07-25 → 07-31</span></div>
-  <p class="blurb">從「銦」到 GPU：AI 瓶頸往光移動，InP 基板與雷射產能是這一輪的 CoWoS。</p>
+<!-- ══════ 08 資料中心散熱 ══════ -->
+<div class="slide" id="cooling">
+  <div class="section-h"><span class="num">08</span><h2>資料中心散熱</h2><span class="en">THERMAL MANAGEMENT</span><span class="date">2026-07</span></div>
+  <p class="blurb">AI 資本支出下的散熱投資機會：從一個 GB300 機櫃拆到冷卻塔，三段成熟度框架與 5+1 檔個股定位。</p>
   <div class="list">
 
-    <a class="item" href="./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A%E7%94%A2%E6%A5%AD%E6%B7%B1%E5%BA%A6%E5%A0%B1%E5%91%8A_2026-07-31.pdf">
-      <span class="tag ph">報告</span>
-      <h3>光通訊產業深度報告</h3>
-      <p class="desc">第一性原理、10 大技術瓶頸、全鏈玩家市佔、技術面與籌碼、循環時差模型、Channel Check｜LITE・COHR・AAOI・AXTI・VECO・AIXTRON・聯亞・穎崴</p>
-      <span class="meta">2026-07-31 · PDF 37 頁</span>
-    </a>
-
-    <a class="item" href="./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A_%E5%B0%8D%E5%85%A7%E5%AE%8C%E6%95%B4%E7%89%88v2_2026-07-30.html">
-      <span class="tag ph">講義</span>
-      <h3>光通訊產業深度研究與投資策略報告 v2（對內完整版）</h3>
-      <p class="desc">壹 第一性與 10 大瓶頸｜貳 供應鏈全景｜參 七檔兩軸＋財報週觀戰｜肆 技術面指引｜伍 循環時差模型｜陸 蒸餾賭注｜柒 Channel Check｜v2.1 增補 AIXTRON、穎崴</p>
-      <span class="meta">2026-07-30 · HTML</span>
-    </a>
-
-    <a class="item" href="./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A%E7%94%A2%E6%A5%AD_%E6%95%85%E4%BA%8B%E7%B7%9A_2026-07-26.html">
-      <span class="tag ph">故事線</span>
-      <h3>光通訊產業全景故事線：從「銦」到 GPU</h3>
-      <p class="desc">一條供應鏈，六個標的，一個瓶頸｜AAOI、AXTI、LITE、COHR、VECO、AIXTRON</p>
-      <span class="meta">2026-07-26 · HTML</span>
-    </a>
-
-    <a class="item" href="./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A_%E5%B0%8D%E5%85%A7%E5%AE%8C%E6%95%B4%E7%89%88_2026-07-25.html">
-      <span class="tag slate">前一版</span>
-      <h3>光通訊產業報告 對內完整版 v1</h3>
-      <p class="desc">v2 的前一版，保留供對照</p>
-      <span class="meta">2026-07-25 · HTML</span>
+    <a class="item" href="./08_%E8%B3%87%E6%96%99%E4%B8%AD%E5%BF%83%E6%95%A3%E7%86%B1/%E8%B3%87%E6%96%99%E4%B8%AD%E5%BF%83%E6%95%A3%E7%86%B1_%E4%B8%BB%E9%A1%8C%E6%8A%95%E8%B3%87%E6%8A%95%E5%BD%B1%E7%89%87_2026-07.pdf">
+      <span class="tag ph">投影片</span>
+      <h3>資料中心散熱：三段成熟度框架與 5+1 檔個股定位</h3>
+      <p class="desc">氣冷→冷板→浸沒式技術樹、GB300 機櫃供應鏈拆解、TDP 進化與市場規模｜奇鋐 3017・雙鴻 3324・高力 8996・Vertiv・Trane，快閃邁科 6831｜風險情境與個人排序</p>
+      <span class="meta">2026-07 · PDF 33 頁</span>
     </a>
 
   </div>
 </div>
 
-<!-- ══════ 02 ASIC ══════ -->
-<div class="slide" id="asic">
-  <div class="section-h"><span class="num">02</span><h2>ASIC</h2><span class="en">CUSTOM SILICON</span><span class="date">2026-07-19</span></div>
-  <p class="blurb">從通用 GPU 到客戶自研晶片的結構性轉變：Broadcom、Marvell、世芯、創意。</p>
+<!-- ══════ 09 AVGO 博通 ══════ -->
+<div class="slide" id="avgo">
+  <div class="section-h"><span class="num">09</span><h2>AVGO 博通</h2><span class="en">BROADCOM · SINGLE STOCK</span><span class="date">2026-08-22</span></div>
+  <p class="blurb">個股研究報告：宋分《分析師底層系統》＋分部拆解預測法，FY2023 至 FY2026 H1 實際、Q3／Q4 預估。</p>
   <div class="list">
 
-    <a class="item" href="./02_ASIC/ASIC%20%E7%94%A2%E6%A5%AD%E8%AC%9B%E8%A7%A3.pdf">
-      <span class="tag sn">投影片</span>
-      <h3>ASIC 產業講解（60 分鐘討論會投影片）</h3>
-      <p class="desc">ASIC 是什麼、產業怎麼賺錢、現況與趨勢、四家公司深度分析、估值與目標價、風險</p>
-      <span class="meta">2026-07-19 · PDF 43 頁</span>
-    </a>
-
-    <a class="item" href="./02_ASIC/ASIC%20%E4%B8%BB%E8%AC%9B%E8%80%85%E8%AC%9B%E7%A8%BF.pdf">
-      <span class="tag sn">講稿</span>
-      <h3>ASIC 主講者講稿</h3>
-      <p class="desc">對應 43 頁投影片的逐頁口述稿，含轉場句與時間提示</p>
-      <span class="meta">2026-07-19 · PDF 21 頁</span>
-    </a>
-
-    <a class="item" href="./02_ASIC/ASIC%20%E7%94%A2%E6%A5%AD%E8%AC%9B%E8%A7%A3.pptx">
-      <span class="tag slate">下載</span>
-      <h3>ASIC 產業講解 原始 PowerPoint</h3>
-      <p class="desc">同一份投影片的 .pptx 原檔，點了會下載</p>
-      <span class="meta">2026-07-19 · PPTX</span>
-    </a>
-
-  </div>
-</div>
-
-<!-- ══════ 06 IC 載板 ══════ -->
-<div class="slide" id="substrate">
-  <div class="section-h"><span class="num">06</span><h2>IC 載板</h2><span class="en">IC SUBSTRATE</span><span class="date">2026-07</span></div>
-  <p class="blurb">欣興、景碩、南電、臻鼎-KY 四雄解析，含 2026／2027 三情境目標價。</p>
-  <div class="list">
-
-    <a class="item" href="./06_IC%E8%BC%89%E6%9D%BF/IC%E8%BC%89%E6%9D%BF%E7%94%A2%E6%A5%AD%E5%88%86%E6%9E%90_%E6%AC%A3%E8%88%88-%E6%99%AF%E7%A2%A9-%E5%8D%97%E9%9B%BB-%E8%87%BB%E9%BC%8EKY_2026-07.pdf">
-      <span class="tag mu">報告</span>
-      <h3>IC 載板產業分析：欣興・景碩・南電・臻鼎-KY</h3>
-      <p class="desc">載板是什麼、AI 晶片放大如何驅動缺產能、內埋式／EMIB-T／玻璃核心三大新戰場、四雄解析、2026／2027 悲觀・中性・樂觀目標價</p>
-      <span class="meta">2026-07 · PDF 20 頁</span>
-    </a>
-
-  </div>
-</div>
-
-<!-- ══════ 01 功率半導體 ══════ -->
-<div class="slide" id="power">
-  <div class="section-h"><span class="num">01</span><h2>功率半導體</h2><span class="en">POWER SEMI</span><span class="date">2026-07-11</span></div>
-  <p class="blurb">AI 時代的電力生意：第一場交流會的講義。</p>
-  <div class="list">
-
-    <a class="item" href="./01_%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94/%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94_%E7%A4%BE%E5%9C%98%E6%8A%95%E5%BD%B1%E7%89%88_2026-07-11.html">
-      <span class="tag sand">投影版</span>
-      <h3>功率半導體：AI 時代的電力生意（社團投影版）</h3>
-      <p class="desc">交流會投影用版本</p>
-      <span class="meta">2026-07-11 · HTML</span>
-    </a>
-
-    <a class="item" href="./01_%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94/%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94_%E8%AC%9B%E8%80%85%E5%AE%8C%E6%95%B4%E7%89%88_2026-07-11.html">
-      <span class="tag sand">完整版</span>
-      <h3>功率半導體 講者完整版</h3>
-      <p class="desc">含講者口述與補充資料</p>
-      <span class="meta">2026-07-11 · HTML</span>
-    </a>
-
-    <a class="item" href="./01_%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94/%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94_%E9%80%B2%E9%9A%8EQA%E5%9B%9B%E9%A1%8C_2026-07-11.html">
-      <span class="tag sand">QA</span>
-      <h3>功率半導體 進階 QA 四題</h3>
-      <p class="desc">四題進階問答，完整語句版</p>
-      <span class="meta">2026-07-11 · HTML</span>
+    <a class="item" href="./09_AVGO/AVGO_Broadcom%E5%80%8B%E8%82%A1%E7%A0%94%E7%A9%B6%E5%A0%B1%E5%91%8A_%E5%AE%8C%E6%95%B4%E7%89%88_2026-08-22.pdf">
+      <span class="tag sn">個股</span>
+      <h3>Broadcom Inc.（AVGO）個股研究報告 完整版</h3>
+      <p class="desc">投資結論、護城河與上下游、五大產品線、財務、成長空間、Q3／Q4 FY2026 預測、估值與目標價、風險｜補充篇：SemiAnalysis CoWoS 下修事件的新中性情境重算</p>
+      <span class="meta">2026-08-22 · PDF 45 頁</span>
     </a>
 
   </div>
