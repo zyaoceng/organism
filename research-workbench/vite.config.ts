@@ -7,6 +7,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // GitHub Codespaces opens the dev server through *.app.github.dev
+    allowedHosts: ['.app.github.dev'],
     proxy: { '/api': `http://127.0.0.1:${serverPort}` },
   },
   build: { outDir: 'dist/client', emptyOutDir: true, chunkSizeWarningLimit: 1500 },
