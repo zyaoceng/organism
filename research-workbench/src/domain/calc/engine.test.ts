@@ -126,7 +126,8 @@ describe('errors are explained', () => {
     const a = idByName(s, 'Business A');
     s = setValue(s, a, 'FY2024', 'base', null);
     const c = compute(s).cells.base[a].FY2024;
-    expect(c.err?.code).toBe('NO_PERIOD');
+    expect(c.err?.code).toBe('MISSING');
+    expect(c.err?.message).toMatch(/Missing starting value for Business A/);
   });
 
   it('asks for a period when a single-value formula reads a time series', () => {

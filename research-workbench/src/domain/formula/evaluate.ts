@@ -77,7 +77,7 @@ function readRef(id: string, period: string | undefined, ctx: EvalContext): Valu
   if (ctx.periodIndex < 0) {
     const first = ix.periods[0];
     const name = ix.byId.get(id)?.name ?? id;
-    return calcError('NO_PERIOD', `Missing starting value for ${name}: PREV() reaches before the first period${first ? ` (${first.label})` : ''}. Type ${name} in an actual period.`, { nodeId: ctx.nodeId });
+    return calcError('MISSING', `Missing starting value for ${name}: PREV() reaches before the first period${first ? ` (${first.label})` : ''}. Type ${name} in an actual period.`, { nodeId: ctx.nodeId });
   }
   return ctx.read(id, ix.periods[ctx.periodIndex].id);
 }
