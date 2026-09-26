@@ -61,6 +61,17 @@ export function commitDraft(db: DB, projectId: string, input: CommitInput, today
     if (!parsedAfter.ok) throw badRequest('The draft model is invalid', parsedAfter.errors);
     const after = parsedAfter.state;
     assertLinksBelong(db, projectId, after);
+    const linked = [...new Set(after.links.map((l) => l.evidenceId))];
+    if (linked.length) {
+      const late = db
+        .prepare(`SELECT title, published_at FROM evidence WHERE project_id = ? AND published_at > ? AND id IN (${linked.map(() => '?').join(',')})`)
+        .all(projectId, input.asOfDate, ...linked) as { title: string; published_at: string }[];
+      if (late.length) {
+        throw badRequest(
+          `Linked evidence was published after the knowledge date ${input.asOfDate}: ${late.map((e) => `“${e.title}” (${e.published_at})`).join(', ')}. Move the knowledge date or unlink it.`,
+        );
+      }
+    }
     const before = JSON.parse(head.state_json) as ModelState;
 
     const changes = diffStates(before, after);

@@ -198,7 +198,8 @@ function collectIssues(state: ModelState, ix: ModelIndex, graph: DepGraph, cells
           });
         }
       }
-      if (c.err && !['UPSTREAM', 'MISSING', 'CYCLE', 'PARSE'].includes(c.err.code)) {
+      const staticallyKnown = c.err?.code === 'CYCLE' && graph.inCycle.has(n.id);
+      if (c.err && !staticallyKnown && !['UPSTREAM', 'MISSING', 'PARSE'].includes(c.err.code)) {
         issues.push({ nodeId: n.id, severity: 'error', code: c.err.code, periodKey: key, message: `${periodLabel(ix, n, key)}: ${c.err.message}` });
       }
     }

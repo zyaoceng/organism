@@ -192,11 +192,17 @@ Entity mapping against the suggested list:
 - **Dependency**: derived at calculation time from parsed formulas. Edge
   `A → B` exists when B's formula references A in the same period or at an
   absolute period (`@FY2028`). `PREV()` references are *lagged* edges.
-- **Cycle rule**: the graph of non-lagged edges must be a DAG. Any cycle in
-  the (node, period) graph must have total lag 0, and lags are never
-  negative, so every such cycle appears in the non-lagged graph — checking it
-  is sufficient. Absolute-period references are treated as non-lagged
-  (conservative). A runtime guard catches anything else.
+- **Cycle rule** (two checks):
+  1. The graph of same-period edges must be a DAG. A `PREV()` read of a
+     single-value node counts as same-period (the value does not shift).
+  2. Lagged edges point to earlier periods, but an absolute reference
+     (`[X]@FY2028`) can point to a later one. Any loop through lagged edges
+     that also contains an absolute reference is rejected as circular
+     (conservative).
+  Everything else in the (node, period) graph moves strictly backwards in
+  time and cannot loop. A runtime guard catches anything missed and reports it
+  as a model issue. (The first draft of this rule argued lags are never
+  negative and missed both cases; the independent code review caught them.)
 - **Readability**: selecting a node marks its direct inputs and dependents in
   the tree; the inspector lists "Depends on" and "Used by" with values and a
   button to trace the full upstream chain.
@@ -442,7 +448,7 @@ row states the problem, why it matters, and the correction adopted above.
 | 9 | Knowledge date free-form. | A backdated update would build on later knowledge. | Look-ahead bias in the estimate history. | Knowledge dates non-decreasing; evidence published after the knowledge date cannot be cited (§10, §14). `initial` has no knowledge date so backfilling is still possible. |
 | 10 | Treat empty inputs as 0 (spreadsheet default). | Silent wrong EPS. | Hidden model errors. | Strict `MISSING` errors with root-cause messages (§11). |
 | 11 | Hard-coded values in formula nodes allowed silently. | Classic spreadsheet error: stale plugs. | Hidden model errors. | Orange flag, formula-check difference, model checks list (§8, §11). |
-| 12 | Changing a node's scale just relabels numbers. | 1,853 億 would become 1,853 million. | Unit corruption. | Scale changes convert values by default; relabel is explicit (§10). |
+| 12 | Changing a node's scale just relabels numbers. | 1,853 億 would become 1,853 million. | Unit corruption. | Scale changes convert values by default; relabel is explicit. Conversion is refused when the node has a formula or formulas read it, because formulas do not convert scales (§10, found in review). |
 | 13 | Name-based references resolved globally. | Duplicated branches (e.g. every segment has "Growth") become ambiguous; renames break text. | Formula fragility. | IDs in storage; scoped resolution at edit time; path display when ambiguous; branch duplication remaps internal refs (§11). |
 | 14 | Attribution by applying changes sequentially. | Order-dependent numbers that look precise. | False precision. | One-at-a-time marginal effects plus an explicit residual (§14). |
 | 15 | Scenario overrides allowed everywhere. | Bear case could "change history". | Actuals must be shared. | Overrides only on estimate cells (§12). |
@@ -545,8 +551,17 @@ Built as designed above; deviations are listed at the end of this section.
 | Persistence, commit service, evidence/attachments, trades, market cache, export, migrations | `src/server/` | `server.test.ts` (Fastify inject, temp data dir) |
 | UI and end-to-end workflow | `src/client/` | `e2e/acceptance.mjs` — 19 checks covering acceptance tests 1–18 through the real UI, against a production build on a throwaway data directory |
 
-Results at the time of writing: `npm run typecheck` clean, `npm test` 65/65,
+Results at the time of writing: `npm run typecheck` clean, `npm test` 70/70,
 `npm run e2e` 19/19.
+
+An independent code review after the first complete build found six issues,
+all fixed with regression tests: two autosave/commit races in the client
+store (overlapping saves could report a false conflict; an edit during a
+commit could be lost), stale undo history after a conflict reload, two
+circular-dependency shapes the static check missed (scalar `PREV`, forward
+`@PERIOD` loops), scale conversion on formula-connected nodes, and missing
+knowledge-date checks on secondary paths (linked evidence at commit, evidence
+date edits, explicit or edited trade snapshots).
 
 Deviations and notes:
 

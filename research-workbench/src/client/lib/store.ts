@@ -116,13 +116,19 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     }
   }
 
+  /** Start a save chained after any in-flight one, so saves never overlap. */
+  function startSave() {
+    const p: Promise<void> = (saving ?? Promise.resolve()).then(doSave).finally(() => {
+      if (saving === p) saving = null;
+    });
+    saving = p;
+  }
+
   function schedule() {
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       saveTimer = null;
-      saving = (saving ?? Promise.resolve()).then(doSave).finally(() => {
-        saving = null;
-      });
+      startSave();
     }, SAVE_DELAY);
   }
 
@@ -160,8 +166,10 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       if (get().projectId !== projectId) {
         // Save any pending edit of the previously open project before switching.
         await get().flush().catch(() => undefined);
-        set({ projectId, loading: true, loadError: null, project: null, draft: null, head: null, viewing: null, undoStack: [], redoStack: [], selectedNodeId: null, selectedCell: null, collapsed: loadCollapsed(projectId), quote: null });
+        set({ projectId, loading: true, loadError: null, project: null, draft: null, head: null, viewing: null, selectedNodeId: null, selectedCell: null, collapsed: loadCollapsed(projectId), quote: null });
       }
+      // Undo history refers to the state before this load (e.g. before a conflict reload): drop it.
+      set({ undoStack: [], redoStack: [] });
       try {
         const [b, evidence, catalysts, trades, revisions, notes, reviews] = await Promise.all([
           api.project(projectId),
@@ -266,41 +274,52 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     },
 
     undo() {
-      const { undoStack, draft, viewing } = get();
-      if (!undoStack.length || !draft || viewing) return;
+      const { undoStack, draft, viewing, committing } = get();
+      if (!undoStack.length || !draft || viewing || committing) return;
       set((s) => ({ draft: undoStack[undoStack.length - 1], undoStack: undoStack.slice(0, -1), redoStack: [...s.redoStack, draft], saveStatus: 'pending' }));
       lastCoalesce = null;
       schedule();
     },
 
     redo() {
-      const { redoStack, draft, viewing } = get();
-      if (!redoStack.length || !draft || viewing) return;
+      const { redoStack, draft, viewing, committing } = get();
+      if (!redoStack.length || !draft || viewing || committing) return;
       set((s) => ({ draft: redoStack[redoStack.length - 1], redoStack: redoStack.slice(0, -1), undoStack: [...s.undoStack, draft], saveStatus: 'pending' }));
       lastCoalesce = null;
       schedule();
     },
 
     async flush() {
-      if (saveTimer) {
-        clearTimeout(saveTimer);
-        saveTimer = null;
-        saving = (saving ?? Promise.resolve()).then(doSave).finally(() => {
-          saving = null;
-        });
+      // Drain until nothing is scheduled, nothing is in flight and the latest draft is saved.
+      for (let guard = 0; guard < 50; guard++) {
+        if (saveTimer) {
+          clearTimeout(saveTimer);
+          saveTimer = null;
+          startSave();
+        }
+        if (saving) {
+          await saving;
+          continue;
+        }
+        if (get().saveStatus === 'pending') {
+          startSave();
+          continue;
+        }
+        break;
       }
-      while (saving) await saving;
       const st = get().saveStatus;
       if (st === 'error' || st === 'conflict') throw new Error(get().saveError ?? 'The draft could not be saved');
+      if (st !== 'saved') throw new Error('The draft is still being saved; try again');
     },
 
     async commit(input) {
-      await get().flush();
-      const { projectId, draftVersion } = get();
+      const { projectId } = get();
       if (!projectId) throw new Error('No project');
+      // Block edits first, so nothing can change between the final save and the commit.
       set({ committing: true });
       try {
-        const rev = await api.commit(projectId, { ...input, draftVersion });
+        await get().flush();
+        const rev = await api.commit(projectId, { ...input, draftVersion: get().draftVersion });
         const b = await api.project(projectId);
         set({ head: b.head, draft: b.draft.state, draftVersion: b.draft.version, saveStatus: 'saved', undoStack: [], redoStack: [], restoredFrom: null });
         await Promise.all([get().refresh('revisions'), get().refresh('evidence')]);

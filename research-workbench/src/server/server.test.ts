@@ -369,6 +369,43 @@ describe('market data, snapshots and trades', () => {
   });
 });
 
+describe('point-in-time guards on secondary paths', () => {
+  it('rejects research, evidence and trade links that would look ahead', async () => {
+    const b = await newProject();
+    const pid = b.project.id;
+    const sec = b.securities[0];
+    await api('GET', `/api/securities/${sec.id}/bars`);
+    const d = await saveDraft(pid, populate(b.draft.state), b.draft.version);
+    const r2 = await commit(pid, d.version, { asOfDate: '2026-09-10' });
+
+    // linked (not cited) evidence published after the knowledge date
+    const late = await api<EvidenceDTO>('POST', `/api/projects/${pid}/evidence`, { title: 'Late article', publishedAt: '2026-09-18' });
+    let bundle = await api<ProjectBundleDTO>('GET', `/api/projects/${pid}`);
+    const node = bundle.draft.state.nodes.find((n) => n.name === 'Gross Margin')!.id;
+    const withLink = { ...bundle.draft.state, links: [{ id: 'l9', evidenceId: late.id, nodeId: node, relation: 'supports' }] };
+    const d2 = await saveDraft(pid, withLink as ModelState, bundle.draft.version);
+    const err = await api<{ error: string }>('POST', `/api/projects/${pid}/revisions`, { title: 't', reason: 'r', asOfDate: '2026-09-15', draftVersion: d2.version }, 400);
+    expect(err.error).toMatch(/Late article/);
+    const r3 = await commit(pid, d2.version, { asOfDate: '2026-09-20' });
+
+    // evidence dates cannot be moved after a revision that relies on them
+    const moved = await api<{ error: string }>('PATCH', `/api/evidence/${late.id}`, { publishedAt: '2026-09-25' }, 400);
+    expect(moved.error).toMatch(/Research Update #3/);
+    await api('PATCH', `/api/evidence/${late.id}`, { publishedAt: '2026-09-17' });
+
+    // trades: an explicit snapshot must be known on the entry date; moving the entry re-resolves it
+    const bad = await api<{ error: string }>('POST', `/api/projects/${pid}/trades`, { entryDate: '2026-09-12', entryPrice: 100, quantity: 1, revisionId: r3.id }, 400);
+    expect(bad.error).toMatch(/after the entry date/);
+    const t = await api<TradeDTO>('POST', `/api/projects/${pid}/trades`, { entryDate: '2026-09-21', entryPrice: 100, quantity: 1 });
+    expect(t.revisionId).toBe(r3.id);
+    const moved2 = await api<TradeDTO>('PATCH', `/api/trades/${t.id}`, { entryDate: '2026-09-12' });
+    expect(moved2.revisionId).toBe(r2.id);
+    await api('PATCH', `/api/trades/${t.id}`, { revisionId: r3.id }, 400);
+    bundle = await api<ProjectBundleDTO>('GET', `/api/projects/${pid}`);
+    expect(bundle.head.id).toBe(r3.id);
+  });
+});
+
 describe('catalysts, notes, reviews, templates, export, migrations', () => {
   it('supports the surrounding records', async () => {
     const b = await newProject();

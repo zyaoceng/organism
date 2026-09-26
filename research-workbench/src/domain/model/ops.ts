@@ -165,6 +165,20 @@ export function setTimeMode(state: ModelState, id: string, mode: TimeMode): Mode
  * when only the scale changes (e.g. 1,853 億 → 185,300 million).
  */
 export function setUnit(state: ModelState, id: string, unit: Unit | null, convert = true): ModelState {
+  const current = requireNode(state, id);
+  const next0 = unit ? normalizeUnit(unit) : null;
+  const rescales = convert && current.unit && next0 && current.unit.kind === next0.kind && !isScaleFree(next0.kind) && current.unit.scale !== next0.scale;
+  if (rescales) {
+    // The engine does not convert scales inside formulas, so rescaling numbers that formulas read
+    // (or that a formula produces) would silently change other results.
+    const readers = referencingNodes(state, [id]);
+    if (current.formula || readers.length) {
+      const who = current.formula ? `${current.name} is calculated by a formula` : `formulas read it (${readers.map((r) => r.name).join(', ')})`;
+      throw new ModelOpError(
+        `Cannot convert ${current.name} to a new scale: ${who}, and formulas do not convert scales. Change the scale of the whole chain together, or keep the scale and relabel only (untick “convert values”).`,
+      );
+    }
+  }
   return mapNode(state, id, (n) => {
     const next = unit ? normalizeUnit(unit) : null;
     const old = n.unit;

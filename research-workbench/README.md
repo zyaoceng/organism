@@ -51,7 +51,7 @@ Checks
 
 ```bash
 npm run typecheck    # TypeScript
-npm test             # 65 unit + API tests (domain engine, revisions, server)
+npm test             # 70 unit + API tests (domain engine, revisions, server, client store)
 npm run e2e          # builds, starts a throwaway server, drives the UI through acceptance tests 1-18
 ```
 

@@ -92,11 +92,17 @@ describe('values, units and periods', () => {
     expect(n.overrides.bear?.FY2025).toBeUndefined();
   });
 
-  it('converts values when the scale changes', () => {
-    const s = sampleModel(2026);
+  it('converts values when the scale changes, but only where no formula depends on it', () => {
+    let s = sampleModel(2026);
+    const lone = addNode(s, { parentId: null, name: 'Backlog', unit: { kind: 'currency', currency: 'TWD', scale: 1e8 } });
+    s = setValue(lone.state, lone.id, 'FY2025', 'base', 12);
+    const s2 = setUnit(s, lone.id, { kind: 'currency', currency: 'TWD', scale: 1e6 });
+    expect(s2.nodes.find((x) => x.id === lone.id)!.values.FY2025).toBeCloseTo(1200);
+    // read by Revenue's formula, and has its own formula: converting would corrupt results
     const a = idByName(s, 'Business A');
-    const s2 = setUnit(s, a, { kind: 'currency', currency: 'TWD', scale: 1e6 });
-    expect(s2.nodes.find((x) => x.id === a)!.values.FY2025).toBeCloseTo(100000);
+    expect(() => setUnit(s, a, { kind: 'currency', currency: 'TWD', scale: 1e6 })).toThrow(/formulas do not convert scales/);
+    expect(() => setUnit(s, idByName(s, 'Non-Operating Items'), { kind: 'currency', currency: 'TWD', scale: 1e6 })).toThrow(/Pre-Tax Income/);
+    // relabelling without conversion is allowed (fixing a wrongly declared unit)
     const s3 = setUnit(s, a, { kind: 'currency', currency: 'TWD', scale: 1e6 }, false);
     expect(s3.nodes.find((x) => x.id === a)!.values.FY2025).toBe(1000);
   });

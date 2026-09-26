@@ -115,6 +115,32 @@ describe('errors are explained', () => {
     expect(r.issues.some((i) => i.code === 'CYCLE' && /Circular dependency/.test(i.message))).toBe(true);
   });
 
+  it('catches loops that PREV cannot break: scalar reads and forward @period references', () => {
+    // (a) PREV() of a single-value node is the same value, so this is a real loop
+    let s = sampleModel(2026);
+    const xs = addNode(s, { parentId: null, name: 'Xs', unit: { kind: 'number', scale: 1 } });
+    s = xs.state;
+    const sx = addNode(s, { parentId: null, name: 'Sx', timeMode: 'scalar', unit: { kind: 'number', scale: 1 } });
+    s = formula(sx.state, sx.id, '[Xs]@FY2027');
+    const stored = toStored('PREV([Sx]) + 1', indexModel(s), xs.id);
+    if (!stored.ok) throw new Error();
+    expect(findCycleWith(s, xs.id, stored.stored)).not.toBeNull();
+    // (b) an absolute reference to a later period closes a loop through PREV
+    let t = sampleModel(2026);
+    const xa = addNode(t, { parentId: null, name: 'Xa', unit: { kind: 'number', scale: 1 } });
+    t = xa.state;
+    const yb = addNode(t, { parentId: null, name: 'Yb', unit: { kind: 'number', scale: 1 } });
+    t = formula(yb.state, yb.id, 'PREV([Xa]) + 1');
+    const st2 = toStored('[Yb]@FY2027 * 2', indexModel(t), xa.id);
+    if (!st2.ok) throw new Error();
+    const cyc = findCycleWith(t, xa.id, st2.stored);
+    expect(cyc).not.toBeNull();
+    const r = compute(setFormula(t, xa.id, st2.stored));
+    expect(r.issues.some((i) => i.code === 'CYCLE' && i.nodeId === xa.id)).toBe(true);
+    // the usual target-price pattern is still fine
+    expect(compute(sampleModel(2026)).graph.inCycle.size).toBe(0);
+  });
+
   it('allows self-reference through PREV (not a cycle)', () => {
     const s = sampleModel(2026);
     const a = idByName(s, 'Business A');
@@ -154,7 +180,7 @@ describe('model checks', () => {
 
   it('warns when EPS divides amounts and shares of different scales', () => {
     let s = sampleModel(2026);
-    s = setUnit(s, idByName(s, 'Diluted Shares'), { kind: 'shares', scale: 1e6 }, true);
+    s = setUnit(s, idByName(s, 'Diluted Shares'), { kind: 'shares', scale: 1e6 }, false);
     const issues = compute(s).issues.filter((i) => i.nodeId === idByName(s, 'EPS') && i.code === 'UNIT');
     expect(issues[0]?.message).toMatch(/off by a factor/);
   });

@@ -141,6 +141,14 @@ export function updateEvidence(db: DB, id: string, input: EvidenceInput): Eviden
   const before = getEvidenceRow(db, id);
   const c = cleanEvidence(input, before);
   if (!c.title) throw badRequest('Evidence needs a title');
+  if (c.published_at && c.published_at !== before.published_at) {
+    const earliest = db
+      .prepare('SELECT r.seq, r.as_of_date FROM revision_evidence re JOIN revisions r ON r.id = re.revision_id WHERE re.evidence_id = ? AND r.as_of_date IS NOT NULL ORDER BY r.as_of_date LIMIT 1')
+      .get(id) as { seq: number; as_of_date: string } | undefined;
+    if (earliest && c.published_at > earliest.as_of_date) {
+      throw badRequest(`Research Update #${earliest.seq} (knowledge date ${earliest.as_of_date}) already relies on this evidence; its publication date cannot be later than that.`);
+    }
+  }
   db.prepare('UPDATE evidence SET title = ?, source_name = ?, source_type = ?, url = ?, published_at = ?, notes = ?, verification = ?, updated_at = ? WHERE id = ?').run(
     c.title,
     c.source_name,
@@ -397,8 +405,7 @@ export function createTrade(db: DB, projectId: string, input: TradeInput): Trade
   if (security.projectId !== projectId) throw badRequest('Security belongs to another project');
   const entryDate = input.entryDate ?? '';
   if (!isDate(entryDate)) throw badRequest('Entry date must be YYYY-MM-DD');
-  const rev = input.revisionId ? (db.prepare('SELECT * FROM revisions WHERE id = ? AND project_id = ?').get(input.revisionId, projectId) as { id: string } | undefined) : revisionAsOf(db, projectId, entryDate);
-  if (input.revisionId && !rev) throw badRequest('Research Update not found in this project');
+  const rev = input.revisionId ? checkTradeRevision(db, projectId, input.revisionId, entryDate) : revisionAsOf(db, projectId, entryDate);
   let targetPrice = numOrNull(input.targetPriceAtEntry);
   if (targetPrice === null && rev) {
     const row = db.prepare('SELECT * FROM revisions WHERE id = ?').get(rev.id) as Parameters<typeof frozenTargetPrice>[0];
@@ -445,13 +452,26 @@ export function createTrade(db: DB, projectId: string, input: TradeInput): Trade
   return toTrade(getTradeRow(db, t.id));
 }
 
+/** A trade may only reference research that was known on its entry date. */
+function checkTradeRevision(db: DB, projectId: string, revisionId: string, entryDate: string): { id: string } {
+  const r = db.prepare('SELECT id, seq, as_of_date FROM revisions WHERE id = ? AND project_id = ?').get(revisionId, projectId) as { id: string; seq: number; as_of_date: string | null } | undefined;
+  if (!r) throw badRequest('Research Update not found in this project');
+  if (!r.as_of_date || r.as_of_date > entryDate) {
+    throw badRequest(`Research Update #${r.seq} has knowledge date ${r.as_of_date ?? '(none)'}, after the entry date ${entryDate}; a trade cannot rely on research made later.`);
+  }
+  return r;
+}
+
 export function updateTrade(db: DB, id: string, input: TradeInput): TradeDTO {
   const before = toTrade(getTradeRow(db, id));
   const next: TradeDTO = { ...before };
   for (const [k, v] of Object.entries(input)) {
-    if (v === undefined || k === 'id' || k === 'projectId' || k === 'securityId') continue;
+    if (v === undefined || k === 'id' || k === 'projectId' || k === 'securityId' || k === 'revisionId') continue;
     (next as unknown as Record<string, unknown>)[k] = v;
   }
+  // The research snapshot follows the entry date unless one is chosen explicitly (and valid then).
+  if (input.revisionId) next.revisionId = checkTradeRevision(db, before.projectId, input.revisionId, String(next.entryDate)).id;
+  else if (input.entryDate && input.entryDate !== before.entryDate && isDate(input.entryDate)) next.revisionId = revisionAsOf(db, before.projectId, input.entryDate)?.id ?? null;
   for (const k of ['entryPrice', 'quantity', 'fees'] as const) next[k] = Number(next[k]);
   for (const k of ['targetPriceAtEntry', 'stopAtEntry', 'atrAtEntry', 'atrMultiple', 'exitPrice'] as const) next[k] = numOrNull(next[k]);
   next.exitDate = next.exitDate || null;
