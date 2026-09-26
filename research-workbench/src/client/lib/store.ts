@@ -52,6 +52,8 @@ interface WorkspaceStore {
   draftPanelOpen: boolean;
   /** Revision whose state was restored into the draft (commit then records kind 'restore'). */
   restoredFrom: string | null;
+  /** True while a commit request is in flight; edits are refused so none can be lost. */
+  committing: boolean;
   toasts: Toast[];
 
   load(projectId: string): Promise<void>;
@@ -151,10 +153,13 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     viewing: null,
     draftPanelOpen: false,
     restoredFrom: null,
+    committing: false,
     toasts: [],
 
     async load(projectId) {
       if (get().projectId !== projectId) {
+        // Save any pending edit of the previously open project before switching.
+        await get().flush().catch(() => undefined);
         set({ projectId, loading: true, loadError: null, project: null, draft: null, head: null, viewing: null, undoStack: [], redoStack: [], selectedNodeId: null, selectedCell: null, collapsed: loadCollapsed(projectId), quote: null });
       }
       try {
@@ -235,6 +240,10 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
         get().toast('You are viewing an older snapshot (read-only). Return to the draft to edit.', 'error');
         return false;
       }
+      if (get().committing) {
+        get().toast('A Research Update is being committed. Edit again in a moment.', 'error');
+        return false;
+      }
       let next: ModelState;
       try {
         next = fn(draft);
@@ -289,11 +298,16 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       await get().flush();
       const { projectId, draftVersion } = get();
       if (!projectId) throw new Error('No project');
-      const rev = await api.commit(projectId, { ...input, draftVersion });
-      const b = await api.project(projectId);
-      set({ head: b.head, draft: b.draft.state, draftVersion: b.draft.version, saveStatus: 'saved', undoStack: [], redoStack: [], restoredFrom: null });
-      await Promise.all([get().refresh('revisions'), get().refresh('evidence')]);
-      return rev;
+      set({ committing: true });
+      try {
+        const rev = await api.commit(projectId, { ...input, draftVersion });
+        const b = await api.project(projectId);
+        set({ head: b.head, draft: b.draft.state, draftVersion: b.draft.version, saveStatus: 'saved', undoStack: [], redoStack: [], restoredFrom: null });
+        await Promise.all([get().refresh('revisions'), get().refresh('evidence')]);
+        return rev;
+      } finally {
+        set({ committing: false });
+      }
     },
 
     async discard() {
