@@ -75,7 +75,7 @@ export function diffStates(a: ModelState, b: ModelState): ModelChange[] {
   const out: ModelChange[] = [];
   const ixA = indexModel(a);
   const ixB = indexModel(b);
-  const periodOrder = [...b.periods.map((p) => p.id), ...a.periods.map((p) => p.id), '_'];
+  const periodOrder = [...new Set([...b.periods.map((p) => p.id), ...a.periods.map((p) => p.id), '_'])];
 
   // periods
   const pa = new Map(a.periods.map((p) => [p.id, p]));

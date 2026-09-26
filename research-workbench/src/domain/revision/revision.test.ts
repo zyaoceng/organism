@@ -44,6 +44,8 @@ describe('diff', () => {
     expect(types).toContain('formula_changed');
     const text = changes.map((c) => describeChange(c, { periodLabel: (k) => k.replace('FY', '') + 'E', evidenceTitle: () => 'Q2 call' }));
     expect(text).toContain('YoY Growth 2028E: 20.0% → 47.0%');
+    expect(text.filter((t) => t === 'YoY Growth 2028E: 20.0% → 47.0%')).toHaveLength(1);
+    expect(changes.filter((c) => c.type === 'value_changed')).toHaveLength(3);
     expect(text).toContain('YoY Growth 2028E (Bull): 40.0% → 60.0%');
     expect(text).toContain('Gross Margin 2028E: 21.0% → 22.0%');
     expect(text).toContain('Renamed Business C → AI Business');
