@@ -9,6 +9,7 @@ metric → EPS → valuation → target price**, then **trade → outcome → re
 Every Research Update keeps what you believed, why, which evidence caused
 the change, what changed, and how it moved EPS and the target price.
 
+- 中文使用說明：[`docs/使用說明.md`](docs/使用說明.md)
 - Product spec: [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md)
 - Architecture, prototype review and self-critique: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - Data model and SQL schema: [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md)
