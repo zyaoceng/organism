@@ -204,6 +204,8 @@ CREATE TABLE revisions (           -- insert-only
   engine_version TEXT NOT NULL,
   UNIQUE (project_id, seq)
 );
+-- Triggers revisions_no_update / revisions_no_delete abort any UPDATE or DELETE:
+-- snapshots are immutable at the database level, not only in application code.
 
 CREATE TABLE evidence (
   id TEXT PRIMARY KEY,

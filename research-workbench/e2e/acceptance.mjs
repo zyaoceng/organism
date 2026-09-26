@@ -26,7 +26,7 @@ if (!BASE) {
   execSync('npx vite build', { cwd: root, stdio: 'inherit' });
   dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-e2e-'));
   const port = 4400 + Math.floor(Math.random() * 400);
-  server = spawn('npx', ['tsx', 'src/server/main.ts'], { cwd: root, env: { ...process.env, WORKBENCH_DATA_DIR: dataDir, WORKBENCH_PORT: String(port), WORKBENCH_QUIET: '1' }, stdio: 'inherit' });
+  server = spawn(process.execPath, ['--import', 'tsx', 'src/server/main.ts'], { cwd: root, env: { ...process.env, WORKBENCH_DATA_DIR: dataDir, WORKBENCH_PORT: String(port), WORKBENCH_QUIET: '1' }, stdio: 'inherit' });
   BASE = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 60; i++) {
     try {

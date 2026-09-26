@@ -9,6 +9,8 @@ import { navigate } from '../lib/router';
 import { useWorkspace } from '../lib/store';
 import { cls, fmtDateTime } from '../lib/util';
 
+const fmtBytes = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+
 export function EvidencePage({ param }: { param?: string }) {
   const evidence = useWorkspace((s) => s.evidence);
   const projectId = useWorkspace((s) => s.projectId)!;
@@ -242,7 +244,7 @@ function EvidenceDetail({ ev }: { ev: EvidenceDTO }) {
                   {a.originalFilename}
                 </a>
                 <span className="faint">
-                  {(a.sizeBytes / 1024).toFixed(0)} KB · {a.mimeType} · sha256 {a.sha256.slice(0, 10)}…
+                  {fmtBytes(a.sizeBytes)} · {a.mimeType} · sha256 {a.sha256.slice(0, 10)}…
                 </span>
                 <a className="right" href={`${a.url}?download=1`}>
                   download

@@ -530,3 +530,34 @@ Known V1 limitations (accepted, documented):
   language (CJK tested).
 - The default target-price basis is the FY two years ahead (the prototype's
   2028 convention); changing it is an ordinary formula edit.
+
+## 23. Implementation status and verification (V1 prototype)
+
+Built as designed above; deviations are listed at the end of this section.
+
+| Area | Where | Verified by |
+|---|---|---|
+| Formula engine (parser, name↔ID, evaluator, units) | `src/domain/formula/` | `formula.test.ts` |
+| Dependency DAG, cycles, calculation, scenarios, model checks | `src/domain/calc/` | `engine.test.ts` |
+| Tree operations, periods, units, schema invariants | `src/domain/model/` | `ops.test.ts` |
+| Diff, impact, attribution | `src/domain/revision/` | `revision.test.ts` |
+| Indicators, trade metrics | `src/domain/market/`, `src/domain/trade/` | `indicators.test.ts` |
+| Persistence, commit service, evidence/attachments, trades, market cache, export, migrations | `src/server/` | `server.test.ts` (Fastify inject, temp data dir) |
+| UI and end-to-end workflow | `src/client/` | `e2e/acceptance.mjs` — 19 checks covering acceptance tests 1–18 through the real UI, against a production build on a throwaway data directory |
+
+Results at the time of writing: `npm run typecheck` clean, `npm test` 65/65,
+`npm run e2e` 19/19.
+
+Deviations and notes:
+
+- npm 10.9 fails to resolve Vitest 4's optional peers ("Cannot read
+  properties of null (reading 'edgesOut')"); `.npmrc` sets
+  `legacy-peer-deps=true`. Vitest 4.1.11 and `@fastify/static` 10.1.5 are used
+  because earlier versions had published advisories.
+- Playwright's own browser download is not used; the e2e script uses the
+  system Chromium (`CHROME` or `/opt/pw-browsers/chromium`).
+- JSON **export** is implemented; JSON **import** is not (planned: import into
+  a new project with fresh IDs).
+- The UI edits one (primary) security per project; the schema allows more.
+- The Yahoo provider remains unverified here (see §22); the demo provider and
+  CSV import are fully exercised by tests.

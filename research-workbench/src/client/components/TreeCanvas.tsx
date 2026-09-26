@@ -232,7 +232,6 @@ export function TreeCanvas() {
         e.preventDefault();
         return void edit((s) => (e.shiftKey ? outdent(s, sel.id) : indent(s, sel.id)));
       case 'Delete':
-      case 'Backspace':
         if (readOnly) return;
         e.preventDefault();
         return remove(sel.id);

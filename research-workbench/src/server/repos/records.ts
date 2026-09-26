@@ -115,6 +115,13 @@ function cleanEvidence(input: EvidenceInput, base?: EvidenceRow) {
 
 export function createEvidence(db: DB, projectId: string, input: EvidenceInput, attachmentIds: string[] = []): EvidenceDTO {
   const c = cleanEvidence(input);
+  if (!c.source_name && c.url) {
+    try {
+      c.source_name = new URL(c.url).hostname.replace(/^www\./, '');
+    } catch {
+      /* keep empty */
+    }
+  }
   if (!c.title) {
     c.title = c.url ? c.url.replace(/^https?:\/\//, '').slice(0, 120) : attachmentIds.length ? 'Untitled file' : '';
   }

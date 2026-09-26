@@ -472,7 +472,7 @@ function NodeEvidence({ node, state, readOnly }: { node: ModelNode; state: Model
                 if (e.key === 'Enter' && url.trim()) {
                   const u = url.trim();
                   setUrl('');
-                  void run(() => createAndLink(async () => [await api.createEvidence(projectId, { url: u, sourceType: 'news' })], node.id, relation));
+                  void run(() => createAndLink(async () => [await api.createEvidence(projectId, { url: u })], node.id, relation));
                 }
               }}
             />
