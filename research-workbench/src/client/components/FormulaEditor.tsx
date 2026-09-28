@@ -5,6 +5,7 @@ import { formatPath, toDisplay, toStored } from '../../domain/formula/refs';
 import { setFormula } from '../../domain/model/ops';
 import type { ModelNode, ModelState } from '../../domain/model/types';
 import { indexOf } from '../lib/derived';
+import { t, tm, useLang } from '../lib/i18n';
 import { useWorkspace } from '../lib/store';
 
 interface Suggestion {
@@ -23,6 +24,7 @@ export function FormulaEditor({ node, state, readOnly }: { node: ModelNode; stat
   const [active, setActive] = useState(0);
   const ref = useRef<HTMLTextAreaElement>(null);
   const { edit, toast, select } = useWorkspace.getState();
+  const lang = useLang();
 
   useEffect(() => {
     if (!dirty) setText(display);
@@ -33,10 +35,10 @@ export function FormulaEditor({ node, state, readOnly }: { node: ModelNode; stat
   const check = useMemo(() => {
     if (!trimmed) return { ok: true as const, stored: undefined as string | undefined, refIds: [] as string[], cycle: null as string[] | null };
     const r = toStored(trimmed, ix, node.id);
-    if (!r.ok) return { ok: false as const, message: r.error.message };
+    if (!r.ok) return { ok: false as const, message: tm(r.error.message) };
     const cycle = findCycleWith(state, node.id, r.stored);
     return { ok: true as const, stored: r.stored, refIds: r.refIds, cycle };
-  }, [trimmed, ix, node.id, state]);
+  }, [trimmed, ix, node.id, state, lang]);
 
   // autocomplete: the partial reference being typed at the caret
   const partial = useMemo(() => {
@@ -76,13 +78,13 @@ export function FormulaEditor({ node, state, readOnly }: { node: ModelNode; stat
 
   const apply = () => {
     if (!check.ok) return toast(check.message, 'error');
-    if (check.cycle) return toast(`Not applied: ${cycleText(check.cycle)}`, 'error');
+    if (check.cycle) return toast(t('Not applied: {reason}', { reason: cycleText(check.cycle) }), 'error');
     edit((s) => setFormula(s, node.id, check.stored));
     setDirty(false);
-    toast(check.stored ? `Formula for ${node.name} applied` : `Formula removed from ${node.name}`, 'success');
+    toast(check.stored ? t('Formula for {name} applied', { name: node.name }) : t('Formula removed from {name}', { name: node.name }), 'success');
   };
 
-  const cycleText = (c: string[]) => `circular dependency ${c.map((id) => ix.byId.get(id)?.name ?? id).join(' → ')}. Use PREV() to refer to an earlier period.`;
+  const cycleText = (c: string[]) => t('circular dependency {path}. Use PREV() to refer to an earlier period.', { path: c.map((id) => ix.byId.get(id)?.name ?? id).join(' → ') });
 
   return (
     <div className="col" style={{ gap: 6 }}>
@@ -92,7 +94,7 @@ export function FormulaEditor({ node, state, readOnly }: { node: ModelNode; stat
         className="formula-box"
         value={text}
         readOnly={readOnly}
-        placeholder={readOnly ? 'No formula' : 'e.g. [TAM] * [Market Share] * [ASP]   ·   PREV([Revenue]) * (1 + [Growth])   ·   SUM(CHILDREN())'}
+        placeholder={readOnly ? t('No formula') : t('e.g. [TAM] * [Market Share] * [ASP]   ·   PREV([Revenue]) * (1 + [Growth])   ·   SUM(CHILDREN())')}
         spellCheck={false}
         onChange={(e) => {
           setText(e.target.value);
@@ -129,10 +131,10 @@ export function FormulaEditor({ node, state, readOnly }: { node: ModelNode; stat
         </div>
       )}
       {!check.ok && trimmed && <div className="msg err">{check.message}</div>}
-      {check.ok && check.cycle && <div className="msg err">Would create a {cycleText(check.cycle)}</div>}
+      {check.ok && check.cycle && <div className="msg err">{t('Would create a {reason}', { reason: cycleText(check.cycle) })}</div>}
       {check.ok && !check.cycle && trimmed && check.refIds.length > 0 && (
         <div className="chips">
-          <span className="small sub">References:</span>
+          <span className="small sub">{t('References:')}</span>
           {check.refIds.map((id) => (
             <span key={id} className="chip in" title={formatPath(ix, id)} onClick={() => select(id)}>
               {ix.byId.get(id)?.name}
@@ -143,11 +145,11 @@ export function FormulaEditor({ node, state, readOnly }: { node: ModelNode; stat
       {!readOnly && (
         <div className="row">
           <button className="btn sm primary" disabled={!dirty || !check.ok || !!check.cycle} onClick={apply}>
-            Apply <span className="kbd" style={{ color: 'inherit', background: 'transparent' }}>Ctrl+Enter</span>
+            {t('Apply')} <span className="kbd" style={{ color: 'inherit', background: 'transparent' }}>Ctrl+Enter</span>
           </button>
           {dirty && (
             <button className="btn sm ghost" onClick={() => (setText(display), setDirty(false))}>
-              Revert
+              {t('Revert')}
             </button>
           )}
           {node.formula && !dirty && (
@@ -158,21 +160,21 @@ export function FormulaEditor({ node, state, readOnly }: { node: ModelNode; stat
                 setText('');
               }}
             >
-              Remove formula
+              {t('Remove formula')}
             </button>
           )}
         </div>
       )}
       <details>
-        <summary>Functions and syntax</summary>
+        <summary>{t('Functions and syntax')}</summary>
         <div className="small" style={{ marginTop: 6, lineHeight: 1.6 }}>
           <div>
-            Names in <code>[brackets]</code> (bare single words also work). Paths disambiguate: <code>[Business A/Growth]</code>. A specific period: <code>[EPS]@FY2028</code>. Percent literal:{' '}
-            <code>15%</code> = 0.15. Operators <code>+ - * / ^</code>, comparisons for IF.
+            {t('Names in')} <code>[brackets]</code> {t('(bare single words also work). Paths disambiguate:')} <code>[Business A/Growth]</code>{t('. A specific period:')} <code>[EPS]@FY2028</code>{t('. Percent literal:')}{' '}
+            <code>15%</code> {t('= 0.15. Operators')} <code>+ - * / ^</code>{t(', comparisons for IF.')}
           </div>
           {FUNCTIONS.map((f) => (
             <div key={f.name}>
-              <code>{f.signature}</code> <span className="sub">— {f.help}</span>
+              <code>{f.signature}</code> <span className="sub">— {t(f.help)}</span>
             </div>
           ))}
         </div>

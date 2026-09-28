@@ -549,10 +549,19 @@ Built as designed above; deviations are listed at the end of this section.
 | Diff, impact, attribution | `src/domain/revision/` | `revision.test.ts` |
 | Indicators, trade metrics | `src/domain/market/`, `src/domain/trade/` | `indicators.test.ts` |
 | Persistence, commit service, evidence/attachments, trades, market cache, export, migrations | `src/server/` | `server.test.ts` (Fastify inject, temp data dir) |
-| UI and end-to-end workflow | `src/client/` | `e2e/acceptance.mjs` — 19 checks covering acceptance tests 1–18 through the real UI, against a production build on a throwaway data directory |
+| Interface language (English / Traditional Chinese) | `src/client/i18n/`, `src/client/lib/i18n.ts` | `i18n.test.ts` (every `t('…')` literal has a Chinese entry, placeholders match, runtime message patterns), `standard.test.ts` (Chinese template computes like the English one) |
+| UI and end-to-end workflow | `src/client/` | `e2e/acceptance.mjs` — 20 checks: acceptance tests 1–18 through the real UI in English, plus the language switch, against a production build on a throwaway data directory |
 
-Results at the time of writing: `npm run typecheck` clean, `npm test` 70/70,
-`npm run e2e` 19/19.
+Results at the time of writing: `npm run typecheck` clean, `npm test` 78/78,
+`npm run e2e` 20/20.
+
+Language: UI strings are keyed by their English text (`t('Model')`), so a
+missing translation falls back to English instead of a blank. Messages built
+at runtime by the engine and the server stay English at the source and are
+translated on the client by whole-message patterns (`i18n/messages.ts`);
+unknown messages pass through unchanged. Change descriptions are generated in
+either language from the stored structured changes, so old Research Updates
+also read in Chinese. User data is never translated.
 
 An independent code review after the first complete build found six issues,
 all fixed with regression tests: two autosave/commit races in the client

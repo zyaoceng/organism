@@ -6,6 +6,7 @@ import { changeNodeId, type ModelChange } from '../../domain/revision/diff';
 import type { RevisionFull } from '../../shared/api';
 import { diffOf, impactOf } from '../lib/derived';
 import { KIND_ICON } from '../lib/evidence';
+import { getLang, t, tm, tn, useLang } from '../lib/i18n';
 import { useWorkspace } from '../lib/store';
 import { cls, periodLabelFn, today } from '../lib/util';
 import { ImpactView } from './ImpactView';
@@ -24,6 +25,7 @@ export function DraftPanel() {
   const scenario = useWorkspace((s) => s.scenario);
   const { setDraftPanelOpen, undo, redo, discard, load, projectId } = useWorkspace.getState();
   const [committed, setCommitted] = useState<RevisionFull | null>(null);
+  useLang();
 
   if (!draft || !head || viewing) return null;
   const changes = diffOf(head.state, draft);
@@ -31,46 +33,46 @@ export function DraftPanel() {
   const impact = changes.length ? impactOf(head.state, draft) : null;
   const tpH = impact?.headline.targetPrice.find((h) => h.scenario === scenario);
 
-  const saveLabel = { saved: 'Draft saved', pending: 'Saving…', saving: 'Saving…', error: 'Save failed', conflict: 'Changed elsewhere' }[saveStatus];
+  const saveLabel = t({ saved: 'Draft saved', pending: 'Saving…', saving: 'Saving…', error: 'Save failed', conflict: 'Changed elsewhere' }[saveStatus]);
 
   return (
     <div className="draftbar" data-testid="draft-panel">
       <div className="draft-strip">
-        <span className="row" title={saveError ?? 'Every edit is autosaved as a draft. Commit to make it part of the research record.'}>
+        <span className="row" title={saveError ? tm(saveError) : t('Every edit is autosaved as a draft. Commit to make it part of the research record.')}>
           <span className={cls('save-dot', saveStatus)} /> <span className="small sub">{saveLabel}</span>
         </span>
         {saveStatus === 'conflict' && (
           <button className="btn sm" onClick={() => projectId && void load(projectId)}>
-            Reload latest
+            {t('Reload latest')}
           </button>
         )}
         <span className="count" data-testid="draft-count">
-          {changes.length === 0 ? 'No draft changes' : `${changes.length} draft change${changes.length === 1 ? '' : 's'}`}
+          {changes.length === 0 ? t('No draft changes') : tn(changes.length, '{n} draft change', '{n} draft changes')}
         </span>
         {tpH && tpH.before !== tpH.after && (
           <span className="small">
-            Target price ({scenario}): <b className="num">{formatValue(tpH.before, tp?.unit)}</b> → <b className="num">{formatValue(tpH.after, tp?.unit)}</b> <Delta before={tpH.before} after={tpH.after} />
+            {t('Target price ({scenario}):', { scenario: t(scenario) })} <b className="num">{formatValue(tpH.before, tp?.unit)}</b> → <b className="num">{formatValue(tpH.after, tp?.unit)}</b> <Delta before={tpH.before} after={tpH.after} />
           </span>
         )}
         <span className="right row">
-          <button className="btn sm ghost" disabled={!undoLen} onClick={undo} title="Undo (Ctrl+Z)">
-            ↶ Undo
+          <button className="btn sm ghost" disabled={!undoLen} onClick={undo} title={t('Undo (Ctrl+Z)')}>
+            {t('↶ Undo')}
           </button>
-          <button className="btn sm ghost" disabled={!redoLen} onClick={redo} title="Redo (Ctrl+Shift+Z)">
-            ↷ Redo
+          <button className="btn sm ghost" disabled={!redoLen} onClick={redo} title={t('Redo (Ctrl+Shift+Z)')}>
+            {t('↷ Redo')}
           </button>
           {changes.length > 0 && (
             <button
               className="btn sm danger"
               onClick={() => {
-                if (window.confirm(`Discard all ${changes.length} draft changes and return to Research Update #${head.seq}?`)) void discard();
+                if (window.confirm(t('Discard all {n} draft changes and return to Research Update #{seq}?', { n: changes.length, seq: head.seq }))) void discard();
               }}
             >
-              Discard
+              {t('Discard')}
             </button>
           )}
           <button className={cls('btn sm', !open && 'primary')} onClick={() => (setCommitted(null), setDraftPanelOpen(!open))} data-testid="toggle-draft">
-            {open ? 'Close ▾' : changes.length ? 'Review & commit ▴' : 'Checkpoint ▴'}
+            {open ? t('Close ▾') : changes.length ? t('Review & commit ▴') : t('Checkpoint ▴')}
           </button>
         </span>
       </div>
@@ -81,14 +83,15 @@ export function DraftPanel() {
               <CommittedSummary rev={committed} />
             ) : changes.length === 0 ? (
               <div className="empty">
-                No changes since Research Update #{head.seq}. You can still record a <b>checkpoint</b>: a dated note that you reviewed new information and your view did not change.
+                {t('No changes since Research Update #{seq}. You can still record a', { seq: head.seq })} <b>{t('checkpoint')}</b>
+                {t(': a dated note that you reviewed new information and your view did not change.')}
               </div>
             ) : (
               <>
-                <h3 style={{ marginBottom: 8 }}>What changed</h3>
+                <h3 style={{ marginBottom: 8 }}>{t('What changed')}</h3>
                 <ChangeList changes={changes} />
                 <div className="divider" />
-                <h3 style={{ margin: '8px 0' }}>Downstream impact (preview)</h3>
+                <h3 style={{ margin: '8px 0' }}>{t('Downstream impact (preview)')}</h3>
                 {impact && <ImpactView impact={impact} state={draft} initialScenario={scenario} />}
               </>
             )}
@@ -107,6 +110,7 @@ export function ChangeList({ changes }: { changes: ModelChange[] }) {
   const evidence = useWorkspace((s) => s.evidence);
   const { select } = useWorkspace.getState();
   const pl = periodLabelFn(draft);
+  const lang = useLang();
   const groups = useMemo(() => {
     const m = new Map<string, { title: string; nodeId: string | null; items: ModelChange[] }>();
     for (const c of changes) {
@@ -117,18 +121,18 @@ export function ChangeList({ changes }: { changes: ModelChange[] }) {
         const title = nid
           ? draft?.nodes.find((n) => n.id === nid)?.name ?? ('name' in c ? c.name : nid)
           : c.type.startsWith('period')
-            ? 'Periods'
+            ? t('Periods')
             : c.type.startsWith('thesis')
-              ? 'Theses'
+              ? t('Theses')
               : c.type.startsWith('valuation')
-                ? 'Valuation context'
-                : 'Structure';
+                ? t('Valuation context')
+                : t('Structure');
         m.set(key, (g = { title, nodeId: nid, items: [] }));
       }
       g.items.push(c);
     }
     return [...m.values()];
-  }, [changes, draft]);
+  }, [changes, draft, lang]);
   return (
     <div data-testid="change-list">
       {groups.map((g, i) => (
@@ -138,9 +142,9 @@ export function ChangeList({ changes }: { changes: ModelChange[] }) {
           </div>
           <ul>
             {g.items.slice(0, 30).map((c, k) => (
-              <li key={k}>{describeChange(c, { periodLabel: pl, evidenceTitle: (id) => evidence.find((e) => e.id === id)?.title ?? 'evidence' })}</li>
+              <li key={k}>{describeChange(c, { periodLabel: pl, evidenceTitle: (id) => evidence.find((e) => e.id === id)?.title ?? t('evidence'), lang: getLang() })}</li>
             ))}
-            {g.items.length > 30 && <li className="sub">…and {g.items.length - 30} more</li>}
+            {g.items.length > 30 && <li className="sub">{t('…and {n} more', { n: g.items.length - 30 })}</li>}
           </ul>
         </div>
       ))}
@@ -176,14 +180,14 @@ function CommitForm({ changes, onCommitted }: { changes: ModelChange[]; onCommit
     setBusy(true);
     try {
       const rev = await commit({ title, reason, notes, asOfDate: asOf, evidenceIds: [...cited], kind: restoredFrom ? 'restore' : undefined });
-      toast(`Research Update #${rev.seq} committed`, 'success');
+      toast(t('Research Update #{seq} committed', { seq: rev.seq }), 'success');
       setTitle('');
       setReason('');
       setNotes('');
       setCited(new Set());
       onCommitted(rev);
     } catch (e) {
-      setError((e as Error).message);
+      setError(tm((e as Error).message));
     } finally {
       setBusy(false);
     }
@@ -191,28 +195,28 @@ function CommitForm({ changes, onCommitted }: { changes: ModelChange[]; onCommit
 
   return (
     <div className="col" style={{ gap: 8 }} data-testid="commit-form">
-      <h3>{checkpoint ? 'Record a checkpoint' : 'Commit Research Update'}</h3>
+      <h3>{checkpoint ? t('Record a checkpoint') : t('Commit Research Update')}</h3>
       <div className="small sub">
-        {checkpoint ? 'A dated record that you reviewed and kept your view.' : `Becomes Research Update #${(head?.seq ?? 0) + 1}. The previous state stays recoverable.`}
-        {restoredFrom && ' This draft was restored from an earlier snapshot.'}
+        {checkpoint ? t('A dated record that you reviewed and kept your view.') : t('Becomes Research Update #{seq}. The previous state stays recoverable.', { seq: (head?.seq ?? 0) + 1 })}
+        {restoredFrom && t(' This draft was restored from an earlier snapshot.')}
       </div>
-      <Field label="Title">
-        <input value={title} placeholder={checkpoint ? 'e.g. Q3 results reviewed — thesis intact' : 'e.g. Customer qualification confirmed; capacity guidance raised'} onChange={(e) => setTitle(e.target.value)} data-testid="commit-title" />
+      <Field label={t('Title')}>
+        <input value={title} placeholder={checkpoint ? t('e.g. Q3 results reviewed — thesis intact') : t('e.g. Customer qualification confirmed; capacity guidance raised')} onChange={(e) => setTitle(e.target.value)} data-testid="commit-title" />
       </Field>
       <div className="row" style={{ alignItems: 'flex-end' }}>
-        <Field label="Knowledge date (what you knew as of)">
+        <Field label={t('Knowledge date (what you knew as of)')}>
           <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} data-testid="commit-asof" />
         </Field>
-        {lastAsOf && <span className="tiny sub" style={{ paddingBottom: 6 }}>previous: {lastAsOf}</span>}
+        {lastAsOf && <span className="tiny sub" style={{ paddingBottom: 6 }}>{t('previous: {date}', { date: lastAsOf })}</span>}
       </div>
-      <Field label="Reason / interpretation — why the view changed">
-        <textarea rows={4} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Evidence → interpretation → which assumptions and why this magnitude" data-testid="commit-reason" />
+      <Field label={t('Reason / interpretation — why the view changed')}>
+        <textarea rows={4} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('Evidence → interpretation → which assumptions and why this magnitude')} data-testid="commit-reason" />
       </Field>
       <div className="field">
-        <span className="small sub">Evidence behind this update ({cited.size} selected)</span>
-        <input type="search" placeholder="Filter evidence…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+        <span className="small sub">{t('Evidence behind this update ({n} selected)', { n: cited.size })}</span>
+        <input type="search" placeholder={t('Filter evidence…')} value={filter} onChange={(e) => setFilter(e.target.value)} />
         <div style={{ maxHeight: 150, overflow: 'auto', border: '1px solid var(--line)', borderRadius: 6, background: '#fff' }}>
-          {list.length === 0 && <div className="small sub" style={{ padding: 8 }}>No evidence yet. Attach sources to nodes in the inspector.</div>}
+          {list.length === 0 && <div className="small sub" style={{ padding: 8 }}>{t('No evidence yet. Attach sources to nodes in the inspector.')}</div>}
           {list.map((e) => (
             <label key={e.id} className="row small" style={{ padding: '4px 8px', gap: 6, cursor: 'pointer' }}>
               <input
@@ -227,23 +231,23 @@ function CommitForm({ changes, onCommitted }: { changes: ModelChange[]; onCommit
               />
               <span>{KIND_ICON[e.kind]}</span>
               <span className="grow ellipsis">{e.title}</span>
-              {newlyLinked.includes(e.id) && <span className="badge accent">linked now</span>}
+              {newlyLinked.includes(e.id) && <span className="badge accent">{t('linked now')}</span>}
               <span className="faint tiny nowrap">{e.publishedAt ?? ''}</span>
             </label>
           ))}
         </div>
       </div>
-      {lookAhead.length > 0 && <div className="msg warn">Published after the knowledge date: {lookAhead.map((e) => e.title).join(', ')}. Move the date or deselect it.</div>}
-      <Field label="Notes (optional)">
+      {lookAhead.length > 0 && <div className="msg warn">{t('Published after the knowledge date: {titles}. Move the date or deselect it.', { titles: lookAhead.map((e) => e.title).join(', ') })}</div>}
+      <Field label={t('Notes (optional)')}>
         <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </Field>
       {error && <div className="msg err">{error}</div>}
       <div className="row">
         <button className="btn primary" disabled={busy || !title.trim() || !reason.trim()} onClick={() => void submit()} data-testid="commit-submit">
-          {busy ? 'Committing…' : checkpoint ? 'Record checkpoint' : 'Commit Research Update'}
+          {busy ? t('Committing…') : checkpoint ? t('Record checkpoint') : t('Commit Research Update')}
         </button>
         <button className="btn ghost" onClick={() => setDraftPanelOpen(false)}>
-          Later
+          {t('Later')}
         </button>
       </div>
     </div>
@@ -255,10 +259,12 @@ function CommittedSummary({ rev }: { rev: RevisionFull }) {
   return (
     <div className="col" style={{ gap: 10 }} data-testid="committed-summary">
       <div className="msg ok">
-        Research Update <b>#{rev.seq}</b> “{rev.title}” committed ({rev.kind}, knowledge date {rev.asOfDate}). {rev.changes.length} changes.{' '}
-        <a href={`#/p/${projectId}/history/${rev.id}`}>Open in History</a>
+        {t('Research Update')} <b>#{rev.seq}</b>{' '}
+        {t('“{title}” committed ({kind}, knowledge date {date}).', { title: rev.title, kind: t(rev.kind), date: rev.asOfDate })}{' '}
+        {t('{n} changes.', { n: rev.changes.length })}{' '}
+        <a href={`#/p/${projectId}/history/${rev.id}`}>{t('Open in History')}</a>
       </div>
-      {rev.impact ? <ImpactView impact={rev.impact} state={rev.state} /> : <div className="small sub">Checkpoint: no model changes.</div>}
+      {rev.impact ? <ImpactView impact={rev.impact} state={rev.state} /> : <div className="small sub">{t('Checkpoint: no model changes.')}</div>}
     </div>
   );
 }

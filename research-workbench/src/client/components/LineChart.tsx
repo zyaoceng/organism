@@ -1,3 +1,5 @@
+import { t } from '../lib/i18n';
+
 export interface LinePoint {
   x: number;
   y: number | null;
@@ -33,7 +35,7 @@ export function LineChart({
   const B = 28;
   const pts = series.flatMap((s) => s.points.filter((p) => p.y !== null));
   const ys = [...pts.map((p) => p.y as number), ...hLines.map((h) => h.y)];
-  if (!pts.length) return <div className="empty">No values yet for this selection.</div>;
+  if (!pts.length) return <div className="empty">{t('No values yet for this selection.')}</div>;
   const xs = pts.map((p) => p.x);
   let x0 = Math.min(...xs);
   let x1 = Math.max(...xs);
@@ -53,11 +55,11 @@ export function LineChart({
   const xtickShown = xticks.filter((_, i) => xticks.length <= 8 || i % Math.ceil(xticks.length / 8) === 0);
   return (
     <svg className="svgchart" viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W * 1.25, display: 'block' }} role="img">
-      {ticks.map((t, i) => (
+      {ticks.map((tk, i) => (
         <g key={i}>
-          <line x1={L} x2={W - R} y1={sy(t)} y2={sy(t)} stroke="#eceff2" />
-          <text x={L - 6} y={sy(t) + 3} textAnchor="end">
-            {yFormat(t)}
+          <line x1={L} x2={W - R} y1={sy(tk)} y2={sy(tk)} stroke="#eceff2" />
+          <text x={L - 6} y={sy(tk) + 3} textAnchor="end">
+            {yFormat(tk)}
           </text>
         </g>
       ))}

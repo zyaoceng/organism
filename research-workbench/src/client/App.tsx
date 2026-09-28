@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { ProjectShell } from './components/ProjectShell';
+import { useLang } from './lib/i18n';
 import { useRoute } from './lib/router';
 import { useWorkspace } from './lib/store';
 import { cls } from './lib/util';
@@ -7,6 +8,8 @@ import { ProjectsPage } from './pages/ProjectsPage';
 
 export function App() {
   const route = useRoute();
+  // Re-render the whole tree when the interface language changes.
+  useLang();
   return (
     <>
       {route.page === 'projects' ? <ProjectsPage /> : <ProjectShell projectId={route.projectId} tab={route.tab} param={route.param} />}

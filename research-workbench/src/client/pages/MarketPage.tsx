@@ -6,6 +6,7 @@ import { PriceChart, type ChartMarker, type ChartPriceLine } from '../components
 import { Field } from '../components/ui';
 import { api } from '../lib/api';
 import { useWorkspace } from '../lib/store';
+import { t, tm } from '../lib/i18n';
 import { useBars } from '../lib/useBars';
 import { cls, fmtDateTime, timeAgo } from '../lib/util';
 
@@ -47,9 +48,9 @@ export function MarketPage() {
 
   const markers: ChartMarker[] = [];
   if (showTrades) {
-    for (const t of trades) {
-      markers.push({ time: t.entryDate, position: t.side === 'long' ? 'belowBar' : 'aboveBar', color: '#0b6e63', shape: t.side === 'long' ? 'arrowUp' : 'arrowDown', text: `Entry ${t.entryPrice}` });
-      if (t.exitDate && t.exitPrice) markers.push({ time: t.exitDate, position: t.side === 'long' ? 'aboveBar' : 'belowBar', color: '#c0392b', shape: t.side === 'long' ? 'arrowDown' : 'arrowUp', text: `Exit ${t.exitPrice}` });
+    for (const tr of trades) {
+      markers.push({ time: tr.entryDate, position: tr.side === 'long' ? 'belowBar' : 'aboveBar', color: '#0b6e63', shape: tr.side === 'long' ? 'arrowUp' : 'arrowDown', text: t('Entry {price}', { price: tr.entryPrice }) });
+      if (tr.exitDate && tr.exitPrice) markers.push({ time: tr.exitDate, position: tr.side === 'long' ? 'aboveBar' : 'belowBar', color: '#c0392b', shape: tr.side === 'long' ? 'arrowDown' : 'arrowUp', text: t('Exit {price}', { price: tr.exitPrice }) });
     }
   }
   if (showCatalysts) {
@@ -65,10 +66,10 @@ export function MarketPage() {
     if (tp) {
       for (const s of ['bear', 'base', 'bull'] as const) {
         const v = head.computed.values[s][tp.id]?._;
-        if (v) priceLines.push({ price: v, color: colors[s], title: `${s} TP #${head.seq}`, dashed: true });
+        if (v) priceLines.push({ price: v, color: colors[s], title: t(`${s} TP #{seq}`, { seq: head.seq }), dashed: true });
       }
     }
-    for (const t of trades.filter((x) => !x.exitDate && x.stopAtEntry)) priceLines.push({ price: t.stopAtEntry!, color: '#c0392b', title: `stop ${t.entryDate}` });
+    for (const tr of trades.filter((x) => !x.exitDate && x.stopAtEntry)) priceLines.push({ price: tr.stopAtEntry!, color: '#c0392b', title: t('stop {date}', { date: tr.entryDate }) });
   }
 
   const last = bars.at(-1);
@@ -84,15 +85,15 @@ export function MarketPage() {
       await refresh('project');
       await refresh('quote');
     } catch (e) {
-      toast((e as Error).message, 'error');
+      toast(tm((e as Error).message), 'error');
     }
   };
 
   return (
     <div className="page" style={{ maxWidth: 1500 }} data-testid="market-page">
       <div className="page-head">
-        <h1>Market</h1>
-        {provider?.synthetic && <span className="badge synthetic">SYNTHETIC DEMO DATA — not real prices</span>}
+        <h1>{t('Market')}</h1>
+        {provider?.synthetic && <span className="badge synthetic">{t('SYNTHETIC DEMO DATA — not real prices')}</span>}
         <span className="right row">
           <button
             className="btn"
@@ -103,18 +104,18 @@ export function MarketPage() {
             }}
             data-testid="refresh-market"
           >
-            {loading ? 'Loading…' : '↻ Refresh prices'}
+            {loading ? t('Loading…') : t('↻ Refresh prices')}
           </button>
         </span>
       </div>
-      {res?.error && <div className="msg err" style={{ marginBottom: 10 }}>Provider error: {res.error}{bars.length ? ' — showing cached data.' : ''}</div>}
+      {res?.error && <div className="msg err" style={{ marginBottom: 10 }}>{t('Provider error: {error}', { error: tm(res.error) })}{bars.length ? t(' — showing cached data.') : ''}</div>}
       <div className="split" style={{ gridTemplateColumns: 'minmax(0, 1fr) 320px' }}>
         <div className="card" style={{ padding: 10 }}>
           <div className="row wrap" style={{ marginBottom: 8 }}>
             <div className="seg">
               {RANGES.map((r) => (
                 <button key={r.id} className={cls(range === r.id && 'on plain')} onClick={() => setRange(r.id)}>
-                  {r.id}
+                  {r.id === 'All' ? t('All') : r.id}
                 </button>
               ))}
             </div>
@@ -125,24 +126,24 @@ export function MarketPage() {
               ATR <input type="number" style={{ width: 56 }} value={atrN} min={2} max={100} onChange={(e) => setAtrN(Math.max(2, Number(e.target.value) || 14))} />
             </label>
             <label className="small row" style={{ gap: 4 }}>
-              <input type="checkbox" checked={showTrades} onChange={(e) => setShowTrades(e.target.checked)} /> trades
+              <input type="checkbox" checked={showTrades} onChange={(e) => setShowTrades(e.target.checked)} /> {t('trades')}
             </label>
             <label className="small row" style={{ gap: 4 }}>
-              <input type="checkbox" checked={showCatalysts} onChange={(e) => setShowCatalysts(e.target.checked)} /> catalysts
+              <input type="checkbox" checked={showCatalysts} onChange={(e) => setShowCatalysts(e.target.checked)} /> {t('catalysts')}
             </label>
             <label className="small row" style={{ gap: 4 }}>
-              <input type="checkbox" checked={showTargets} onChange={(e) => setShowTargets(e.target.checked)} /> target prices & stops
+              <input type="checkbox" checked={showTargets} onChange={(e) => setShowTargets(e.target.checked)} /> {t('target prices & stops')}
             </label>
           </div>
           {bars.length ? (
             <PriceChart bars={shown} maPeriods={maPeriods} atrPeriod={atrN} markers={markers} priceLines={priceLines} />
           ) : (
             <div className="empty" style={{ height: 300 }}>
-              {loading ? 'Loading prices…' : 'No price data. Refresh from the provider, switch the price source, or import a CSV.'}
+              {loading ? t('Loading prices…') : t('No price data. Refresh from the provider, switch the price source, or import a CSV.')}
             </div>
           )}
           <div className="tiny sub" style={{ marginTop: 6 }}>
-            Target price lines come from the latest committed Research Update (#{head?.seq}); they do not move when you edit the draft.
+            {t('Target price lines come from the latest committed Research Update (#{seq}); they do not move when you edit the draft.', { seq: head?.seq })}
           </div>
         </div>
         <div className="col" style={{ gap: 14 }}>
@@ -156,17 +157,17 @@ export function MarketPage() {
             {last && prev && (
               <div className={cls('small', last.close >= prev.close ? 'pos' : 'neg')}>
                 {last.close >= prev.close ? '+' : ''}
-                {(last.close - prev.close).toFixed(2)} ({(((last.close - prev.close) / prev.close) * 100).toFixed(2)}%) last bar {last.date}
+                {(last.close - prev.close).toFixed(2)} ({(((last.close - prev.close) / prev.close) * 100).toFixed(2)}%) {t('last bar {date}', { date: last.date })}
               </div>
             )}
             <div className="tiny sub" style={{ marginTop: 6 }}>
               {quote?.quote ? (
                 <>
-                  Provider <b>{quote.quote.provider}</b> · market time {fmtDateTime(quote.quote.asOf)} · fetched {timeAgo(quote.quote.fetchedAt)}
-                  {quote.stale && <span className="badge warn">stale</span>}
+                  {t('Provider')} <b>{quote.quote.provider}</b> · {t('market time {time}', { time: fmtDateTime(quote.quote.asOf) })} · {t('fetched {ago}', { ago: timeAgo(quote.quote.fetchedAt) })}
+                  {quote.stale && <span className="badge warn">{t('stale')}</span>}
                 </>
               ) : (
-                quote?.error ?? 'No quote yet'
+                (quote?.error ? tm(quote.error) : t('No quote yet'))
               )}
             </div>
             <div className="divider" />
@@ -181,19 +182,19 @@ export function MarketPage() {
                   <td>{a === null ? '—' : (2 * a).toFixed(2)}</td>
                 </tr>
                 <tr>
-                  <td>2 × ATR stop from last close</td>
+                  <td>{t('2 × ATR stop from last close')}</td>
                   <td>{a === null || !last ? '—' : (last.close - 2 * a).toFixed(2)}</td>
                 </tr>
                 <tr>
-                  <td>52-week high / low</td>
+                  <td>{t('52-week high / low')}</td>
                   <td>{yearBars.length ? `${Math.max(...yearBars.map((b) => b.high)).toFixed(2)} / ${Math.min(...yearBars.map((b) => b.low)).toFixed(2)}` : '—'}</td>
                 </tr>
                 <tr>
-                  <td>Bars cached</td>
+                  <td>{t('Bars cached')}</td>
                   <td>{bars.length}</td>
                 </tr>
                 <tr>
-                  <td>Last fetched</td>
+                  <td>{t('Last fetched')}</td>
                   <td>{timeAgo(res?.lastFetchedAt)}</td>
                 </tr>
               </tbody>
@@ -213,29 +214,29 @@ function SecurityCard({ providers, onSource, onImported }: { providers: Provider
   const dirty = form.ticker !== sec.ticker || form.exchange !== sec.exchange || form.apiSymbol !== sec.apiSymbol || form.currency !== sec.currency;
   return (
     <div className="card">
-      <h2>Security & data source</h2>
+      <h2>{t('Security & data source')}</h2>
       <div className="col">
-        <Field label="Price source">
+        <Field label={t('Price source')}>
           <select value={sec.priceSource} onChange={(e) => onSource(e.target.value)} data-testid="price-source">
             {providers.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.label}
+                {t(p.label)}
               </option>
             ))}
           </select>
         </Field>
-        <div className="tiny sub">{providers.find((p) => p.id === sec.priceSource)?.description}</div>
+        <div className="tiny sub">{t(providers.find((p) => p.id === sec.priceSource)?.description ?? '')}</div>
         <div className="two">
-          <Field label="Ticker">
+          <Field label={t('Ticker')}>
             <input value={form.ticker} onChange={(e) => setForm({ ...form, ticker: e.target.value })} />
           </Field>
-          <Field label="Exchange">
+          <Field label={t('Exchange')}>
             <input value={form.exchange} onChange={(e) => setForm({ ...form, exchange: e.target.value })} />
           </Field>
-          <Field label="Provider symbol">
+          <Field label={t('Provider symbol')}>
             <input value={form.apiSymbol} onChange={(e) => setForm({ ...form, apiSymbol: e.target.value })} />
           </Field>
-          <Field label="Currency">
+          <Field label={t('Currency')}>
             <input value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} />
           </Field>
         </div>
@@ -247,12 +248,12 @@ function SecurityCard({ providers, onSource, onImported }: { providers: Provider
               await refresh('project');
             }}
           >
-            Save identity
+            {t('Save identity')}
           </button>
         )}
         <div className="divider" />
         <label className="small">
-          Import daily OHLCV CSV (Date, Open, High, Low, Close, Adj Close, Volume)
+          {t('Import daily OHLCV CSV (Date, Open, High, Low, Close, Adj Close, Volume)')}
           <input
             type="file"
             accept=".csv,text/csv"
@@ -263,10 +264,10 @@ function SecurityCard({ providers, onSource, onImported }: { providers: Provider
               fd.append('file', f, f.name);
               try {
                 const r = await api.importBars(sec.id, fd);
-                toast(`Imported ${r.imported} bars (${r.first} → ${r.last}); ${r.skipped} rows skipped. Switch the price source to “CSV import” to use them.`, 'success');
+                toast(t('Imported {imported} bars ({first} → {last}); {skipped} rows skipped. Switch the price source to “CSV import” to use them.', { imported: r.imported, first: r.first, last: r.last, skipped: r.skipped }), 'success');
                 onImported();
               } catch (err) {
-                toast((err as Error).message, 'error');
+                toast(tm((err as Error).message), 'error');
               }
             }}
           />

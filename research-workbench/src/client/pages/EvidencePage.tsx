@@ -5,6 +5,7 @@ import { SOURCE_TYPES, type AuditEntryDTO, type EvidenceDTO } from '../../shared
 import { Field } from '../components/ui';
 import { api } from '../lib/api';
 import { createAndLink, KIND_ICON, namedScreenshot } from '../lib/evidence';
+import { t, tm } from '../lib/i18n';
 import { navigate } from '../lib/router';
 import { useWorkspace } from '../lib/store';
 import { cls, fmtDateTime } from '../lib/util';
@@ -37,45 +38,45 @@ export function EvidencePage({ param }: { param?: string }) {
   return (
     <div className="page" style={{ maxWidth: 1500 }}>
       <div className="page-head">
-        <h1>Evidence</h1>
-        <span className="sub">Sources are facts; assumptions live in the model. Link evidence to the nodes it supports or contradicts.</span>
+        <h1>{t('Evidence')}</h1>
+        <span className="sub">{t('Sources are facts; assumptions live in the model. Link evidence to the nodes it supports or contradicts.')}</span>
         <button className="btn primary right" onClick={() => setSel(null)} data-testid="add-evidence">
-          + Add evidence
+          {t('+ Add evidence')}
         </button>
       </div>
       <div className="split" style={{ gridTemplateColumns: 'minmax(0, 1fr) 480px' }}>
         <div className="card" style={{ padding: 0 }}>
           <div className="row" style={{ padding: 10, borderBottom: '1px solid var(--line)' }}>
-            <input type="search" className="grow" placeholder="Search title, source, notes, URL" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input type="search" className="grow" placeholder={t('Search title, source, notes, URL')} value={q} onChange={(e) => setQ(e.target.value)} />
             <select value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="">All source types</option>
-              {SOURCE_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
+              <option value="">{t('All source types')}</option>
+              {SOURCE_TYPES.map((st) => (
+                <option key={st.value} value={st.value}>
+                  {t(st.label)}
                 </option>
               ))}
             </select>
             <label className="small sub row" style={{ gap: 4 }}>
-              <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> archived
+              <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> {t('archived')}
             </label>
           </div>
-          {list.length === 0 && <div className="empty" style={{ margin: 12 }}>No evidence{q || type ? ' matches' : ' yet'}.</div>}
+          {list.length === 0 && <div className="empty" style={{ margin: 12 }}>{q || type ? t('No evidence matches.') : t('No evidence yet.')}</div>}
           {list.map((e) => (
             <div key={e.id} className={cls('list-row', sel === e.id && 'sel')} onClick={() => setSel(e.id)} data-testid="evidence-row">
               <span style={{ fontSize: 16 }}>{KIND_ICON[e.kind]}</span>
               <div className="grow" style={{ minWidth: 0 }}>
                 <div className="row">
                   <b className="ellipsis">{e.title}</b>
-                  {e.archivedAt && <span className="badge">archived</span>}
-                  {e.verification && <span className={cls('badge', e.verification === 'verified' ? 'accent' : e.verification === 'disputed' ? 'err' : '')}>{e.verification}</span>}
+                  {e.archivedAt && <span className="badge">{t('archived')}</span>}
+                  {e.verification && <span className={cls('badge', e.verification === 'verified' ? 'accent' : e.verification === 'disputed' ? 'err' : '')}>{t(e.verification)}</span>}
                 </div>
                 <div className="tiny sub">
-                  {[SOURCE_TYPES.find((t) => t.value === e.sourceType)?.label, e.sourceName, e.publishedAt && `published ${e.publishedAt}`, `added ${e.addedAt.slice(0, 10)}`].filter(Boolean).join(' · ')}
+                  {[t(SOURCE_TYPES.find((st) => st.value === e.sourceType)?.label ?? ''), e.sourceName, e.publishedAt && t('published {date}', { date: e.publishedAt }), t('added {date}', { date: e.addedAt.slice(0, 10) })].filter(Boolean).join(' · ')}
                 </div>
               </div>
               <div className="col" style={{ gap: 2, alignItems: 'flex-end' }}>
-                {linkCount(e.id) > 0 && <span className="badge accent">{linkCount(e.id)} node link(s)</span>}
-                {e.revisionRefs.some((r) => r.kind === 'cited') && <span className="badge">cited in #{e.revisionRefs.filter((r) => r.kind === 'cited').map((r) => r.seq).join(', #')}</span>}
+                {linkCount(e.id) > 0 && <span className="badge accent">{t('{n} node link(s)', { n: linkCount(e.id) })}</span>}
+                {e.revisionRefs.some((r) => r.kind === 'cited') && <span className="badge">{t('cited in #{list}', { list: e.revisionRefs.filter((r) => r.kind === 'cited').map((r) => r.seq).join(', #') })}</span>}
               </div>
             </div>
           ))}
@@ -131,45 +132,45 @@ function AddEvidence({ projectId, onCreated }: { projectId: string; onCreated: (
         }
       }}
     >
-      <h2>Add evidence</h2>
+      <h2>{t('Add evidence')}</h2>
       <div className="col">
-        <Field label="Title">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Q2 earnings call — capacity guidance" data-testid="ev-title" />
+        <Field label={t('Title')}>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('e.g. Q2 earnings call — capacity guidance')} data-testid="ev-title" />
         </Field>
         <div className="two">
-          <Field label="Source type">
+          <Field label={t('Source type')}>
             <select value={sourceType} onChange={(e) => setSourceType(e.target.value)}>
-              {SOURCE_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
+              {SOURCE_TYPES.map((st) => (
+                <option key={st.value} value={st.value}>
+                  {t(st.label)}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="Source / publisher / speaker">
-            <input value={sourceName} onChange={(e) => setSourceName(e.target.value)} placeholder="Company IR, DIGITIMES, broker…" />
+          <Field label={t('Source / publisher / speaker')}>
+            <input value={sourceName} onChange={(e) => setSourceName(e.target.value)} placeholder={t('Company IR, DIGITIMES, broker…')} />
           </Field>
         </div>
         <div className="two">
-          <Field label="URL">
+          <Field label={t('URL')}>
             <input type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" data-testid="ev-url" />
           </Field>
-          <Field label="Publication date">
+          <Field label={t('Publication date')}>
             <input type="date" value={publishedAt} onChange={(e) => setPublishedAt(e.target.value)} data-testid="ev-published" />
           </Field>
         </div>
-        <Field label="What it says (excerpt / notes)">
+        <Field label={t('What it says (excerpt / notes)')}>
           <textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
         <div className="field">
-          <span className="small sub">Files, PDFs, screenshots (or paste an image here)</span>
+          <span className="small sub">{t('Files, PDFs, screenshots (or paste an image here)')}</span>
           <input type="file" multiple onChange={(e) => setFiles([...(e.target.files ?? [])])} />
           {files.length > 0 && <div className="tiny sub">{files.map((f) => f.name).join(', ')}</div>}
         </div>
         <div className="two">
-          <Field label="Link to node (optional)">
+          <Field label={t('Link to node (optional)')}>
             <select value={nodeId} onChange={(e) => setNodeId(e.target.value)}>
-              <option value="">— none —</option>
+              <option value="">{t('— none —')}</option>
               {draft.nodes.map((n) => (
                 <option key={n.id} value={n.id}>
                   {n.name}
@@ -177,18 +178,18 @@ function AddEvidence({ projectId, onCreated }: { projectId: string; onCreated: (
               ))}
             </select>
           </Field>
-          <Field label="Relation">
+          <Field label={t('Relation')}>
             <select value={relation} onChange={(e) => setRelation(e.target.value as LinkRelation)}>
               {LINK_RELATIONS.map((r) => (
                 <option key={r.value} value={r.value}>
-                  {r.label}
+                  {t(r.label)}
                 </option>
               ))}
             </select>
           </Field>
         </div>
         <button className="btn primary" disabled={busy || (!title.trim() && !url.trim() && !files.length)} onClick={() => void submit()} data-testid="ev-save">
-          {busy ? 'Saving…' : 'Add to evidence library'}
+          {busy ? t('Saving…') : t('Add to evidence library')}
         </button>
       </div>
     </div>
@@ -217,9 +218,9 @@ function EvidenceDetail({ ev }: { ev: EvidenceDTO }) {
   const save = async () => {
     try {
       upsertEvidence(await api.updateEvidence(ev.id, { ...form, url: form.url || null, publishedAt: form.publishedAt || null, verification: form.verification || null }));
-      toast('Evidence updated (previous version kept in the audit log)', 'success');
+      toast(t('Evidence updated (previous version kept in the audit log)'), 'success');
     } catch (e) {
-      toast((e as Error).message, 'error');
+      toast(tm((e as Error).message), 'error');
     }
   };
   return (
@@ -247,7 +248,7 @@ function EvidenceDetail({ ev }: { ev: EvidenceDTO }) {
                   {fmtBytes(a.sizeBytes)} · {a.mimeType} · sha256 {a.sha256.slice(0, 10)}…
                 </span>
                 <a className="right" href={`${a.url}?download=1`}>
-                  download
+                  {t('download')}
                 </a>
               </div>
             ))}
@@ -261,7 +262,7 @@ function EvidenceDetail({ ev }: { ev: EvidenceDTO }) {
           </div>
         )}
         <label className="small sub">
-          Add file{' '}
+          {t('Add file')}{' '}
           <input
             type="file"
             multiple
@@ -277,47 +278,47 @@ function EvidenceDetail({ ev }: { ev: EvidenceDTO }) {
       </div>
       <div className="card">
         <div className="col">
-          <Field label="Title">
+          <Field label={t('Title')}>
             <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </Field>
           <div className="two">
-            <Field label="Source type">
+            <Field label={t('Source type')}>
               <select value={form.sourceType} onChange={(e) => setForm({ ...form, sourceType: e.target.value })}>
-                {SOURCE_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
+                {SOURCE_TYPES.map((st) => (
+                  <option key={st.value} value={st.value}>
+                    {t(st.label)}
                   </option>
                 ))}
               </select>
             </Field>
-            <Field label="Source">
+            <Field label={t('Source')}>
               <input value={form.sourceName} onChange={(e) => setForm({ ...form, sourceName: e.target.value })} />
             </Field>
           </div>
           <div className="two">
-            <Field label="URL">
+            <Field label={t('URL')}>
               <input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} />
             </Field>
-            <Field label="Published">
+            <Field label={t('Published')}>
               <input type="date" value={form.publishedAt} onChange={(e) => setForm({ ...form, publishedAt: e.target.value })} />
             </Field>
           </div>
-          <Field label="Notes / excerpt">
+          <Field label={t('Notes / excerpt')}>
             <textarea rows={5} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </Field>
-          <Field label="Verification (optional)">
+          <Field label={t('Verification (optional)')}>
             <select value={form.verification} onChange={(e) => setForm({ ...form, verification: e.target.value })}>
-              <option value="">not set</option>
-              <option value="unverified">unverified</option>
-              <option value="verified">verified</option>
-              <option value="disputed">disputed</option>
+              <option value="">{t('not set')}</option>
+              <option value="unverified">{t('unverified')}</option>
+              <option value="verified">{t('verified')}</option>
+              <option value="disputed">{t('disputed')}</option>
             </select>
           </Field>
           <div className="row">
             <button className="btn primary" disabled={!dirty} onClick={() => void save()}>
-              Save changes
+              {t('Save changes')}
             </button>
-            <span className="tiny sub">added {fmtDateTime(ev.addedAt)}</span>
+            <span className="tiny sub">{t('added {date}', { date: fmtDateTime(ev.addedAt) })}</span>
             <span className="right row">
               <button
                 className="btn sm"
@@ -325,33 +326,33 @@ function EvidenceDetail({ ev }: { ev: EvidenceDTO }) {
                   upsertEvidence(await api.archiveEvidence(ev.id, !ev.archivedAt));
                 }}
               >
-                {ev.archivedAt ? 'Unarchive' : 'Archive'}
+                {ev.archivedAt ? t('Unarchive') : t('Archive')}
               </button>
               <button
                 className="btn sm danger"
                 onClick={async () => {
-                  if (!window.confirm('Delete this evidence permanently? Only possible if no Research Update, node or catalyst uses it.')) return;
+                  if (!window.confirm(t('Delete this evidence permanently? Only possible if no Research Update, node or catalyst uses it.'))) return;
                   try {
                     await api.deleteEvidence(ev.id);
                     await refresh('evidence');
                     navigate({ page: 'project', projectId, tab: 'evidence' });
                   } catch (e) {
-                    toast((e as Error).message, 'error');
+                    toast(tm((e as Error).message), 'error');
                   }
                 }}
               >
-                Delete
+                {t('Delete')}
               </button>
             </span>
           </div>
         </div>
       </div>
       <div className="card">
-        <h2>Linked nodes (current draft)</h2>
-        {links.length === 0 && <div className="small sub">Not linked to any node.</div>}
+        <h2>{t('Linked nodes (current draft)')}</h2>
+        {links.length === 0 && <div className="small sub">{t('Not linked to any node.')}</div>}
         {links.map((l) => (
           <div key={l.id} className="row small" style={{ padding: '3px 0' }}>
-            <span className={cls('rel', l.relation)}>{l.relation}</span>
+            <span className={cls('rel', l.relation)}>{t(l.relation)}</span>
             <a
               style={{ cursor: 'pointer' }}
               onClick={() => {
@@ -361,12 +362,12 @@ function EvidenceDetail({ ev }: { ev: EvidenceDTO }) {
             >
               {draft.nodes.find((n) => n.id === l.nodeId)?.name}
             </a>
-            {l.locator && <span className="sub">at {l.locator}</span>}
+            {l.locator && <span className="sub">{t('at {locator}', { locator: l.locator })}</span>}
           </div>
         ))}
         <div className="row" style={{ marginTop: 6 }}>
           <select className="grow" value={linkNode} onChange={(e) => setLinkNode(e.target.value)}>
-            <option value="">Link to node…</option>
+            <option value="">{t('Link to node…')}</option>
             {draft.nodes.map((n) => (
               <option key={n.id} value={n.id}>
                 {n.name}
@@ -374,24 +375,24 @@ function EvidenceDetail({ ev }: { ev: EvidenceDTO }) {
             ))}
           </select>
           <button className="btn sm" disabled={!linkNode} onClick={() => (edit((s) => addLink(s, { evidenceId: ev.id, nodeId: linkNode, relation: 'supports' }).state), setLinkNode(''))}>
-            Link (draft)
+            {t('Link (draft)')}
           </button>
         </div>
-        <h3 style={{ marginTop: 12 }}>Research Updates</h3>
-        {ev.revisionRefs.length === 0 && <div className="small sub">Not part of any committed update yet.</div>}
+        <h3 style={{ marginTop: 12 }}>{t('Research Updates')}</h3>
+        {ev.revisionRefs.length === 0 && <div className="small sub">{t('Not part of any committed update yet.')}</div>}
         {ev.revisionRefs.map((r) => (
           <div key={`${r.revisionId}${r.kind}`} className="small">
-            <a href={`#/p/${projectId}/history/${r.revisionId}`}>#{r.seq}</a> — {r.kind === 'cited' ? 'cited as a reason for the update' : 'linked to a node in that snapshot'}
+            <a href={`#/p/${projectId}/history/${r.revisionId}`}>#{r.seq}</a> — {r.kind === 'cited' ? t('cited as a reason for the update') : t('linked to a node in that snapshot')}
           </div>
         ))}
       </div>
       {audit.length > 0 && (
         <div className="card">
-          <h2>Edit history</h2>
+          <h2>{t('Edit history')}</h2>
           {audit.map((a) => (
             <details key={a.id}>
               <summary>
-                {fmtDateTime(a.at)} — {a.action}
+                {fmtDateTime(a.at)} — {t(a.action)}
               </summary>
               <pre className="tiny" style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(a.before, null, 1)}</pre>
             </details>

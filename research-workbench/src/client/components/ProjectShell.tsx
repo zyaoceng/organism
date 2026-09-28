@@ -4,6 +4,7 @@ import { findByRole } from '../../domain/model/tree';
 import { SCALAR_KEY } from '../../domain/model/types';
 import { basisPeriodId } from '../../domain/revision/impact';
 import { api } from '../lib/api';
+import { t, tm, useLang } from '../lib/i18n';
 import { calcOf, diffOf } from '../lib/derived';
 import { href, navigate, TABS, type Tab } from '../lib/router';
 import { useActiveState, useWorkspace } from '../lib/store';
@@ -17,7 +18,7 @@ import { OverviewPage } from '../pages/OverviewPage';
 import { TradesPage } from '../pages/TradesPage';
 import { ValuationPage } from '../pages/ValuationPage';
 import { SearchPalette } from './SearchPalette';
-import { ScenarioSwitch } from './ui';
+import { LangToggle, ScenarioSwitch } from './ui';
 
 export function ProjectShell({ projectId, tab, param }: { projectId: string; tab: Tab; param?: string }) {
   const load = useWorkspace((s) => s.load);
@@ -26,6 +27,8 @@ export function ProjectShell({ projectId, tab, param }: { projectId: string; tab
   const loading = useWorkspace((s) => s.loading);
   const loadError = useWorkspace((s) => s.loadError);
   const [searchOpen, setSearchOpen] = useState(false);
+  // Subscribe to the interface language so a switch re-renders the whole project UI.
+  const lang = useLang();
 
   useEffect(() => {
     void load(projectId);
@@ -56,16 +59,16 @@ export function ProjectShell({ projectId, tab, param }: { projectId: string; tab
   if (loadError) {
     return (
       <div className="projects">
-        <div className="msg err">Could not open the project: {loadError}</div>
+        <div className="msg err">{t('Could not open the project: {msg}', { msg: tm(loadError) })}</div>
         <p>
-          <a href="#/">← All companies</a>
+          <a href="#/">{t('← All companies')}</a>
         </p>
       </div>
     );
   }
   const ready = project && loadedId === projectId && !loading;
   return (
-    <div className="app">
+    <div className="app" lang={lang}>
       <Sidebar projectId={projectId} tab={tab} />
       <div className="main">
         {ready ? (
@@ -84,7 +87,7 @@ export function ProjectShell({ projectId, tab, param }: { projectId: string; tab
             </div>
           </>
         ) : (
-          <div className="page sub">Loading…</div>
+          <div className="page sub">{t('Loading…')}</div>
         )}
       </div>
       {searchOpen && ready && <SearchPalette onClose={() => setSearchOpen(false)} />}
@@ -104,7 +107,7 @@ function Sidebar({ projectId, tab }: { projectId: string; tab: Tab }) {
   const drafts = draft && head ? diffOf(head.state, draft).length : 0;
   const sec = securities[0];
   const counts: Partial<Record<Tab, string>> = {
-    model: drafts ? `${drafts} draft` : '',
+    model: drafts ? t('{n} draft', { n: drafts }) : '',
     evidence: String(evidence.filter((e) => !e.archivedAt).length || ''),
     catalysts: String(catalysts.filter((c) => c.status === 'upcoming').length || ''),
     trades: String(trades.length || ''),
@@ -114,9 +117,9 @@ function Sidebar({ projectId, tab }: { projectId: string; tab: Tab }) {
     <aside className="sidebar">
       <div className="brand">
         <a href="#/" style={{ color: '#fff' }}>
-          Research Workbench
+          {t('Research Workbench')}
         </a>
-        <small>evidence → assumptions → EPS → value</small>
+        <small>{t('evidence → assumptions → EPS → value')}</small>
       </div>
       <div className="company">
         <b>{project?.name ?? '…'}</b>
@@ -127,17 +130,20 @@ function Sidebar({ projectId, tab }: { projectId: string; tab: Tab }) {
         )}
       </div>
       <nav>
-        {TABS.map((t) => (
-          <a key={t.id} href={href({ page: 'project', projectId, tab: t.id })} className={cls(tab === t.id && 'on')} data-testid={`nav-${t.id}`}>
-            {t.label}
-            {counts[t.id] && <span className="count">{counts[t.id]}</span>}
+        {TABS.map((tb) => (
+          <a key={tb.id} href={href({ page: 'project', projectId, tab: tb.id })} className={cls(tab === tb.id && 'on')} data-testid={`nav-${tb.id}`}>
+            {t(tb.label)}
+            {counts[tb.id] && <span className="count">{counts[tb.id]}</span>}
           </a>
         ))}
       </nav>
       <div className="foot">
-        <a href="#/">← All companies</a>
+        <a href="#/">{t('← All companies')}</a>
         <div style={{ marginTop: 6 }}>
-          <span className="kbd">Ctrl+K</span> search
+          <span className="kbd">Ctrl+K</span> {t('search')}
+        </div>
+        <div style={{ marginTop: 8 }}>
+          <LangToggle dark />
         </div>
       </div>
     </aside>
@@ -176,46 +182,46 @@ function TopBar({ onSearch }: { onSearch: () => void }) {
       {kpi && (
         <div className="kpis">
           <div className="kpi">
-            <span>EPS {kpi.basis ? pl(kpi.basis) : ''}</span>
+            <span>{t('EPS')} {kpi.basis ? pl(kpi.basis) : ''}</span>
             <b data-testid="kpi-eps">{formatValue(kpi.eps.v, kpi.eps.unit)}</b>
           </div>
           <div className="kpi">
-            <span>Target P/E</span>
+            <span>{t('Target P/E')}</span>
             <b>{formatValue(kpi.pe.v, kpi.pe.unit)}</b>
           </div>
           <div className="kpi">
-            <span>Target price</span>
+            <span>{t('Target price')}</span>
             <b data-testid="kpi-tp">{formatValue(kpi.tp.v, kpi.tp.unit)}</b>
           </div>
           <div className="kpi">
-            <span>Upside</span>
+            <span>{t('Upside')}</span>
             <b className={cls(upside !== null && (upside >= 0 ? 'pos' : 'neg'))}>{upside === null ? '—' : `${upside >= 0 ? '+' : ''}${(upside * 100).toFixed(1)}%`}</b>
           </div>
         </div>
       )}
       <div className="right row">
-        <div className="kpi" style={{ textAlign: 'right' }} title={quote?.error ?? (quote?.quote ? `Provider ${quote.quote.provider}, market time ${quote.quote.asOf}, fetched ${quote.quote.fetchedAt}` : '')}>
+        <div className="kpi" style={{ textAlign: 'right' }} title={quote?.error ? tm(quote.error) : quote?.quote ? t('Provider {provider}, market time {asOf}, fetched {fetchedAt}', { provider: quote.quote.provider, asOf: quote.quote.asOf, fetchedAt: quote.quote.fetchedAt }) : ''}>
           <span>
-            {sec?.ticker} price {quote?.quote?.provider === 'demo' && <span className="badge synthetic">SYNTHETIC</span>}
-            {quote?.stale && <span className="badge warn">stale</span>}
+            {t('{ticker} price', { ticker: sec?.ticker ?? '' })} {quote?.quote?.provider === 'demo' && <span className="badge synthetic">{t('SYNTHETIC')}</span>}
+            {quote?.stale && <span className="badge warn">{t('stale')}</span>}
           </span>
           <b data-testid="kpi-price">
             {price === null ? '—' : price.toLocaleString('en-US', { maximumFractionDigits: 2 })} <span className="small sub">{quote?.quote?.currency ?? sec?.currency}</span>
           </b>
           <span className="tiny" style={{ textTransform: 'none' }}>
-            {quote?.quote ? `${quote.quote.provider} · ${timeAgo(quote.quote.fetchedAt)}` : quote?.error ? 'unavailable' : ''}
+            {quote?.quote ? `${quote.quote.provider} · ${timeAgo(quote.quote.fetchedAt)}` : quote?.error ? t('unavailable') : ''}
           </span>
         </div>
         <button
           className="btn sm"
           disabled={refreshing || !sec}
-          title="Refresh the quote from the provider"
+          title={t('Refresh the quote from the provider')}
           onClick={async () => {
             setRefreshing(true);
             try {
               const q = await api.quote(sec.id, undefined, true);
               useWorkspace.setState({ quote: q });
-              if (q.error) useWorkspace.getState().toast(q.error, 'error');
+              if (q.error) useWorkspace.getState().toast(tm(q.error), 'error');
             } finally {
               setRefreshing(false);
             }
@@ -224,7 +230,7 @@ function TopBar({ onSearch }: { onSearch: () => void }) {
           ↻
         </button>
         <button className="btn sm ghost" onClick={onSearch}>
-          Search <span className="kbd">Ctrl+K</span>
+          {t('Search')} <span className="kbd">Ctrl+K</span>
         </button>
       </div>
     </div>
@@ -239,27 +245,25 @@ function ViewingBanner() {
   if (!viewing) return null;
   return (
     <div className="banner" data-testid="viewing-banner">
-      <b>
-        Viewing Research Update #{viewing.seq} “{viewing.title}”
-      </b>
+      <b>{t('Viewing Research Update #{seq} “{title}”', { seq: viewing.seq, title: viewing.title })}</b>
       <span className="small">
-        knowledge date {viewing.asOfDate ?? '—'} · committed {viewing.committedAt.slice(0, 10)} · read-only snapshot
-        {head && viewing.id === head.id ? ' (latest)' : ''}
+        {t('knowledge date {asOf} · committed {date} · read-only snapshot', { asOf: viewing.asOfDate ?? '—', date: viewing.committedAt.slice(0, 10) })}
+        {head && viewing.id === head.id ? t(' (latest)') : ''}
       </span>
       <span className="right row">
         <button
           className="btn sm"
           onClick={async () => {
-            if (!window.confirm(`Replace the current draft with the state of Research Update #${viewing.seq}? History is not rewritten; commit afterwards to record the restore.`)) return;
+            if (!window.confirm(t('Replace the current draft with the state of Research Update #{seq}? History is not rewritten; commit afterwards to record the restore.', { seq: viewing.seq }))) return;
             await restore(viewing.id);
-            toast(`Draft restored from #${viewing.seq}. Review the changes and commit.`, 'success');
+            toast(t('Draft restored from #{seq}. Review the changes and commit.', { seq: viewing.seq }), 'success');
             navigate({ page: 'project', projectId: projectId!, tab: 'model' });
           }}
         >
-          Restore into draft
+          {t('Restore into draft')}
         </button>
         <button className="btn sm primary" onClick={() => void view(null)} data-testid="back-to-draft">
-          Back to draft
+          {t('Back to draft')}
         </button>
       </span>
     </div>

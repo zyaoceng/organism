@@ -4,6 +4,7 @@ import type { ModelState, ScenarioId } from '../../domain/model/types';
 import { SCALAR_KEY, SCENARIOS } from '../../domain/model/types';
 import type { Impact } from '../../domain/revision/impact';
 import { findByRole } from '../../domain/model/tree';
+import { t, tm } from '../lib/i18n';
 import { cls, periodLabelFn } from '../lib/util';
 import { Delta, ScenarioSwitch } from './ui';
 
@@ -13,7 +14,7 @@ export function ImpactView({ impact, state, initialScenario = 'base', compact }:
   const pl = periodLabelFn(state);
   const eps = findByRole(state, 'eps');
   const tp = findByRole(state, 'target_price');
-  const tm = findByRole(state, 'target_multiple');
+  const tmul = findByRole(state, 'target_multiple');
   const basis = impact.basisPeriodId;
   const nodes = impact.nodes
     .map((n) => ({ ...n, cells: n.cells.filter((c) => c.scenario === scenario) }))
@@ -26,10 +27,10 @@ export function ImpactView({ impact, state, initialScenario = 'base', compact }:
       <table className="grid impact-table">
         <thead>
           <tr>
-            <th>Headline</th>
+            <th>{t('Headline')}</th>
             {SCENARIOS.map((s) => (
               <th key={s.id}>
-                <span className={cls('badge', s.id)}>{s.name}</span>
+                <span className={cls('badge', s.id)}>{t(s.name)}</span>
               </th>
             ))}
           </tr>
@@ -37,7 +38,7 @@ export function ImpactView({ impact, state, initialScenario = 'base', compact }:
         <tbody>
           <tr>
             <td>
-              EPS {basis ? pl(basis) : ''}
+              {t('EPS')} {basis ? pl(basis) : ''}
               {eps && <span className="faint small"> ({eps.name})</span>}
             </td>
             {SCENARIOS.map((s) => {
@@ -50,19 +51,19 @@ export function ImpactView({ impact, state, initialScenario = 'base', compact }:
             })}
           </tr>
           <tr>
-            <td>Target multiple</td>
+            <td>{t('Target multiple')}</td>
             {SCENARIOS.map((s) => {
               const h = impact.headline.targetMultiple.find((x) => x.scenario === s.id);
               return (
                 <td key={s.id} className="num">
-                  {formatValue(h?.before, tm?.unit)} → <b>{formatValue(h?.after, tm?.unit)}</b>
+                  {formatValue(h?.before, tmul?.unit)} → <b>{formatValue(h?.after, tmul?.unit)}</b>
                 </td>
               );
             })}
           </tr>
           <tr>
             <td>
-              <b>Target price</b>
+              <b>{t('Target price')}</b>
             </td>
             {SCENARIOS.map((s) => {
               const h = impact.headline.targetPrice.find((x) => x.scenario === s.id);
@@ -80,7 +81,7 @@ export function ImpactView({ impact, state, initialScenario = 'base', compact }:
         <table className="grid">
           <thead>
             <tr>
-              <th>EPS path ({SCENARIOS.find((s) => s.id === scenario)?.name})</th>
+              <th>{t('EPS path ({scenario})', { scenario: t(SCENARIOS.find((s) => s.id === scenario)?.name ?? '') })}</th>
               {epsPeriods.map((p) => (
                 <th key={p}>{pl(p)}</th>
               ))}
@@ -88,7 +89,7 @@ export function ImpactView({ impact, state, initialScenario = 'base', compact }:
           </thead>
           <tbody>
             <tr>
-              <td>Before → after</td>
+              <td>{t('Before → after')}</td>
               {epsPeriods.map((p) => {
                 const h = impact.headline.eps.find((x) => x.scenario === scenario && x.periodKey === p);
                 return (
@@ -104,14 +105,14 @@ export function ImpactView({ impact, state, initialScenario = 'base', compact }:
 
       <div>
         <div className="row" style={{ marginBottom: 6 }}>
-          <h3>Causal chain</h3>
-          <span className="small sub">changed values in dependency order</span>
+          <h3>{t('Causal chain')}</h3>
+          <span className="small sub">{t('changed values in dependency order')}</span>
           <span className="right">
             <ScenarioSwitch value={scenario} onChange={setScenario} />
           </span>
         </div>
         {nodes.length === 0 ? (
-          <div className="small sub">No calculated values changed in this scenario.</div>
+          <div className="small sub">{t('No calculated values changed in this scenario.')}</div>
         ) : (
           <ul className="impact-chain">
             {nodes.slice(0, compact ? 12 : 200).map((n) => {
@@ -122,7 +123,7 @@ export function ImpactView({ impact, state, initialScenario = 'base', compact }:
                   <span className="nm">
                     {n.direct ? '✎ ' : '↳ '}
                     {n.name}
-                    {n.cells.length > 1 && <span className="faint small"> · {n.cells.length} cells</span>}
+                    {n.cells.length > 1 && <span className="faint small"> · {t('{n} cells', { n: n.cells.length })}</span>}
                   </span>
                   <span className="num sub">{pl(pick.periodKey)}</span>
                   <span className="num">
@@ -134,7 +135,7 @@ export function ImpactView({ impact, state, initialScenario = 'base', compact }:
                 </li>
               );
             })}
-            {compact && nodes.length > 12 && <li className="sub small">…{nodes.length - 12} more</li>}
+            {compact && nodes.length > 12 && <li className="sub small">{t('…{n} more', { n: nodes.length - 12 })}</li>}
           </ul>
         )}
       </div>
@@ -142,21 +143,21 @@ export function ImpactView({ impact, state, initialScenario = 'base', compact }:
       {impact.attribution.length > 0 && (
         <div>
           <div className="row" style={{ marginBottom: 6 }}>
-            <h3>Attribution</h3>
-            <span className="small sub">each changed assumption applied alone to the previous model</span>
+            <h3>{t('Attribution')}</h3>
+            <span className="small sub">{t('each changed assumption applied alone to the previous model')}</span>
           </div>
           <table className="grid">
             <thead>
               <tr>
-                <th>Assumption</th>
-                <th>Δ EPS {basis ? pl(basis) : ''}</th>
-                <th>Δ Target price</th>
+                <th>{t('Assumption')}</th>
+                <th>{t('Δ EPS')} {basis ? pl(basis) : ''}</th>
+                <th>{t('Δ Target price')}</th>
               </tr>
             </thead>
             <tbody>
               {impact.attribution.map((a) => (
                 <tr key={a.nodeId}>
-                  <td title={a.note}>
+                  <td title={a.note ? tm(a.note) : a.note}>
                     {a.name}
                     {a.note && <span className="faint small"> *</span>}
                   </td>
@@ -165,8 +166,8 @@ export function ImpactView({ impact, state, initialScenario = 'base', compact }:
                 </tr>
               ))}
               <tr>
-                <td className="sub" title="Total change minus the sum of single-assumption effects: interactions between changes and structural changes (new nodes, periods)">
-                  Interaction & structural
+                <td className="sub" title={t('Total change minus the sum of single-assumption effects: interactions between changes and structural changes (new nodes, periods)')}>
+                  {t('Interaction & structural')}
                 </td>
                 <td className="num sub">{impact.residual.eps[scenario] === null ? '—' : signedFmt(impact.residual.eps[scenario]!, 2)}</td>
                 <td className="num sub">{impact.residual.targetPrice[scenario] === null ? '—' : signedFmt(impact.residual.targetPrice[scenario]!, 1)}</td>

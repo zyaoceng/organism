@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { formatValue, parseValueInput, editText } from '../../domain/format';
 import type { Unit } from '../../domain/units';
 import { cls } from '../lib/util';
+import { LANGS, setLang, t, tm, useLang } from '../lib/i18n';
 
 /** Text that becomes an input on click; commits on blur/Enter, cancels on Escape. */
 export function InlineText(props: {
@@ -22,7 +23,7 @@ export function InlineText(props: {
         className={cls(props.className, 'inline-text', !props.value && 'faint')}
         style={{ cursor: props.readOnly ? 'default' : 'text', whiteSpace: props.multiline ? 'pre-wrap' : undefined, minHeight: 18 }}
         onClick={() => !props.readOnly && setEditing(true)}
-        title={props.readOnly ? undefined : 'Click to edit'}
+        title={props.readOnly ? undefined : t('Click to edit')}
       >
         {props.value || props.placeholder || '—'}
       </div>
@@ -85,7 +86,7 @@ export function NumberField(props: {
     if (how !== 'escape') {
       const r = parseValueInput(text, props.unit);
       if (!r.ok) {
-        setError(r.message);
+        setError(tm(r.message));
         if (how === 'blur') {
           done.current = true;
           props.onDone?.(how, shift);
@@ -166,10 +167,27 @@ export function Field(props: { label: string; children: ReactNode; style?: React
 
 export function ScenarioSwitch(props: { value: string; onChange: (s: 'bear' | 'base' | 'bull') => void }) {
   return (
-    <div className="seg" role="group" aria-label="Scenario">
-      {(['bear', 'base', 'bull'] as const).map((s, i) => (
-        <button key={s} className={cls(props.value === s && `on ${s}`)} onClick={() => props.onChange(s)} title={`${s[0].toUpperCase()}${s.slice(1)} scenario (${i + 1})`}>
-          {s[0].toUpperCase() + s.slice(1)}
+    <div className="seg" role="group" aria-label={t('Scenario')}>
+      {(['bear', 'base', 'bull'] as const).map((s, i) => {
+        const name = t(s[0].toUpperCase() + s.slice(1));
+        return (
+          <button key={s} className={cls(props.value === s && `on ${s}`)} onClick={() => props.onChange(s)} title={t('{name} scenario ({n})', { name, n: i + 1 })}>
+            {name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** 中文 / English switch. The choice is remembered in this browser. */
+export function LangToggle(props: { dark?: boolean }) {
+  const lang = useLang();
+  return (
+    <div className={cls('seg', 'lang-toggle', props.dark && 'dark')} role="group" aria-label="Language / 語言" data-testid="lang-toggle">
+      {LANGS.map((l) => (
+        <button key={l.value} className={cls(lang === l.value && 'on')} onClick={() => setLang(l.value)} lang={l.value}>
+          {l.label}
         </button>
       ))}
     </div>

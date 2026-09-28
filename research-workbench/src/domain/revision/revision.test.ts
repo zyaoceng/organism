@@ -52,10 +52,17 @@ describe('diff', () => {
     expect(text.some((x) => x.startsWith('NOPAT formula: [Operating Income] * (1 - [Tax Rate]) → '))).toBe(true);
     expect(text).toContain('Evidence “Q2 call” linked to YoY Growth (triggered, p.13)');
 
+    const zh = changes.map((c) => describeChange(c, { periodLabel: (k) => k.replace('FY', '') + 'E', evidenceTitle: () => 'Q2 call', lang: 'zh-TW' }));
+    expect(zh).toContain('YoY Growth 2028E：20.0% → 47.0%');
+    expect(zh).toContain('YoY Growth 2028E（多頭）：40.0% → 60.0%');
+    expect(zh).toContain('改名 Business C → AI Business');
+    expect(zh).toContain('證據 「Q2 call」 連結到 YoY Growth（觸發修改，p.13）');
+
     const b2 = updateThesis(b, t.id, { status: 'invalidated' });
     const d2 = diffStates(b, b2);
     expect(d2).toHaveLength(1);
     expect(describeChange(d2[0])).toMatch(/→ invalidated/);
+    expect(describeChange(d2[0], { lang: 'zh-TW' })).toMatch(/→ 已推翻$/);
   });
 });
 

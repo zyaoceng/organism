@@ -52,7 +52,7 @@ Checks
 
 ```bash
 npm run typecheck    # TypeScript
-npm test             # 70 unit + API tests (domain engine, revisions, server, client store)
+npm test             # 78 unit + API tests (domain engine, revisions, server, client store, translations)
 npm run e2e          # builds, starts a throwaway server, drives the UI through acceptance tests 1-18
 ```
 
@@ -90,6 +90,20 @@ Everyday workflow
    target lines; the trade journal links each entry to the research
    snapshot valid on its entry date and shows the 2×ATR trailing-stop
    counterfactual.
+
+Language
+--------
+
+The interface switches between English and Traditional Chinese (中文 / English
+buttons in the sidebar and on the company list). The choice is remembered in
+the browser; the first visit follows the browser language. New companies built
+from the standard template get Chinese node names when Chinese is on. Your own
+text (node names, notes, evidence) is never translated.
+
+Translations live in `src/client/i18n/`: the dictionaries are keyed by the
+English text passed to `t()`, and `messages.ts` translates messages built at
+runtime (formula errors, model checks, server errors). A unit test fails when a
+`t('…')` string has no Chinese entry.
 
 Market data
 -----------

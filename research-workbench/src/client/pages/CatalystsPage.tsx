@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CATALYST_TYPES, type CatalystDTO } from '../../shared/api';
 import { Field } from '../components/ui';
 import { api } from '../lib/api';
+import { t, tm } from '../lib/i18n';
 import { useWorkspace } from '../lib/store';
 import { cls, today } from '../lib/util';
 
@@ -16,20 +17,20 @@ export function CatalystsPage() {
   return (
     <div className="page" data-testid="catalysts-page">
       <div className="page-head">
-        <h1>Catalysts</h1>
-        <span className="sub">Dated events linked to the model. Write the expected outcome before the event; edits are kept in the audit log.</span>
+        <h1>{t('Catalysts')}</h1>
+        <span className="sub">{t('Dated events linked to the model. Write the expected outcome before the event; edits are kept in the audit log.')}</span>
         <button className="btn primary right" onClick={() => setCreating(!creating)} data-testid="new-catalyst">
-          + Catalyst
+          {t('+ Catalyst')}
         </button>
       </div>
       {creating && <CatalystForm onDone={() => setCreating(false)} />}
       <TimelineStrip catalysts={upcoming} now={now} />
-      <h2 style={{ margin: '16px 0 8px' }}>Upcoming ({upcoming.length})</h2>
-      {upcoming.length === 0 && <div className="empty">No upcoming catalysts.</div>}
+      <h2 style={{ margin: '16px 0 8px' }}>{t('Upcoming ({n})', { n: upcoming.length })}</h2>
+      {upcoming.length === 0 && <div className="empty">{t('No upcoming catalysts.')}</div>}
       {upcoming.map((c) => (
         <CatalystCard key={c.id} c={c} overdue={!!c.expectedDate && c.expectedDate < now} />
       ))}
-      <h2 style={{ margin: '16px 0 8px' }}>Past ({past.length})</h2>
+      <h2 style={{ margin: '16px 0 8px' }}>{t('Past ({n})', { n: past.length })}</h2>
       {past.map((c) => (
         <CatalystCard key={c.id} c={c} />
       ))}
@@ -55,7 +56,7 @@ function TimelineStrip({ catalysts, now }: { catalysts: CatalystDTO[]; now: stri
           </div>
         ))}
         {dated.map((c, i) => (
-          <div key={c.id} title={`${c.expectedDate} ${c.title}\nExpected: ${c.expectedOutcome}`} style={{ position: 'absolute', left: x(c.expectedDate!), top: i % 2 ? 26 : 8, transform: 'translateX(-4px)' }}>
+          <div key={c.id} title={`${c.expectedDate} ${c.title}\n${t('Expected: {outcome}', { outcome: c.expectedOutcome })}`} style={{ position: 'absolute', left: x(c.expectedDate!), top: i % 2 ? 26 : 8, transform: 'translateX(-4px)' }}>
             <div style={{ width: 9, height: 9, borderRadius: 5, background: c.expectedDate! < now ? 'var(--warn)' : 'var(--accent)', margin: '0 0 2px' }} />
             <div className="tiny nowrap" style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {c.title}
@@ -78,28 +79,28 @@ function CatalystCard({ c, overdue }: { c: CatalystDTO; overdue?: boolean }) {
     <div className="card" style={{ cursor: 'pointer' }} onClick={() => setOpen(true)} data-testid="catalyst-card">
       <div className="row">
         <span className="num sub nowrap" style={{ width: 96 }}>
-          {c.actualDate ?? c.expectedDate ?? 'undated'}
-          {c.datePrecision !== 'day' && !c.actualDate ? ` (${c.datePrecision})` : ''}
+          {c.actualDate ?? c.expectedDate ?? t('undated')}
+          {c.datePrecision !== 'day' && !c.actualDate ? ` (${t(c.datePrecision)})` : ''}
         </span>
         <b className="grow">{c.title}</b>
-        <span className="badge">{CATALYST_TYPES.find((t) => t.value === c.type)?.label ?? c.type}</span>
-        <span className={cls('badge', c.status === 'occurred' ? 'accent' : c.status === 'upcoming' ? '' : 'warn')}>{c.status}</span>
-        {overdue && <span className="badge warn">date passed — update status</span>}
+        <span className="badge">{t(CATALYST_TYPES.find((ct) => ct.value === c.type)?.label ?? c.type)}</span>
+        <span className={cls('badge', c.status === 'occurred' ? 'accent' : c.status === 'upcoming' ? '' : 'warn')}>{t(c.status)}</span>
+        {overdue && <span className="badge warn">{t('date passed — update status')}</span>}
       </div>
       <div className="small" style={{ marginTop: 4 }}>
-        <span className="sub">Expected: </span>
+        <span className="sub">{t('Expected: ')}</span>
         {c.expectedOutcome || '—'}
       </div>
       {c.actualOutcome && (
         <div className="small">
-          <span className="sub">Actual: </span>
+          <span className="sub">{t('Actual: ')}</span>
           {c.actualOutcome}
         </div>
       )}
       <div className="tiny sub" style={{ marginTop: 4 }}>
-        {nodes.length ? `Nodes: ${nodes.join(', ')}` : 'No linked nodes'}
-        {c.evidenceIds.length ? ` · ${c.evidenceIds.length} evidence` : ''}
-        {rev ? ` · model impact: Research Update #${rev.seq}` : ''}
+        {nodes.length ? t('Nodes: {list}', { list: nodes.join(', ') }) : t('No linked nodes')}
+        {c.evidenceIds.length ? ` · ${t('{n} evidence', { n: c.evidenceIds.length })}` : ''}
+        {rev ? ` · ${t('model impact: Research Update #{seq}', { seq: rev.seq })}` : ''}
       </div>
     </div>
   );
@@ -119,61 +120,63 @@ function CatalystForm({ existing, onDone }: { existing?: CatalystDTO; onDone: ()
       await refresh('catalysts');
       onDone();
     } catch (e) {
-      toast((e as Error).message, 'error');
+      toast(tm((e as Error).message), 'error');
     }
   };
   const toggle = (k: 'nodeIds' | 'evidenceIds', id: string) => setF({ ...f, [k]: (f[k] ?? []).includes(id) ? (f[k] ?? []).filter((x) => x !== id) : [...(f[k] ?? []), id] });
   return (
     <div className="card" data-testid="catalyst-form">
-      <h2>{existing ? 'Edit catalyst' : 'New catalyst'}</h2>
+      <h2>{existing ? t('Edit catalyst') : t('New catalyst')}</h2>
       <div className="col">
         <div className="three">
-          <Field label="Title">
+          <Field label={t('Title')}>
             <input value={f.title ?? ''} onChange={(e) => setF({ ...f, title: e.target.value })} data-testid="cat-title" />
           </Field>
-          <Field label="Type">
+          <Field label={t('Type')}>
             <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}>
-              {CATALYST_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
+              {CATALYST_TYPES.map((ct) => (
+                <option key={ct.value} value={ct.value}>
+                  {t(ct.label)}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="Status">
+          <Field label={t('Status')}>
             <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value as CatalystDTO['status'] })}>
               {STATUS.map((s) => (
-                <option key={s}>{s}</option>
+                <option key={s} value={s}>
+                  {t(s)}
+                </option>
               ))}
             </select>
           </Field>
-          <Field label="Expected date">
+          <Field label={t('Expected date')}>
             <input type="date" value={f.expectedDate ?? ''} onChange={(e) => setF({ ...f, expectedDate: e.target.value || null })} data-testid="cat-date" />
           </Field>
-          <Field label="Date precision">
+          <Field label={t('Date precision')}>
             <select value={f.datePrecision} onChange={(e) => setF({ ...f, datePrecision: e.target.value as CatalystDTO['datePrecision'] })}>
-              <option value="day">day</option>
-              <option value="month">month</option>
-              <option value="quarter">quarter</option>
+              <option value="day">{t('day')}</option>
+              <option value="month">{t('month')}</option>
+              <option value="quarter">{t('quarter')}</option>
             </select>
           </Field>
-          <Field label="Actual date">
+          <Field label={t('Actual date')}>
             <input type="date" value={f.actualDate ?? ''} onChange={(e) => setF({ ...f, actualDate: e.target.value || null })} />
           </Field>
         </div>
         <div className="two">
-          <Field label="Expected outcome (write before the event)">
+          <Field label={t('Expected outcome (write before the event)')}>
             <textarea rows={3} value={f.expectedOutcome ?? ''} onChange={(e) => setF({ ...f, expectedOutcome: e.target.value })} data-testid="cat-expected" />
           </Field>
-          <Field label="Actual outcome">
+          <Field label={t('Actual outcome')}>
             <textarea rows={3} value={f.actualOutcome ?? ''} onChange={(e) => setF({ ...f, actualOutcome: e.target.value })} />
           </Field>
         </div>
-        <Field label="Notes">
+        <Field label={t('Notes')}>
           <textarea rows={2} value={f.notes ?? ''} onChange={(e) => setF({ ...f, notes: e.target.value })} />
         </Field>
         <div className="field">
-          <span className="small sub">Related nodes</span>
+          <span className="small sub">{t('Related nodes')}</span>
           <div className="chips">
             {draft.nodes
               .filter((n) => n.unit)
@@ -186,7 +189,7 @@ function CatalystForm({ existing, onDone }: { existing?: CatalystDTO; onDone: ()
         </div>
         {evidence.length > 0 && (
           <div className="field">
-            <span className="small sub">Related evidence</span>
+            <span className="small sub">{t('Related evidence')}</span>
             <div className="chips">
               {evidence.map((e) => (
                 <span key={e.id} className="chip" style={f.evidenceIds?.includes(e.id) ? { background: 'var(--accent-bg)' } : undefined} onClick={() => toggle('evidenceIds', e.id)}>
@@ -196,7 +199,7 @@ function CatalystForm({ existing, onDone }: { existing?: CatalystDTO; onDone: ()
             </div>
           </div>
         )}
-        <Field label="Model impact (the Research Update this catalyst caused)">
+        <Field label={t('Model impact (the Research Update this catalyst caused)')}>
           <select value={f.revisionId ?? ''} onChange={(e) => setF({ ...f, revisionId: e.target.value || null })}>
             <option value="">—</option>
             {revisions.map((r) => (
@@ -208,22 +211,22 @@ function CatalystForm({ existing, onDone }: { existing?: CatalystDTO; onDone: ()
         </Field>
         <div className="row">
           <button className="btn primary" disabled={!f.title?.trim()} onClick={() => void save()} data-testid="cat-save">
-            Save
+            {t('Save')}
           </button>
           <button className="btn ghost" onClick={onDone}>
-            Cancel
+            {t('Cancel')}
           </button>
           {existing && (
             <button
               className="btn danger right"
               onClick={async () => {
-                if (!window.confirm('Delete this catalyst? (kept in the audit log)')) return;
+                if (!window.confirm(t('Delete this catalyst? (kept in the audit log)'))) return;
                 await api.deleteCatalyst(existing.id);
                 await refresh('catalysts');
                 onDone();
               }}
             >
-              Delete
+              {t('Delete')}
             </button>
           )}
         </div>

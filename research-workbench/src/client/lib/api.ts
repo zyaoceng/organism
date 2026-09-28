@@ -20,6 +20,7 @@ import type {
   TradeDTO,
 } from '../../shared/api';
 import type { ModelState } from '../../domain/model/types';
+import { t } from './i18n';
 
 export class ApiError extends Error {
   constructor(
@@ -42,7 +43,7 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
   try {
     res = await fetch(url, init);
   } catch (e) {
-    throw new ApiError(0, `Cannot reach the Research Workbench server (${(e as Error).message}). Is it running?`);
+    throw new ApiError(0, t('Cannot reach the Research Workbench server ({msg}). Is it running?', { msg: (e as Error).message }));
   }
   const text = await res.text();
   let json: unknown = null;
@@ -77,7 +78,7 @@ export interface CommitRequest {
 
 export const api = {
   projects: () => get<ProjectSummaryDTO[]>('/api/projects'),
-  createProject: (b: { name: string; description?: string; templateId?: string; year?: number; security: Partial<SecurityDTO> & { ticker: string } }) => post<{ id: string }>('/api/projects', b),
+  createProject: (b: { name: string; description?: string; templateId?: string; lang?: string; year?: number; security: Partial<SecurityDTO> & { ticker: string } }) => post<{ id: string }>('/api/projects', b),
   project: (id: string) => get<ProjectBundleDTO>(`/api/projects/${id}`),
   updateProject: (id: string, b: { name?: string; description?: string; archived?: boolean }) => patch<ProjectDTO>(`/api/projects/${id}`, b),
   updateSecurity: (id: string, b: Partial<SecurityDTO>) => patch<SecurityDTO>(`/api/securities/${id}`, b),

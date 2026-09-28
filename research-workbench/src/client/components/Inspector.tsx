@@ -22,6 +22,7 @@ import { cellStatus, childrenOf, isHeading } from '../../domain/model/tree';
 import { LINK_RELATIONS, NODE_ROLES, SCALAR_KEY, SCENARIOS, type LinkRelation, type ModelNode, type ModelState, type NodeRole, type ScenarioId, type ThesisStatus } from '../../domain/model/types';
 import { CURRENCIES, SCALES, UNIT_KINDS, hasCurrency, isScaleFree, type Scale, type Unit, type UnitKind } from '../../domain/units';
 import { api } from '../lib/api';
+import { getLang, t, tm, useLang } from '../lib/i18n';
 import { calcOf, indexOf } from '../lib/derived';
 import { createAndLink, KIND_ICON, namedScreenshot, uploadEvidenceFiles } from '../lib/evidence';
 import { useActiveState, useWorkspace } from '../lib/store';
@@ -32,6 +33,7 @@ import { InlineText, NumberField, Section } from './ui';
 export function Inspector() {
   const { state, readOnly } = useActiveState();
   const selectedNodeId = useWorkspace((s) => s.selectedNodeId);
+  useLang();
   if (!state) return null;
   const node = selectedNodeId ? state.nodes.find((n) => n.id === selectedNodeId) : undefined;
   if (!node) return <ModelChecks state={state} />;
@@ -47,13 +49,13 @@ function NodeInspector({ node, state, readOnly }: { node: ModelNode; state: Mode
   return (
     <div data-testid="inspector">
       <div className="insp-head">
-        <div className="path">{path || 'Top level'}</div>
+        <div className="path">{path || t('Top level')}</div>
         <input
           className="title"
           key={node.name}
           defaultValue={node.name}
           readOnly={readOnly}
-          aria-label="Node name"
+          aria-label={t('Node name')}
           onBlur={(e) => {
             const v = e.target.value.trim();
             if (v && v !== node.name) edit((s) => renameNode(s, node.id, v));
@@ -66,25 +68,25 @@ function NodeInspector({ node, state, readOnly }: { node: ModelNode; state: Mode
         <div className="section col" style={{ gap: 4 }}>
           {issues.map((i, k) => (
             <div key={k} className={cls('msg', i.severity === 'error' ? 'err' : i.severity === 'warning' ? 'warn' : 'info')}>
-              {i.message}
+              {tm(i.message)}
             </div>
           ))}
         </div>
       )}
-      <Section title={node.timeMode === 'scalar' ? 'Value by scenario' : 'Values'}>
+      <Section title={node.timeMode === 'scalar' ? t('Value by scenario') : t('Values')}>
         <ValuesMatrix node={node} state={state} calc={calc} readOnly={readOnly} />
       </Section>
-      <Section title="Formula">
+      <Section title={t('Formula')}>
         <FormulaEditor node={node} state={state} readOnly={readOnly} />
       </Section>
       <Dependencies node={node} state={state} calc={calc} />
-      <Section title="Notes · why this assumption">
+      <Section title={t('Notes · why this assumption')}>
         <InlineText
           multiline
           rows={6}
           readOnly={readOnly}
           value={node.notes}
-          placeholder="Interpretation, reasoning, definitions… (click to write)"
+          placeholder={t('Interpretation, reasoning, definitions… (click to write)')}
           onCommit={(v) => edit((s) => setNotes(s, node.id, v))}
         />
       </Section>
@@ -108,32 +110,32 @@ function UnitEditor({ node, readOnly }: { node: ModelNode; readOnly: boolean }) 
       <select
         disabled={readOnly}
         value={u?.kind ?? ''}
-        aria-label="Unit kind"
+        aria-label={t('Unit kind')}
         onChange={(e) => {
           const kind = e.target.value as UnitKind | '';
           if (!kind) return update(null);
           update({ kind, scale: isScaleFree(kind) ? 1 : u?.scale ?? 1, currency: hasCurrency(kind) ? u?.currency ?? 'TWD' : undefined });
         }}
       >
-        <option value="">No unit (heading)</option>
+        <option value="">{t('No unit (heading)')}</option>
         {UNIT_KINDS.map((k) => (
           <option key={k.value} value={k.value}>
-            {k.label}
+            {t(k.label)}
           </option>
         ))}
       </select>
       {u && hasCurrency(u.kind) && (
-        <select disabled={readOnly} value={u.currency} aria-label="Currency" onChange={(e) => update({ ...u, currency: e.target.value })}>
+        <select disabled={readOnly} value={u.currency} aria-label={t('Currency')} onChange={(e) => update({ ...u, currency: e.target.value })}>
           {[...new Set([u.currency ?? 'TWD', ...CURRENCIES])].map((c) => (
             <option key={c}>{c}</option>
           ))}
         </select>
       )}
       {u && !isScaleFree(u.kind) && (
-        <select disabled={readOnly} value={u.scale} aria-label="Scale" onChange={(e) => update({ ...u, scale: Number(e.target.value) as Scale })}>
+        <select disabled={readOnly} value={u.scale} aria-label={t('Scale')} onChange={(e) => update({ ...u, scale: Number(e.target.value) as Scale })}>
           {SCALES.map((s) => (
             <option key={s.value} value={s.value}>
-              {s.label}
+              {t(s.label)}
             </option>
           ))}
         </select>
@@ -142,7 +144,7 @@ function UnitEditor({ node, readOnly }: { node: ModelNode; readOnly: boolean }) 
         <input
           style={{ width: 90 }}
           disabled={readOnly}
-          placeholder="label"
+          placeholder={t('label')}
           defaultValue={u.label ?? ''}
           onBlur={(e) => e.target.value !== (u.label ?? '') && update({ ...u, label: e.target.value || undefined })}
         />
@@ -150,30 +152,30 @@ function UnitEditor({ node, readOnly }: { node: ModelNode; readOnly: boolean }) 
       <select
         disabled={readOnly}
         value={node.timeMode}
-        aria-label="Time mode"
-        title="A time series has a value per period; a single value (e.g. target P/E) has one per scenario"
+        aria-label={t('Time mode')}
+        title={t('A time series has a value per period; a single value (e.g. target P/E) has one per scenario')}
         onChange={(e) => edit((s) => setTimeMode(s, node.id, e.target.value as 'series' | 'scalar'))}
       >
-        <option value="series">Time series</option>
-        <option value="scalar">Single value</option>
+        <option value="series">{t('Time series')}</option>
+        <option value="scalar">{t('Single value')}</option>
       </select>
       <select
         disabled={readOnly}
         value={node.role ?? ''}
-        aria-label="Role"
-        title="Roles tell workspaces (valuation, headline KPIs) which node is EPS, target P/E, etc."
+        aria-label={t('Role')}
+        title={t('Roles tell workspaces (valuation, headline KPIs) which node is EPS, target P/E, etc.')}
         onChange={(e) => edit((s) => setRole(s, node.id, (e.target.value || undefined) as NodeRole | undefined))}
       >
-        <option value="">No role</option>
+        <option value="">{t('No role')}</option>
         {NODE_ROLES.map((r) => (
           <option key={r.value} value={r.value}>
-            Role: {r.label}
+            {t('Role: {role}', { role: t(r.label) })}
           </option>
         ))}
       </select>
       {!readOnly && u && !isScaleFree(u.kind) && (
-        <label className="small sub row" style={{ gap: 4 }} title="When the scale changes, convert stored numbers so the quantity stays the same">
-          <input type="checkbox" checked={convert} onChange={(e) => setConvert(e.target.checked)} /> convert values on scale change
+        <label className="small sub row" style={{ gap: 4 }} title={t('When the scale changes, convert stored numbers so the quantity stays the same')}>
+          <input type="checkbox" checked={convert} onChange={(e) => setConvert(e.target.checked)} /> {t('convert values on scale change')}
         </label>
       )}
     </div>
@@ -190,7 +192,7 @@ function ValuesMatrix({ node, state, calc, readOnly }: { node: ModelNode; state:
   const [editing, setEditing] = useState<string | null>(null);
   const headCalc = head && !viewing ? calcOf(head.state) : null;
   const keys = node.timeMode === 'scalar' ? [SCALAR_KEY] : state.periods.map((p) => p.id);
-  const label = (k: string) => (k === SCALAR_KEY ? 'Value' : `${ix.periods[ix.periodIndex.get(k)!].label}${cellStatus(ix, node, k)}`);
+  const label = (k: string) => (k === SCALAR_KEY ? t('Value') : `${ix.periods[ix.periodIndex.get(k)!].label}${cellStatus(ix, node, k)}`);
   const showYoY = node.timeMode === 'series' && node.unit && ['currency', 'per_share', 'shares', 'count', 'number'].includes(node.unit.kind);
 
   return (
@@ -208,7 +210,7 @@ function ValuesMatrix({ node, state, calc, readOnly }: { node: ModelNode; state:
           {SCENARIOS.map((sc) => (
             <tr key={sc.id}>
               <td>
-                <span className={cls('badge', sc.id)}>{sc.name}</span>
+                <span className={cls('badge', sc.id)}>{t(sc.name)}</span>
               </td>
               {keys.map((k) => {
                 const status = cellStatus(ix, node, k);
@@ -223,7 +225,7 @@ function ValuesMatrix({ node, state, calc, readOnly }: { node: ModelNode; state:
                   <td
                     key={k}
                     className={cls('v', status === 'A' && 'A', changed && 'chg')}
-                    title={shared ? 'Actuals are shared across scenarios' : c?.err ? c.err.message : sc.id !== 'base' && own === undefined ? 'Inherits Base — type to override' : ''}
+                    title={shared ? t('Actuals are shared across scenarios') : c?.err ? tm(c.err.message) : sc.id !== 'base' && own === undefined ? t('Inherits Base — type to override') : ''}
                     data-testid={`mx-${sc.id}-${k}`}
                   >
                     {editing === cellKey ? (
@@ -249,7 +251,7 @@ function ValuesMatrix({ node, state, calc, readOnly }: { node: ModelNode; state:
           ))}
           {showYoY && (
             <tr className="derived">
-              <td>YoY (base)</td>
+              <td>{t('YoY (base)')}</td>
               {keys.map((k, i) => {
                 const cur = calc.cells.base[node.id]?.[k]?.v;
                 const prev = i > 0 ? calc.cells.base[node.id]?.[keys[i - 1]]?.v : null;
@@ -264,7 +266,7 @@ function ValuesMatrix({ node, state, calc, readOnly }: { node: ModelNode; state:
           )}
           {node.timeMode === 'series' && (
             <tr className="derived">
-              <td title="Actual or estimate for this node. Mark a custom segment's value in an actual year as an estimate when management does not disclose it.">A / E</td>
+              <td title={t("Actual or estimate for this node. Mark a custom segment's value in an actual year as an estimate when management does not disclose it.")}>A / E</td>
               {keys.map((k) => {
                 const st = cellStatus(ix, node, k);
                 const periodStatus = ix.periods[ix.periodIndex.get(k)!].status;
@@ -273,7 +275,7 @@ function ValuesMatrix({ node, state, calc, readOnly }: { node: ModelNode; state:
                     <button
                       className={cls('btn xs', st !== periodStatus && 'primary')}
                       disabled={readOnly}
-                      title={st !== periodStatus ? `Overridden (period is ${periodStatus})` : 'Follows the period'}
+                      title={st !== periodStatus ? t('Overridden (period is {status})', { status: periodStatus }) : t('Follows the period')}
                       onClick={() => edit((s) => setCellStatus(s, node.id, k, st === periodStatus ? (st === 'A' ? 'E' : 'A') : null))}
                     >
                       {st}
@@ -286,7 +288,7 @@ function ValuesMatrix({ node, state, calc, readOnly }: { node: ModelNode; state:
         </tbody>
       </table>
       <div className="tiny sub" style={{ marginTop: 4 }}>
-        Base holds shared values; Bear/Bull store only overrides (grey = inherited). Actual cells are shared. Clear a cell to inherit / fall back to the formula.
+        {t('Base holds shared values; Bear/Bull store only overrides (grey = inherited). Actual cells are shared. Clear a cell to inherit / fall back to the formula.')}
       </div>
     </div>
   );
@@ -313,8 +315,8 @@ function Dependencies({ node, state, calc }: { node: ModelNode; state: ModelStat
   const expansion = calc.graph.childrenExpansion.get(node.id);
   if (!inputs.length && !lagged.length && !usedBy.length) {
     return (
-      <Section title="Calculation links">
-        <div className="small sub">No formula links. {isHeading(node) ? 'Headings only structure the reasoning.' : 'Typed values only.'}</div>
+      <Section title={t('Calculation links')}>
+        <div className="small sub">{t('No formula links.')} {isHeading(node) ? t('Headings only structure the reasoning.') : t('Typed values only.')}</div>
       </Section>
     );
   }
@@ -325,29 +327,29 @@ function Dependencies({ node, state, calc }: { node: ModelNode; state: ModelStat
     </span>
   );
   return (
-    <Section title="Calculation links" right={inputs.length + lagged.length > 0 && <button className="btn xs" onClick={() => setTrace(!trace)}>{trace ? 'Hide' : 'Trace'} upstream</button>}>
+    <Section title={t('Calculation links')} right={inputs.length + lagged.length > 0 && <button className="btn xs" onClick={() => setTrace(!trace)}>{trace ? t('Hide upstream') : t('Trace upstream')}</button>}>
       <div className="col" style={{ gap: 6 }}>
         {(inputs.length > 0 || lagged.length > 0) && (
           <div className="chips">
             <span className="small sub" style={{ color: 'var(--dep-in)' }}>
-              Depends on
+              {t('Depends on')}
             </span>
             {inputs.map((id) => chip(id, 'in'))}
-            {lagged.map((id) => chip(id, 'in', '(prev)'))}
+            {lagged.map((id) => chip(id, 'in', t('(prev)')))}
           </div>
         )}
-        {expansion && <div className="tiny sub">CHILDREN() = {expansion.map((id) => ix.byId.get(id)?.name).join(', ') || 'no matching children'}</div>}
+        {expansion && <div className="tiny sub">CHILDREN() = {expansion.map((id) => ix.byId.get(id)?.name).join(', ') || t('no matching children')}</div>}
         {usedBy.length > 0 && (
           <div className="chips">
             <span className="small sub" style={{ color: 'var(--dep-out)' }}>
-              Used by
+              {t('Used by')}
             </span>
             {usedBy.map((id) => chip(id, 'out'))}
           </div>
         )}
         {trace && (
           <div className="chips">
-            <span className="small sub">Full upstream ({chain.length})</span>
+            <span className="small sub">{t('Full upstream ({n})', { n: chain.length })}</span>
             {chain.map((id) => chip(id, 'in'))}
           </div>
         )}
@@ -385,8 +387,8 @@ function NodeEvidence({ node, state, readOnly }: { node: ModelNode; state: Model
     run(() => createAndLink(() => uploadEvidenceFiles(projectId, files.map((f) => (f.type.startsWith('image/') ? namedScreenshot(f) : f))), node.id, relation));
 
   return (
-    <Section title={`Evidence (${links.length})`}>
-      {links.length === 0 && <div className="small sub" style={{ marginBottom: 6 }}>No evidence linked. Attach the source that justifies this assumption.</div>}
+    <Section title={t('Evidence ({n})', { n: links.length })}>
+      {links.length === 0 && <div className="small sub" style={{ marginBottom: 6 }}>{t('No evidence linked. Attach the source that justifies this assumption.')}</div>}
       {links.map((l) => {
         const e = byId.get(l.evidenceId);
         const img = e?.attachments.find((a) => a.mimeType.startsWith('image/'));
@@ -395,23 +397,23 @@ function NodeEvidence({ node, state, readOnly }: { node: ModelNode; state: Model
             <div className="row">
               <span>{e ? KIND_ICON[e.kind] : '❔'}</span>
               <a className="t grow ellipsis" href={`#/p/${projectId}/evidence/${l.evidenceId}`} title={e?.title}>
-                {e?.title ?? 'Evidence not loaded'}
+                {e?.title ?? t('Evidence not loaded')}
               </a>
-              <span className={cls('rel', l.relation)}>{LINK_RELATIONS.find((r) => r.value === l.relation)?.label}</span>
+              <span className={cls('rel', l.relation)}>{t(LINK_RELATIONS.find((r) => r.value === l.relation)?.label ?? l.relation)}</span>
               {!readOnly && (
-                <button className="icon-btn" title="Unlink from this node (the evidence stays in the library)" onClick={() => edit((s) => removeLink(s, l.id))}>
+                <button className="icon-btn" title={t('Unlink from this node (the evidence stays in the library)')} onClick={() => edit((s) => removeLink(s, l.id))}>
                   ✕
                 </button>
               )}
             </div>
             {e && (
               <div className="tiny sub">
-                {[e.sourceName, e.publishedAt && `published ${e.publishedAt}`, `added ${e.addedAt.slice(0, 10)}`].filter(Boolean).join(' · ')}
+                {[e.sourceName, e.publishedAt && t('published {date}', { date: e.publishedAt }), t('added {date}', { date: e.addedAt.slice(0, 10) })].filter(Boolean).join(' · ')}
                 {e.url && (
                   <>
                     {' · '}
                     <a href={e.url} target="_blank" rel="noreferrer noopener">
-                      open link
+                      {t('open link')}
                     </a>
                   </>
                 )}
@@ -429,33 +431,33 @@ function NodeEvidence({ node, state, readOnly }: { node: ModelNode; state: Model
             {e?.notes && <div className="small" style={{ whiteSpace: 'pre-wrap' }}>{e.notes.length > 300 ? `${e.notes.slice(0, 300)}…` : e.notes}</div>}
             {!readOnly && (
               <div className="row" style={{ gap: 6 }}>
-                <select value={l.relation} onChange={(ev) => edit((s) => updateLink(s, l.id, { relation: ev.target.value as LinkRelation }))} aria-label="Relation">
+                <select value={l.relation} onChange={(ev) => edit((s) => updateLink(s, l.id, { relation: ev.target.value as LinkRelation }))} aria-label={t('Relation')}>
                   {LINK_RELATIONS.map((r) => (
                     <option key={r.value} value={r.value}>
-                      {r.label}
+                      {t(r.label)}
                     </option>
                   ))}
                 </select>
                 <input
                   className="grow"
-                  placeholder="page / slide / time (e.g. p.13)"
+                  placeholder={t('page / slide / time (e.g. p.13)')}
                   defaultValue={l.locator ?? ''}
                   onBlur={(ev) => ev.target.value !== (l.locator ?? '') && edit((s) => updateLink(s, l.id, { locator: ev.target.value || undefined }))}
                 />
               </div>
             )}
-            {readOnly && l.locator && <div className="tiny sub">at {l.locator}</div>}
+            {readOnly && l.locator && <div className="tiny sub">{t('at {locator}', { locator: l.locator })}</div>}
           </div>
         );
       })}
       {!readOnly && (
         <div className="col" style={{ marginTop: 10, gap: 6 }}>
           <div className="row">
-            <span className="small sub">Link new evidence as</span>
-            <select value={relation} onChange={(e) => setRelation(e.target.value as LinkRelation)} aria-label="New link relation">
+            <span className="small sub">{t('Link new evidence as')}</span>
+            <select value={relation} onChange={(e) => setRelation(e.target.value as LinkRelation)} aria-label={t('New link relation')}>
               {LINK_RELATIONS.map((r) => (
                 <option key={r.value} value={r.value}>
-                  {r.label}
+                  {t(r.label)}
                 </option>
               ))}
             </select>
@@ -464,7 +466,7 @@ function NodeEvidence({ node, state, readOnly }: { node: ModelNode; state: Model
             <input
               className="grow"
               type="url"
-              placeholder="Paste a URL and press Enter"
+              placeholder={t('Paste a URL and press Enter')}
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={(e) => {
@@ -491,24 +493,24 @@ function NodeEvidence({ node, state, readOnly }: { node: ModelNode; state: Model
               if (files.length) void addFiles(files);
             }}
           >
-            {busy ? 'Uploading…' : 'Drop files or screenshots here · paste an image with Ctrl+V · '}
+            {busy ? t('Uploading…') : t('Drop files or screenshots here · paste an image with Ctrl+V · ')}
             <label style={{ color: 'var(--accent)', cursor: 'pointer' }}>
-              choose files
+              {t('choose files')}
               <input type="file" multiple hidden data-testid="ev-file-input" onChange={(e) => e.target.files && void addFiles([...e.target.files])} />
             </label>
           </div>
           <div className="row">
             <button className="btn sm" onClick={() => setNoteOpen(!noteOpen)}>
-              📝 Note
+              {t('📝 Note')}
             </button>
             {linkable.length > 0 && (
               <select
                 className="grow"
                 value=""
-                aria-label="Link existing evidence"
+                aria-label={t('Link existing evidence')}
                 onChange={(e) => e.target.value && edit((s) => addLink(s, { evidenceId: e.target.value, nodeId: node.id, relation }).state)}
               >
-                <option value="">Link existing evidence…</option>
+                <option value="">{t('Link existing evidence…')}</option>
                 {linkable.map((e) => (
                   <option key={e.id} value={e.id}>
                     {KIND_ICON[e.kind]} {e.title}
@@ -519,8 +521,8 @@ function NodeEvidence({ node, state, readOnly }: { node: ModelNode; state: Model
           </div>
           {noteOpen && (
             <div className="col" style={{ gap: 4 }}>
-              <input placeholder="Title (e.g. Channel check with supplier)" value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
-              <textarea rows={3} placeholder="What was said / observed" value={noteText} onChange={(e) => setNoteText(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
+              <input placeholder={t('Title (e.g. Channel check with supplier)')} value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
+              <textarea rows={3} placeholder={t('What was said / observed')} value={noteText} onChange={(e) => setNoteText(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
               <div className="row">
                 <button
                   className="btn sm primary"
@@ -534,7 +536,7 @@ function NodeEvidence({ node, state, readOnly }: { node: ModelNode; state: Model
                     void run(() => createAndLink(async () => [await api.createEvidence(projectId, { title, notes, sourceType: 'conversation' })], node.id, relation));
                   }}
                 >
-                  Add note evidence
+                  {t('Add note evidence')}
                 </button>
               </div>
             </div>
@@ -552,31 +554,33 @@ function NodeTheses({ node, state, readOnly }: { node: ModelNode; state: ModelSt
   const [open, setOpen] = useState(false);
   const [statement, setStatement] = useState('');
   const [invalidation, setInvalidation] = useState('');
-  const theses = state.theses.filter((t) => t.nodeIds.includes(node.id));
-  const others = state.theses.filter((t) => !t.nodeIds.includes(node.id));
+  const theses = state.theses.filter((th) => th.nodeIds.includes(node.id));
+  const others = state.theses.filter((th) => !th.nodeIds.includes(node.id));
   return (
-    <Section title={`Theses & invalidation (${theses.length})`} right={!readOnly && <button className="btn xs" onClick={() => setOpen(!open)}>+ thesis</button>}>
-      {theses.length === 0 && !open && <div className="small sub">Optional: state the thesis behind this assumption and what would prove it wrong.</div>}
-      {theses.map((t) => (
-        <div key={t.id} className="ev-item">
+    <Section title={t('Theses & invalidation ({n})', { n: theses.length })} right={!readOnly && <button className="btn xs" onClick={() => setOpen(!open)}>{t('+ thesis')}</button>}>
+      {theses.length === 0 && !open && <div className="small sub">{t('Optional: state the thesis behind this assumption and what would prove it wrong.')}</div>}
+      {theses.map((th) => (
+        <div key={th.id} className="ev-item">
           <div className="row">
-            <InlineText className="t grow" value={t.statement} readOnly={readOnly} onCommit={(v) => edit((s) => updateThesis(s, t.id, { statement: v }))} />
-            <select disabled={readOnly} value={t.status} aria-label="Thesis status" onChange={(e) => edit((s) => updateThesis(s, t.id, { status: e.target.value as ThesisStatus }))}>
+            <InlineText className="t grow" value={th.statement} readOnly={readOnly} onCommit={(v) => edit((s) => updateThesis(s, th.id, { statement: v }))} />
+            <select disabled={readOnly} value={th.status} aria-label={t('Thesis status')} onChange={(e) => edit((s) => updateThesis(s, th.id, { status: e.target.value as ThesisStatus }))}>
               {['active', 'confirmed', 'invalidated', 'retired'].map((x) => (
-                <option key={x}>{x}</option>
+                <option key={x} value={x}>
+                  {t(x)}
+                </option>
               ))}
             </select>
           </div>
           <div className="small">
-            <span className="sub">Invalidated if: </span>
-            <InlineText value={t.invalidation} readOnly={readOnly} multiline rows={2} placeholder="(no invalidation condition yet)" onCommit={(v) => edit((s) => updateThesis(s, t.id, { invalidation: v }))} />
+            <span className="sub">{t('Invalidated if:')} </span>
+            <InlineText value={th.invalidation} readOnly={readOnly} multiline rows={2} placeholder={t('(no invalidation condition yet)')} onCommit={(v) => edit((s) => updateThesis(s, th.id, { invalidation: v }))} />
           </div>
           <div className="row small sub">
-            Review by
-            <input type="date" disabled={readOnly} defaultValue={t.reviewBy ?? ''} onBlur={(e) => e.target.value !== (t.reviewBy ?? '') && edit((s) => updateThesis(s, t.id, { reviewBy: e.target.value || undefined }))} />
+            {t('Review by')}
+            <input type="date" disabled={readOnly} defaultValue={th.reviewBy ?? ''} onBlur={(e) => e.target.value !== (th.reviewBy ?? '') && edit((s) => updateThesis(s, th.id, { reviewBy: e.target.value || undefined }))} />
             {!readOnly && (
-              <button className="btn xs ghost right" onClick={() => edit((s) => updateThesis(s, t.id, { nodeIds: t.nodeIds.filter((x) => x !== node.id) }))}>
-                detach
+              <button className="btn xs ghost right" onClick={() => edit((s) => updateThesis(s, th.id, { nodeIds: th.nodeIds.filter((x) => x !== node.id) }))}>
+                {t('detach')}
               </button>
             )}
           </div>
@@ -584,8 +588,8 @@ function NodeTheses({ node, state, readOnly }: { node: ModelNode; state: ModelSt
       ))}
       {open && !readOnly && (
         <div className="col" style={{ gap: 4, marginTop: 6 }}>
-          <input placeholder="Thesis, e.g. 800V adoption begins during FY27" value={statement} onChange={(e) => setStatement(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
-          <textarea rows={2} placeholder="Invalidation: e.g. no hyperscaler qualification by Q2 FY27, or production delay > 12 months" value={invalidation} onChange={(e) => setInvalidation(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
+          <input placeholder={t('Thesis, e.g. 800V adoption begins during FY27')} value={statement} onChange={(e) => setStatement(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
+          <textarea rows={2} placeholder={t('Invalidation: e.g. no hyperscaler qualification by Q2 FY27, or production delay > 12 months')} value={invalidation} onChange={(e) => setInvalidation(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
           <div className="row">
             <button
               className="btn sm primary"
@@ -597,14 +601,14 @@ function NodeTheses({ node, state, readOnly }: { node: ModelNode; state: ModelSt
                 setOpen(false);
               }}
             >
-              Add thesis
+              {t('Add thesis')}
             </button>
             {others.length > 0 && (
-              <select value="" onChange={(e) => e.target.value && edit((s) => updateThesis(s, e.target.value, { nodeIds: [...(s.theses.find((t) => t.id === e.target.value)?.nodeIds ?? []), node.id] }))}>
-                <option value="">or attach an existing thesis…</option>
-                {others.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.statement}
+              <select value="" onChange={(e) => e.target.value && edit((s) => updateThesis(s, e.target.value, { nodeIds: [...(s.theses.find((th) => th.id === e.target.value)?.nodeIds ?? []), node.id] }))}>
+                <option value="">{t('or attach an existing thesis…')}</option>
+                {others.map((th) => (
+                  <option key={th.id} value={th.id}>
+                    {th.statement}
                   </option>
                 ))}
               </select>
@@ -631,26 +635,26 @@ function NodeCatalysts({ node, readOnly }: { node: ModelNode; readOnly: boolean 
       setDate('');
       await useWorkspace.getState().refresh('catalysts');
     } catch (e) {
-      useWorkspace.getState().toast((e as Error).message, 'error');
+      useWorkspace.getState().toast(tm((e as Error).message), 'error');
     }
   };
   return (
-    <Section title={`Catalysts (${list.length})`}>
+    <Section title={t('Catalysts ({n})', { n: list.length })}>
       {list.map((c) => (
         <div key={c.id} className="row small" style={{ padding: '3px 0' }}>
-          <span className="num sub nowrap">{c.actualDate ?? c.expectedDate ?? 'undated'}</span>
+          <span className="num sub nowrap">{c.actualDate ?? c.expectedDate ?? t('undated')}</span>
           <a className="grow ellipsis" href={`#/p/${projectId}/catalysts`}>
             {c.title}
           </a>
-          <span className="badge">{c.status}</span>
+          <span className="badge">{t(c.status)}</span>
         </div>
       ))}
       {!readOnly && (
         <div className="row" style={{ marginTop: 4 }}>
-          <input className="grow" placeholder="Quick add: e.g. Q3 earnings" value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => (e.stopPropagation(), e.key === 'Enter' && title.trim() && void add())} />
+          <input className="grow" placeholder={t('Quick add: e.g. Q3 earnings')} value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => (e.stopPropagation(), e.key === 'Enter' && title.trim() && void add())} />
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           <button className="btn sm" disabled={!title.trim()} onClick={() => void add()}>
-            Add
+            {t('Add')}
           </button>
         </div>
       )}
@@ -665,14 +669,14 @@ function NodeHistory({ node, state }: { node: ModelNode; state: ModelState }) {
   const evidence = useWorkspace((s) => s.evidence);
   const projectId = useWorkspace((s) => s.projectId);
   const pl = periodLabelFn(state);
-  const evTitle = (id: string) => evidence.find((e) => e.id === id)?.title ?? 'evidence';
+  const evTitle = (id: string) => evidence.find((e) => e.id === id)?.title ?? t('evidence');
   const items = [...revisions]
     .reverse()
     .map((r) => ({ r, changes: r.changes.filter((c) => 'nodeId' in c && c.nodeId === node.id) }))
     .filter((x) => x.changes.length > 0);
   return (
-    <Section title={`Change history (${items.length})`}>
-      {items.length === 0 && <div className="small sub">No committed changes to this node yet.</div>}
+    <Section title={t('Change history ({n})', { n: items.length })}>
+      {items.length === 0 && <div className="small sub">{t('No committed changes to this node yet.')}</div>}
       {items.map(({ r, changes }) => (
         <div key={r.id} className="hist-item">
           <div className="row">
@@ -687,12 +691,12 @@ function NodeHistory({ node, state }: { node: ModelNode; state: ModelState }) {
           <ul style={{ margin: '3px 0 0', paddingLeft: 16 }}>
             {changes.slice(0, 12).map((c, i) => (
               <li key={i} className="small">
-                {describeChange(c, { periodLabel: pl, evidenceTitle: evTitle })}
+                {describeChange(c, { periodLabel: pl, evidenceTitle: evTitle, lang: getLang() })}
               </li>
             ))}
-            {changes.length > 12 && <li className="small sub">…and {changes.length - 12} more</li>}
+            {changes.length > 12 && <li className="small sub">{t('…and {n} more', { n: changes.length - 12 })}</li>}
           </ul>
-          {r.citedEvidenceIds.length > 0 && <div className="tiny sub">Evidence cited: {r.citedEvidenceIds.map(evTitle).join('; ')}</div>}
+          {r.citedEvidenceIds.length > 0 && <div className="tiny sub">{t('Evidence cited: {titles}', { titles: r.citedEvidenceIds.map(evTitle).join('; ') })}</div>}
         </div>
       ))}
     </Section>
@@ -711,29 +715,29 @@ function ModelChecks({ state }: { state: ModelState }) {
   return (
     <div data-testid="model-checks">
       <div className="insp-head">
-        <h2>Model checks</h2>
-        <div className="small sub">Select a node to inspect it. These checks update as you type.</div>
+        <h2>{t('Model checks')}</h2>
+        <div className="small sub">{t('Select a node to inspect it. These checks update as you type.')}</div>
       </div>
-      <Section title={`Errors & warnings (${issues.length})`}>
-        {issues.length === 0 && <div className="msg ok">No formula, unit or reconciliation problems.</div>}
+      <Section title={t('Errors & warnings ({n})', { n: issues.length })}>
+        {issues.length === 0 && <div className="msg ok">{t('No formula, unit or reconciliation problems.')}</div>}
         {issues.map((i, k) => (
           <div key={k} className={cls('msg', i.severity === 'error' ? 'err' : 'warn')} style={{ marginBottom: 4, cursor: 'pointer' }} onClick={() => select(i.nodeId)}>
-            <b>{ix.byId.get(i.nodeId)?.name}</b>: {i.message}
+            <b>{ix.byId.get(i.nodeId)?.name}</b>: {tm(i.message)}
           </div>
         ))}
       </Section>
       {info.length > 0 && (
-        <Section title={`Typed values over formulas (${info.length})`}>
+        <Section title={t('Typed values over formulas ({n})', { n: info.length })}>
           {info.slice(0, 20).map((i, k) => (
             <div key={k} className="small" style={{ cursor: 'pointer', padding: '2px 0' }} onClick={() => select(i.nodeId)}>
-              <b>{ix.byId.get(i.nodeId)?.name}</b>: {i.message}
+              <b>{ix.byId.get(i.nodeId)?.name}</b>: {tm(i.message)}
             </div>
           ))}
         </Section>
       )}
-      <Section title={`Assumptions without evidence (${unlinked.length})`}>
+      <Section title={t('Assumptions without evidence ({n})', { n: unlinked.length })}>
         {unlinked.length === 0 ? (
-          <div className="small sub">{state.nodes.some((n) => Object.keys(n.values).length) ? 'Every typed assumption has at least one evidence link.' : 'No typed assumptions yet. Start by entering reported actuals.'}</div>
+          <div className="small sub">{state.nodes.some((n) => Object.keys(n.values).length) ? t('Every typed assumption has at least one evidence link.') : t('No typed assumptions yet. Start by entering reported actuals.')}</div>
         ) : (
           <div className="chips">
             {unlinked.map((n) => (
@@ -744,28 +748,29 @@ function ModelChecks({ state }: { state: ModelState }) {
           </div>
         )}
       </Section>
-      <Section title="Tips">
+      <Section title={t('Tips')}>
         <div className="small col" style={{ gap: 4 }}>
           <div>
-            Click a row to select it; <span className="kbd">A</span> adds a child, <span className="kbd">S</span> a sibling, <span className="kbd">F2</span> renames, drag rows to move them.
+            {t('Click a row to select it;')} <span className="kbd">A</span> {t('adds a child,')} <span className="kbd">S</span> {t('a sibling,')} <span className="kbd">F2</span> {t('renames, drag rows to move them.')}
           </div>
-          <div>Click a value cell and type to edit it. In Bear/Bull, edits create overrides of estimate cells.</div>
-          <div>Paste a screenshot (Ctrl+V) to attach it as evidence to the selected node.</div>
-          <div>All edits are autosaved as a draft. Commit them as a Research Update from the bar below.</div>
+          <div>{t('Click a value cell and type to edit it. In Bear/Bull, edits create overrides of estimate cells.')}</div>
+          <div>{t('Paste a screenshot (Ctrl+V) to attach it as evidence to the selected node.')}</div>
+          <div>{t('All edits are autosaved as a draft. Commit them as a Research Update from the bar below.')}</div>
           <div>
-            <span className="kbd">Ctrl+K</span> search · <span className="kbd">Ctrl+Z</span> undo · <span className="kbd">1 2 3</span> scenario
+            <span className="kbd">Ctrl+K</span> {t('search')} · <span className="kbd">Ctrl+Z</span> {t('undo')} · <span className="kbd">1 2 3</span> {t('scenario')}
           </div>
         </div>
       </Section>
-      <Section title="Structure">
+      <Section title={t('Structure')}>
         <div className="small sub">
-          {state.nodes.length} nodes · {state.periods.length} periods · {state.links.length} evidence links · {state.theses.length} theses · top level:{' '}
+          {t('{n} nodes', { n: state.nodes.length })} · {t('{n} periods', { n: state.periods.length })} · {t('{n} evidence links', { n: state.links.length })} ·{' '}
+          {t('{n} theses', { n: state.theses.length })} · {t('top level:')}{' '}
           {childrenOf(ix, null)
             .map((n) => n.name)
             .join(', ')}
         </div>
         <div className="small sub" style={{ marginTop: 4 }}>
-          Formulas: {state.nodes.filter((n) => n.formula).length}
+          {t('Formulas: {n}', { n: state.nodes.filter((n) => n.formula).length })}
         </div>
       </Section>
     </div>

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { formatPath } from '../../domain/formula/refs';
 import { indexOf } from '../lib/derived';
+import { t, useLang } from '../lib/i18n';
 import { navigate, type Tab } from '../lib/router';
 import { useWorkspace } from '../lib/store';
 import { cls } from '../lib/util';
@@ -23,6 +24,7 @@ export function SearchPalette({ onClose }: { onClose: () => void }) {
   const notes = useWorkspace((s) => s.notes);
   const projectId = useWorkspace((s) => s.projectId)!;
   const { select } = useWorkspace.getState();
+  const lang = useLang();
 
   const hits = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -39,7 +41,7 @@ export function SearchPalette({ onClose }: { onClose: () => void }) {
     for (const n of draft.nodes) {
       if (has(n.name, n.notes)) {
         out.push({
-          kind: 'Node',
+          kind: t('Node'),
           title: n.name,
           detail: has(n.name) ? formatPath(ix, n.id) : snippet(n.notes),
           go: () => {
@@ -49,13 +51,13 @@ export function SearchPalette({ onClose }: { onClose: () => void }) {
         });
       }
     }
-    for (const t of draft.theses) if (has(t.statement, t.invalidation)) out.push({ kind: 'Thesis', title: t.statement, detail: snippet(t.invalidation || t.statement), go: go('overview') });
-    for (const e of evidence) if (has(e.title, e.sourceName, e.notes, e.url)) out.push({ kind: 'Evidence', title: e.title, detail: [e.sourceName, e.publishedAt, has(e.notes) ? snippet(e.notes) : ''].filter(Boolean).join(' · '), go: go('evidence', e.id) });
-    for (const c of catalysts) if (has(c.title, c.expectedOutcome, c.actualOutcome, c.notes)) out.push({ kind: 'Catalyst', title: c.title, detail: c.expectedDate ?? '', go: go('catalysts') });
-    for (const r of revisions) if (has(r.title, r.reason, r.notes)) out.push({ kind: `Update #${r.seq}`, title: r.title, detail: snippet(r.reason), go: go('history', r.id) });
-    for (const n of notes) if (has(n.body)) out.push({ kind: 'Note', title: n.body.split('\n')[0].slice(0, 80), detail: n.createdAt.slice(0, 10), go: go('overview') });
+    for (const th of draft.theses) if (has(th.statement, th.invalidation)) out.push({ kind: t('Thesis'), title: th.statement, detail: snippet(th.invalidation || th.statement), go: go('overview') });
+    for (const e of evidence) if (has(e.title, e.sourceName, e.notes, e.url)) out.push({ kind: t('Evidence'), title: e.title, detail: [e.sourceName, e.publishedAt, has(e.notes) ? snippet(e.notes) : ''].filter(Boolean).join(' · '), go: go('evidence', e.id) });
+    for (const c of catalysts) if (has(c.title, c.expectedOutcome, c.actualOutcome, c.notes)) out.push({ kind: t('Catalyst'), title: c.title, detail: c.expectedDate ?? '', go: go('catalysts') });
+    for (const r of revisions) if (has(r.title, r.reason, r.notes)) out.push({ kind: t('Update #{seq}', { seq: r.seq }), title: r.title, detail: snippet(r.reason), go: go('history', r.id) });
+    for (const n of notes) if (has(n.body)) out.push({ kind: t('Note'), title: n.body.split('\n')[0].slice(0, 80), detail: n.createdAt.slice(0, 10), go: go('overview') });
     return out.slice(0, 60);
-  }, [q, draft, evidence, catalysts, revisions, notes, projectId, select]);
+  }, [q, draft, evidence, catalysts, revisions, notes, projectId, select, lang]);
 
   const choose = (h: Hit | undefined) => {
     if (!h) return;
@@ -68,7 +70,7 @@ export function SearchPalette({ onClose }: { onClose: () => void }) {
       <div className="box" onClick={(e) => e.stopPropagation()}>
         <input
           autoFocus
-          placeholder="Search nodes, notes, evidence, catalysts, theses, updates…"
+          placeholder={t('Search nodes, notes, evidence, catalysts, theses, updates…')}
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
@@ -83,7 +85,7 @@ export function SearchPalette({ onClose }: { onClose: () => void }) {
           data-testid="search-input"
         />
         <div className="res">
-          {q && hits.length === 0 && <div className="sub">No matches</div>}
+          {q && hits.length === 0 && <div className="sub">{t('No matches')}</div>}
           {hits.map((h, i) => (
             <div key={i} className={cls(i === active && 'on')} onMouseEnter={() => setActive(i)} onClick={() => choose(h)}>
               <span className="badge">{h.kind}</span>

@@ -40,7 +40,7 @@ if (!BASE) {
 
 const launch = { executablePath: process.env.CHROME ?? (fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined) };
 const browser = await chromium.launch(launch);
-const page = await browser.newPage({ viewport: { width: 1680, height: 1050 } });
+const page = await browser.newPage({ viewport: { width: 1680, height: 1050 }, locale: 'en-US' });
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('dialog', (d) => d.accept());
@@ -463,6 +463,24 @@ await test(19, 'Valuation workspace, catalysts, overview and search render', asy
   await page.waitForTimeout(200);
   assert.ok((await page.locator('.search-pop .res > div').count()) > 0);
   await page.keyboard.press('Escape');
+});
+
+await test(20, 'Interface switches to Chinese and back; user data stays as typed', async () => {
+  await page.getByTestId('nav-history').click();
+  await page.getByTestId('lang-toggle').getByRole('button', { name: '中文' }).click();
+  await page.getByTestId('nav-model').getByText('模型').waitFor();
+  await page.getByTestId('nav-history').click();
+  await page.getByText('預估演變與校準').waitFor();
+  await page.getByText('查看快照').waitFor();
+  await snap('history-zh');
+  await page.getByTestId('nav-model').click();
+  await page.getByTestId('tree').waitFor();
+  assert.ok(await page.getByTestId('row-AI Market Share').count(), 'node names are not translated');
+  await snap('model-zh');
+  await page.reload();
+  await page.getByTestId('nav-model').getByText('模型').waitFor();
+  await page.getByTestId('lang-toggle').getByRole('button', { name: 'English' }).click();
+  await page.getByTestId('nav-model').getByText('Model').waitFor();
 });
 
 await browser.close();

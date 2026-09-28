@@ -1,7 +1,8 @@
 import { addLink } from '../../domain/model/ops';
-import type { LinkRelation } from '../../domain/model/types';
+import { LINK_RELATIONS, type LinkRelation } from '../../domain/model/types';
 import type { EvidenceDTO } from '../../shared/api';
 import { api } from './api';
+import { getLang, t, tm } from './i18n';
 import { useWorkspace } from './store';
 
 /** Create evidence from files (one evidence item per file) and return them. */
@@ -25,6 +26,12 @@ export function namedScreenshot(file: File): File {
   return new File([file], `Screenshot ${stamp}.${ext}`, { type: file.type });
 }
 
+/** English keeps the raw relation id (e.g. "supports"); Chinese shows the translated label. */
+function relationText(relation: LinkRelation): string {
+  if (getLang() !== 'zh-TW') return relation;
+  return t(LINK_RELATIONS.find((r) => r.value === relation)?.label ?? relation);
+}
+
 /** Add evidence to the library and link it to a node in the draft. */
 export async function createAndLink(
   create: () => Promise<EvidenceDTO[]>,
@@ -39,10 +46,14 @@ export async function createAndLink(
       ws.edit((s) => created.reduce((acc, e) => addLink(acc, { evidenceId: e.id, nodeId, relation }).state, s));
     }
     const nodeName = nodeId ? ws.draft?.nodes.find((n) => n.id === nodeId)?.name : null;
-    ws.toast(`${created.length === 1 ? `“${created[0].title}”` : `${created.length} items`} added to evidence${nodeName ? ` and linked to ${nodeName} (${relation})` : ''}`, 'success');
+    const what = created.length === 1 ? `“${created[0].title}”` : t('{n} items', { n: created.length });
+    ws.toast(
+      nodeName ? t('{what} added to evidence and linked to {node} ({relation})', { what, node: nodeName, relation: relationText(relation) }) : t('{what} added to evidence', { what }),
+      'success',
+    );
     return created;
   } catch (e) {
-    ws.toast((e as Error).message, 'error');
+    ws.toast(tm((e as Error).message), 'error');
     return [];
   }
 }

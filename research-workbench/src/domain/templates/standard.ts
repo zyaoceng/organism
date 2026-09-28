@@ -49,6 +49,8 @@ export interface StandardTemplateOptions {
   scale?: Scale;
   /** Current fiscal year; periods are Y-2 and Y-1 (A), Y, Y+1 and Y+2 (E). */
   year?: number;
+  /** Language of node names and notes. Formulas store node IDs, so names can be anything. */
+  lang?: 'en' | 'zh-TW';
 }
 
 export const STANDARD_TEMPLATE_ID = 'standard';
@@ -172,7 +174,70 @@ export function standardTemplate(opts: StandardTemplateOptions = {}): ModelState
       notes: `EPS of the basis year × target P/E. Rolling the basis year is a formula change and is recorded in history.`,
     },
   ];
-  return buildFromSpec(specs, standardPeriods(year));
+  const state = buildFromSpec(specs, standardPeriods(year));
+  return opts.lang === 'zh-TW' ? localizeTemplate(state) : state;
+}
+
+const ZH_NAMES: Record<string, string> = {
+  EPS: 'EPS',
+  Revenue: '營收',
+  'Business A': '業務 A',
+  'Business B': '業務 B',
+  'Business C': '業務 C',
+  'YoY Growth': '年成長率',
+  'Gross Margin': '毛利率',
+  'Gross Profit': '毛利',
+  'Operating Expenses': '營業費用',
+  'Opex % of Revenue': '營業費用率',
+  'Operating Income': '營業利益',
+  'Non-Operating Items': '業外損益',
+  'Pre-Tax Income': '稅前淨利',
+  Tax: '所得稅',
+  'Tax Rate': '稅率',
+  'Net Income': '稅後淨利',
+  'Diluted Shares': '稀釋後股數',
+  'P/E': '本益比',
+  'EPS Growth': 'EPS 成長率',
+  ROIC: 'ROIC',
+  NOPAT: '稅後營業利益',
+  'Invested Capital': '投入資本',
+  'Reinvestment ROI': '再投資報酬率',
+  'Historical Valuation': '歷史估值',
+  'Peer Comparison': '同業比較',
+  'Re-Rating Thesis': '評價重估論點',
+  'Target P/E': '目標本益比',
+  'Target Price': '目標價',
+};
+
+const ZH_NOTES: Record<string, string> = {
+  'Business segment. Enter reported (or estimated) revenue in actual years; forecasts grow by the YoY Growth driver below. Replace the formula with your own drivers (e.g. TAM × share × ASP) when useful.':
+    '業務分類。實際年度填公司公布的營收；預估年度用下面的年成長率推算。需要時可以把公式換成自己的驅動因子（例如 TAM × 市占率 × 平均單價）。',
+  'Forecast growth rate for this segment. Set Bear/Base/Bull in the inspector.': '這個業務的預估成長率。在右側面板設定空頭、基準、多頭。',
+  'Diluted EPS. In actual years you may type the reported EPS; the formula result is shown as a check.': '稀釋後 EPS。實際年度可以直接填公布的 EPS，公式結果會一起顯示用來核對。',
+  'Sum of the business segments below. Use your own segmentation when management reporting mixes businesses with different drivers. Type reported revenue in actual years to reconcile.':
+    '下面各業務的加總。公司公布的分類如果混了驅動因子不同的業務，請用自己的分類。實際年度可填公布的營收來核對。',
+  'Gross profit ÷ revenue. A key indicator of bargaining power.': '毛利 ÷ 營收，是看議價能力的重要指標。',
+  'Investment income, FX, interest, one-offs. Positive = income.': '投資收益、匯兌、利息、一次性損益。正數代表收益。',
+  'Effective tax rate = income tax ÷ pre-tax income.': '有效稅率 = 所得稅 ÷ 稅前淨利。',
+  'Attributable to shareholders. Add minority interest as a child node if material.': '歸屬母公司股東。少數股權金額大時，可以加一個子節點。',
+  'Weighted diluted share count, same scale as amounts so EPS = Net Income ÷ Diluted Shares. Add child nodes for SBC or convertible dilution if relevant.':
+    '加權平均稀釋後股數，數量級和金額相同，這樣 EPS = 稅後淨利 ÷ 稀釋後股數。員工認股或可轉債稀釋可以加子節點。',
+  'Evidence for the target multiple. The multiple itself is a judgment typed in Target P/E.': '支持目標倍數的依據。倍數本身是判斷，填在「目標本益比」。',
+  'Operating income after tax. References the EPS branch: hierarchy is not calculation.': '稅後的營業利益。它引用 EPS 分支的數字：樹狀位置和計算關係是分開的。',
+  'Equity + debt + lease liabilities − excess cash (state your definition here).': '股東權益 + 負債 + 租賃負債 − 多餘現金（請在這裡寫下你的定義）。',
+  'Incremental NOPAT ÷ incremental invested capital.': '新增的稅後營業利益 ÷ 新增的投入資本。',
+  'Historical P/E band lives in the Valuation page. Attach the source here.': '歷史本益比區間在「估值」頁，來源附在這裡。',
+  'Peer table lives in the Valuation page. Attach sources here.': '同業比較表在「估值」頁，來源附在這裡。',
+  'Why the market should pay a different multiple (business mix, growth duration, returns).': '市場為什麼應該給不同的倍數（業務組合、成長能持續多久、報酬率）。',
+  'Typed judgment for Bear / Base / Bull. Write the rationale in the Valuation page.': '空頭、基準、多頭各自手動填入的判斷。理由寫在「估值」頁。',
+  'EPS of the basis year × target P/E. Rolling the basis year is a formula change and is recorded in history.': '基準年度的 EPS × 目標本益比。換基準年度等於改公式，會記錄在歷史裡。',
+};
+
+function localizeTemplate(state: ModelState): ModelState {
+  return {
+    ...state,
+    nodes: state.nodes.map((n) => ({ ...n, name: ZH_NAMES[n.name] ?? n.name, notes: ZH_NOTES[n.notes] ?? n.notes })),
+  };
 }
 
 /** Strip values, overrides, links and theses: keep structure, units, formulas, roles and notes. */

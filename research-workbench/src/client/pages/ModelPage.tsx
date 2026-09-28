@@ -3,6 +3,7 @@ import { DraftPanel } from '../components/DraftPanel';
 import { Inspector } from '../components/Inspector';
 import { TreeCanvas } from '../components/TreeCanvas';
 import { createAndLink, namedScreenshot, uploadEvidenceFiles } from '../lib/evidence';
+import { t } from '../lib/i18n';
 import { useWorkspace } from '../lib/store';
 import { isTypingTarget } from '../lib/util';
 
@@ -22,7 +23,7 @@ export function ModelPage({ param }: { param?: string }) {
       e.preventDefault();
       const { projectId, selectedNodeId, viewing, toast } = useWorkspace.getState();
       if (!projectId) return;
-      if (viewing) return toast('Return to the draft to attach evidence.', 'error');
+      if (viewing) return toast(t('Return to the draft to attach evidence.'), 'error');
       void createAndLink(() => uploadEvidenceFiles(projectId, files.map(namedScreenshot), { sourceType: 'screenshot' }), selectedNodeId, 'supports');
     };
     window.addEventListener('paste', onPaste);

@@ -13,6 +13,7 @@ import type {
   TradeDTO,
 } from '../../shared/api';
 import { api, ApiError, type CommitRequest } from './api';
+import { t, tm } from './i18n';
 
 export type SaveStatus = 'saved' | 'pending' | 'saving' | 'error' | 'conflict';
 
@@ -237,7 +238,7 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
           }
         }
       } catch (e) {
-        get().toast((e as Error).message, 'error');
+        get().toast(tm((e as Error).message), 'error');
       }
     },
 
@@ -245,18 +246,18 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       const { draft, viewing } = get();
       if (!draft) return false;
       if (viewing) {
-        get().toast('You are viewing an older snapshot (read-only). Return to the draft to edit.', 'error');
+        get().toast(t('You are viewing an older snapshot (read-only). Return to the draft to edit.'), 'error');
         return false;
       }
       if (get().committing) {
-        get().toast('A Research Update is being committed. Edit again in a moment.', 'error');
+        get().toast(t('A Research Update is being committed. Edit again in a moment.'), 'error');
         return false;
       }
       let next: ModelState;
       try {
         next = fn(draft);
       } catch (e) {
-        get().toast((e as Error).message, 'error');
+        get().toast(tm((e as Error).message), 'error');
         return false;
       }
       if (next === draft) return true;
@@ -308,13 +309,13 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
         break;
       }
       const st = get().saveStatus;
-      if (st === 'error' || st === 'conflict') throw new Error(get().saveError ?? 'The draft could not be saved');
-      if (st !== 'saved') throw new Error('The draft is still being saved; try again');
+      if (st === 'error' || st === 'conflict') throw new Error(get().saveError ?? t('The draft could not be saved'));
+      if (st !== 'saved') throw new Error(t('The draft is still being saved; try again'));
     },
 
     async commit(input) {
       const { projectId } = get();
-      if (!projectId) throw new Error('No project');
+      if (!projectId) throw new Error(t('No project'));
       // Block edits first, so nothing can change between the final save and the commit.
       set({ committing: true });
       try {
@@ -337,7 +338,7 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
         const d = await api.discardDraft(projectId, draftVersion);
         set({ draft: d.state, draftVersion: d.version, saveStatus: 'saved', saveError: null, undoStack: [], redoStack: [], restoredFrom: null });
       } catch (e) {
-        get().toast((e as Error).message, 'error');
+        get().toast(tm((e as Error).message), 'error');
       }
     },
 
@@ -359,7 +360,7 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       try {
         set({ viewing: await api.revision(projectId, revisionId) });
       } catch (e) {
-        get().toast((e as Error).message, 'error');
+        get().toast(tm((e as Error).message), 'error');
       }
     },
 

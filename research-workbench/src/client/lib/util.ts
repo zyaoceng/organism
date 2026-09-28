@@ -1,5 +1,6 @@
 import type { ModelState, Period } from '../../domain/model/types';
 import { SCALAR_KEY } from '../../domain/model/types';
+import { t } from './i18n';
 
 export function today(): string {
   const d = new Date();
@@ -14,22 +15,22 @@ export function fmtDateTime(iso: string | null | undefined): string {
 }
 
 export function timeAgo(iso: string | null | undefined): string {
-  if (!iso) return 'never';
+  if (!iso) return t('never');
   const s = (Date.now() - Date.parse(iso)) / 1000;
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.round(s / 60)} min ago`;
-  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
-  return `${Math.round(s / 86400)} d ago`;
+  if (s < 60) return t('just now');
+  if (s < 3600) return t('{n} min ago', { n: Math.round(s / 60) });
+  if (s < 86400) return t('{n} h ago', { n: Math.round(s / 3600) });
+  return t('{n} d ago', { n: Math.round(s / 86400) });
 }
 
 export function periodLabel(p: Period | undefined, key?: string): string {
-  if (!p) return key === SCALAR_KEY ? 'value' : key ?? '';
+  if (!p) return key === SCALAR_KEY ? t('value') : key ?? '';
   return `${p.label}${p.status}`;
 }
 
 export function periodLabelFn(state: ModelState | null | undefined): (key: string) => string {
   return (key: string) => {
-    if (key === SCALAR_KEY) return 'value';
+    if (key === SCALAR_KEY) return t('value');
     const p = state?.periods.find((x) => x.id === key);
     return p ? `${p.label}${p.status}` : key;
   };

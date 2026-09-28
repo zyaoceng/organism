@@ -10,6 +10,7 @@ import { ImpactView } from '../components/ImpactView';
 import { LineChart } from '../components/LineChart';
 import { Delta, Field } from '../components/ui';
 import { api } from '../lib/api';
+import { getLang, t, tm, tn } from '../lib/i18n';
 import { navigate } from '../lib/router';
 import { useWorkspace } from '../lib/store';
 import { cls, fmtDateTime, periodLabelFn } from '../lib/util';
@@ -21,7 +22,7 @@ export function HistoryPage({ param }: { param?: string }) {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>History</h1>
+        <h1>{t('History')}</h1>
         <div className="seg">
           {(
             [
@@ -31,7 +32,7 @@ export function HistoryPage({ param }: { param?: string }) {
             ] as const
           ).map(([v, l]) => (
             <button key={v} className={cls(view === v && 'on plain')} onClick={() => setView(v)} data-testid={`hist-${v}`}>
-              {l}
+              {t(l)}
             </button>
           ))}
         </div>
@@ -66,14 +67,14 @@ function Updates({ selectedId }: { selectedId?: string }) {
                 <div className="row">
                   <b>#{r.seq}</b>
                   <span className="ellipsis grow">{r.title}</span>
-                  {r.kind !== 'update' && <span className="badge">{r.kind}</span>}
+                  {r.kind !== 'update' && <span className="badge">{t(r.kind)}</span>}
                 </div>
                 <div className="tiny sub">
-                  {r.asOfDate ? `as of ${r.asOfDate}` : 'no knowledge date'} · {r.changes.length} changes
+                  {r.asOfDate ? t('as of {date}', { date: r.asOfDate }) : t('no knowledge date')} · {tn(r.changes.length, '{n} change', '{n} changes')}
                 </div>
                 {h && h.before !== null && h.after !== null && h.before !== h.after && (
                   <div className="small num">
-                    Base TP {formatValue(h.before, tp?.unit)} → <b>{formatValue(h.after, tp?.unit)}</b> <Delta before={h.before} after={h.after} />
+                    {t('Base TP')} {formatValue(h.before, tp?.unit)} → <b>{formatValue(h.after, tp?.unit)}</b> <Delta before={h.before} after={h.after} />
                   </div>
                 )}
               </div>
@@ -81,7 +82,7 @@ function Updates({ selectedId }: { selectedId?: string }) {
           );
         })}
       </div>
-      <div>{sel ? <RevisionDetail key={sel} projectId={projectId} revisionId={sel} /> : <div className="empty">No Research Updates yet.</div>}</div>
+      <div>{sel ? <RevisionDetail key={sel} projectId={projectId} revisionId={sel} /> : <div className="empty">{t('No Research Updates yet.')}</div>}</div>
     </div>
   );
 }
@@ -106,9 +107,9 @@ function RevisionDetail({ projectId, revisionId }: { projectId: string; revision
     const changes = diffStates(a.state, b.state);
     return { a, b, changes, impact: computeImpact(a.state, b.state, { changes }) };
   }, [rev, other]);
-  if (!rev) return <div className="sub">Loading…</div>;
+  if (!rev) return <div className="sub">{t('Loading…')}</div>;
   const pl = periodLabelFn(rev.state);
-  const evTitle = (id: string) => evidence.find((e) => e.id === id)?.title ?? 'evidence';
+  const evTitle = (id: string) => evidence.find((e) => e.id === id)?.title ?? t('evidence');
   const cited = evidence.filter((e) => rev.citedEvidenceIds.includes(e.id));
   return (
     <div className="col" style={{ gap: 14 }} data-testid="revision-detail">
@@ -117,7 +118,7 @@ function RevisionDetail({ projectId, revisionId }: { projectId: string; revision
           <h2>
             #{rev.seq} {rev.title}
           </h2>
-          <span className="badge">{rev.kind}</span>
+          <span className="badge">{t(rev.kind)}</span>
           <span className="right row">
             <button
               className="btn sm"
@@ -127,39 +128,39 @@ function RevisionDetail({ projectId, revisionId }: { projectId: string; revision
               }}
               data-testid="view-snapshot"
             >
-              View snapshot
+              {t('View snapshot')}
             </button>
             <button
               className="btn sm"
               onClick={async () => {
-                if (!window.confirm(`Replace the current draft with the state of #${rev.seq}? Nothing in history is rewritten.`)) return;
+                if (!window.confirm(t('Replace the current draft with the state of #{seq}? Nothing in history is rewritten.', { seq: rev.seq }))) return;
                 await restore(rev.id);
-                toast(`Draft restored from #${rev.seq}. Review and commit it.`, 'success');
+                toast(t('Draft restored from #{seq}. Review and commit it.', { seq: rev.seq }), 'success');
                 navigate({ page: 'project', projectId, tab: 'model' });
               }}
             >
-              Restore into draft
+              {t('Restore into draft')}
             </button>
           </span>
         </div>
         <div className="small sub" style={{ margin: '4px 0 8px' }}>
-          Knowledge date <b>{rev.asOfDate ?? '—'}</b> · committed {fmtDateTime(rev.committedAt)} · engine {rev.engineVersion}
+          {t('Knowledge date')} <b>{rev.asOfDate ?? '—'}</b> · {t('committed {time}', { time: fmtDateTime(rev.committedAt) })} · {t('engine {version}', { version: rev.engineVersion })}
           {rev.market && (
             <>
               {' '}
-              · price then <b>{rev.market.price.toFixed(2)}</b> ({rev.market.provider}
-              {rev.market.provider === 'demo' ? ', synthetic' : ''}, {rev.market.asOf.slice(0, 10)})
+              · {t('price then')} <b>{rev.market.price.toFixed(2)}</b> ({rev.market.provider}
+              {rev.market.provider === 'demo' ? t(', synthetic') : ''}, {rev.market.asOf.slice(0, 10)})
             </>
           )}
         </div>
         <div style={{ whiteSpace: 'pre-wrap' }}>
-          <b>Reason / interpretation: </b>
+          <b>{t('Reason / interpretation: ')}</b>
           {rev.reason}
         </div>
         {rev.notes && <div className="small" style={{ whiteSpace: 'pre-wrap', marginTop: 6 }}>{rev.notes}</div>}
         {cited.length > 0 && (
           <div style={{ marginTop: 8 }}>
-            <b className="small">Evidence cited</b>
+            <b className="small">{t('Evidence cited')}</b>
             <ul style={{ margin: '4px 0', paddingLeft: 18 }}>
               {cited.map((e) => (
                 <li key={e.id} className="small">
@@ -172,26 +173,26 @@ function RevisionDetail({ projectId, revisionId }: { projectId: string; revision
       </div>
       {rev.impact && (
         <div className="card">
-          <h2>Impact</h2>
+          <h2>{t('Impact')}</h2>
           <ImpactView impact={rev.impact} state={rev.state} />
         </div>
       )}
       <div className="card">
-        <h2>Changes ({rev.changes.length})</h2>
-        {rev.changes.length === 0 && <div className="small sub">{rev.kind === 'initial' ? 'Starting structure from the template.' : 'Checkpoint: the view was reviewed and kept.'}</div>}
+        <h2>{t('Changes ({n})', { n: rev.changes.length })}</h2>
+        {rev.changes.length === 0 && <div className="small sub">{rev.kind === 'initial' ? t('Starting structure from the template.') : t('Checkpoint: the view was reviewed and kept.')}</div>}
         <ul style={{ margin: 0, paddingLeft: 18 }}>
           {rev.changes.slice(0, 300).map((c, i) => (
             <li key={i} className="small" style={{ lineHeight: 1.6 }}>
-              {describeChange(c, { periodLabel: pl, evidenceTitle: evTitle })}
+              {describeChange(c, { periodLabel: pl, evidenceTitle: evTitle, lang: getLang() })}
             </li>
           ))}
         </ul>
       </div>
       <div className="card">
         <div className="row">
-          <h2>Compare with another snapshot</h2>
+          <h2>{t('Compare with another snapshot')}</h2>
           <select value={compareTo} onChange={(e) => setCompareTo(e.target.value)} data-testid="compare-select">
-            <option value="">choose…</option>
+            <option value="">{t('choose…')}</option>
             {revisions
               .filter((r) => r.id !== rev.id)
               .map((r) => (
@@ -204,15 +205,15 @@ function RevisionDetail({ projectId, revisionId }: { projectId: string; revision
         {comparison && (
           <div className="col" style={{ gap: 10, marginTop: 10 }}>
             <div className="small sub">
-              From #{comparison.a.seq} ({comparison.a.asOfDate ?? '—'}) to #{comparison.b.seq} ({comparison.b.asOfDate ?? '—'}): {comparison.changes.length} changes
+              {tn(comparison.changes.length, 'From #{a} ({aDate}) to #{b} ({bDate}): {n} change', 'From #{a} ({aDate}) to #{b} ({bDate}): {n} changes', { a: comparison.a.seq, aDate: comparison.a.asOfDate ?? '—', b: comparison.b.seq, bDate: comparison.b.asOfDate ?? '—' })}
             </div>
             <ImpactView impact={comparison.impact} state={comparison.b.state} compact />
             <details>
-              <summary>All changes</summary>
+              <summary>{t('All changes')}</summary>
               <ul style={{ paddingLeft: 18 }}>
                 {comparison.changes.map((c, i) => (
                   <li key={i} className="small">
-                    {describeChange(c, { periodLabel: periodLabelFn(comparison.b.state), evidenceTitle: evTitle })}
+                    {describeChange(c, { periodLabel: periodLabelFn(comparison.b.state), evidenceTitle: evTitle, lang: getLang() })}
                   </li>
                 ))}
               </ul>
@@ -251,7 +252,7 @@ function Evolution() {
   const actual = latestPeriod?.status === 'A' && nodeId ? head.computed.values.base[nodeId]?.[periodKey] ?? null : null;
   const colors: Record<ScenarioId, string> = { bear: '#b5473a', base: '#35598f', bull: '#2f7d4f' };
   const series = SCENARIOS.map((s) => ({
-    name: s.name,
+    name: t(s.name),
     color: colors[s.id],
     step: true,
     points: knowledge.map((p) => ({ x: Date.parse(p.asOfDate!), y: p.values[nodeId!]?.[s.id]?.[periodKey] ?? null, label: `#${p.seq} ${p.title}` })),
@@ -261,7 +262,7 @@ function Evolution() {
     <div className="col" style={{ gap: 14 }}>
       <div className="card">
         <div className="row wrap">
-          <Field label="Metric">
+          <Field label={t('Metric')}>
             <select value={nodeId} onChange={(e) => setNodeId(e.target.value)} data-testid="evo-node">
               {draft.nodes
                 .filter((n) => n.unit)
@@ -273,7 +274,7 @@ function Evolution() {
             </select>
           </Field>
           {node?.timeMode === 'series' && (
-            <Field label="Fiscal period">
+            <Field label={t('Fiscal period')}>
               <select value={periodKey} onChange={(e) => setPeriodKey(e.target.value)} data-testid="evo-period">
                 {draft.periods.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -292,32 +293,32 @@ function Evolution() {
           </div>
         </div>
         <div className="small sub" style={{ marginTop: 8 }}>
-          Each point is the frozen value in a Research Update, plotted on its knowledge date. The line steps when you changed your view. Later market data never changes these values.
+          {t('Each point is the frozen value in a Research Update, plotted on its knowledge date. The line steps when you changed your view. Later market data never changes these values.')}
         </div>
         <div style={{ marginTop: 10 }}>
           {points && (
             <LineChart
               series={series}
               yFormat={(v) => formatValue(v, node?.unit)}
-              hLines={actual !== null ? [{ y: actual, label: `Actual ${formatValue(actual, node?.unit)}`, color: '#111' }] : []}
+              hLines={actual !== null ? [{ y: actual, label: t('Actual {value}', { value: formatValue(actual, node?.unit) }), color: '#111' }] : []}
             />
           )}
         </div>
       </div>
       <div className="card">
         <h2>
-          {node?.name} {periodKey !== SCALAR_KEY ? pl(periodKey) : ''} by Research Update
+          {t('{metric} {period} by Research Update', { metric: node?.name, period: periodKey !== SCALAR_KEY ? pl(periodKey) : '' })}
         </h2>
         <table className="grid" data-testid="evo-table">
           <thead>
             <tr>
-              <th>Update</th>
-              <th className="l">Knowledge date</th>
+              <th>{t('Update')}</th>
+              <th className="l">{t('Knowledge date')}</th>
               {SCENARIOS.map((s) => (
-                <th key={s.id}>{s.name}</th>
+                <th key={s.id}>{t(s.name)}</th>
               ))}
-              <th>Δ Base</th>
-              {actual !== null && <th>Base vs actual</th>}
+              <th>{t('Δ Base')}</th>
+              {actual !== null && <th>{t('Base vs actual')}</th>}
             </tr>
           </thead>
           <tbody>
@@ -331,7 +332,7 @@ function Evolution() {
                     <a href={`#/p/${projectId}/history/${p.revisionId}`}>
                       #{p.seq} {p.title}
                     </a>
-                    {periodThen && <span className="faint small"> ({periodThen.status === 'A' ? 'actual then' : 'estimate then'})</span>}
+                    {periodThen && <span className="faint small"> ({periodThen.status === 'A' ? t('actual then') : t('estimate then')})</span>}
                   </td>
                   <td className="l">{p.asOfDate}</td>
                   {SCENARIOS.map((s) => (
@@ -345,7 +346,7 @@ function Evolution() {
             {knowledge.length === 0 && (
               <tr>
                 <td colSpan={7} className="l sub">
-                  No knowledge-dated Research Updates yet.
+                  {t('No knowledge-dated Research Updates yet.')}
                 </td>
               </tr>
             )}
@@ -353,7 +354,7 @@ function Evolution() {
         </table>
         {actual !== null && (
           <div className="small sub" style={{ marginTop: 6 }}>
-            “Base vs actual” is the estimate error: positive means the estimate was above what was reported.
+            {t('“Base vs actual” is the estimate error: positive means the estimate was above what was reported.')}
           </div>
         )}
       </div>
@@ -377,30 +378,30 @@ function Reviews() {
       setEditing(null);
       await useWorkspace.getState().refresh('reviews');
     } catch (e) {
-      useWorkspace.getState().toast((e as Error).message, 'error');
+      useWorkspace.getState().toast(tm((e as Error).message), 'error');
     }
   };
-  const catLabel = (c: string) => ERROR_CATEGORIES.find((x) => x.value === c)?.label ?? c;
+  const catLabel = (c: string) => t(ERROR_CATEGORIES.find((x) => x.value === c)?.label ?? c);
   return (
     <div className="split">
       <div className="col">
         <div className="row">
-          <div className="small sub grow">Post-mortems: you decide which part of the process failed. Nothing is classified automatically.</div>
+          <div className="small sub grow">{t('Post-mortems: you decide which part of the process failed. Nothing is classified automatically.')}</div>
           <button className="btn primary" onClick={() => setEditing({ subjectType: 'project', categories: [], title: '' })} data-testid="new-review">
-            + Review
+            {t('+ Review')}
           </button>
         </div>
-        {reviews.length === 0 && <div className="empty">No reviews yet. Write one after an outcome is known (earnings, exit, thesis invalidated).</div>}
+        {reviews.length === 0 && <div className="empty">{t('No reviews yet. Write one after an outcome is known (earnings, exit, thesis invalidated).')}</div>}
         {reviews.map((r) => (
           <div key={r.id} className="card" style={{ cursor: 'pointer' }} onClick={() => setEditing(r)}>
             <div className="row">
               <b>{r.title}</b>
-              <span className="badge">{r.subjectType}</span>
+              <span className="badge">{t(r.subjectType)}</span>
               <span className="right tiny sub">{r.createdAt.slice(0, 10)}</span>
             </div>
             <div className="row wrap" style={{ marginTop: 4 }}>
-              {r.thesisVerdict && <span className="badge">thesis: {r.thesisVerdict}</span>}
-              {r.executionVerdict && <span className="badge">execution: {r.executionVerdict}</span>}
+              {r.thesisVerdict && <span className="badge">{t('thesis: {verdict}', { verdict: t(r.thesisVerdict) })}</span>}
+              {r.executionVerdict && <span className="badge">{t('execution: {verdict}', { verdict: t(r.executionVerdict) })}</span>}
               {r.categories.map((c) => (
                 <span key={c.category} className="badge warn" title={c.notes}>
                   {catLabel(c.category)}
@@ -408,19 +409,19 @@ function Reviews() {
               ))}
             </div>
             {r.outcome && <div className="small" style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{r.outcome}</div>}
-            {r.lessons && <div className="small sub" style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>Lesson: {r.lessons}</div>}
+            {r.lessons && <div className="small sub" style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{t('Lesson: {text}', { text: r.lessons })}</div>}
           </div>
         ))}
         {reviews.length > 0 && (
           <div className="card">
-            <h2>Error pattern</h2>
+            <h2>{t('Error pattern')}</h2>
             <table className="grid">
               <tbody>
                 {ERROR_CATEGORIES.map((c) => {
                   const n = reviews.filter((r) => r.categories.some((x) => x.category === c.value)).length;
                   return (
                     <tr key={c.value}>
-                      <td>{c.label}</td>
+                      <td>{t(c.label)}</td>
                       <td>{n}</td>
                     </tr>
                   );
@@ -432,21 +433,21 @@ function Reviews() {
       </div>
       {editing && (
         <div className="card" data-testid="review-form">
-          <h2>{editing.id ? 'Edit review' : 'New review'}</h2>
+          <h2>{editing.id ? t('Edit review') : t('New review')}</h2>
           <div className="col">
-            <Field label="Title">
+            <Field label={t('Title')}>
               <input value={editing.title ?? ''} onChange={(e) => setEditing({ ...editing, title: e.target.value })} data-testid="review-title" />
             </Field>
             <div className="two">
-              <Field label="About">
+              <Field label={t('About')}>
                 <select value={editing.subjectType} onChange={(e) => setEditing({ ...editing, subjectType: e.target.value as ReviewDTO['subjectType'], subjectId: null })}>
-                  <option value="project">The whole idea</option>
-                  <option value="revision">A Research Update</option>
-                  <option value="trade">A trade</option>
+                  <option value="project">{t('The whole idea')}</option>
+                  <option value="revision">{t('A Research Update')}</option>
+                  <option value="trade">{t('A trade')}</option>
                 </select>
               </Field>
               {editing.subjectType === 'revision' && (
-                <Field label="Research Update">
+                <Field label={t('Research Update')}>
                   <select value={editing.subjectId ?? ''} onChange={(e) => setEditing({ ...editing, subjectId: e.target.value || null })}>
                     <option value="">—</option>
                     {revisions.map((r) => (
@@ -458,41 +459,41 @@ function Reviews() {
                 </Field>
               )}
               {editing.subjectType === 'trade' && (
-                <Field label="Trade">
+                <Field label={t('Trade')}>
                   <select value={editing.subjectId ?? ''} onChange={(e) => setEditing({ ...editing, subjectId: e.target.value || null })}>
                     <option value="">—</option>
-                    {trades.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.entryDate} {t.side} @ {t.entryPrice}
+                    {trades.map((tr) => (
+                      <option key={tr.id} value={tr.id}>
+                        {tr.entryDate} {t(tr.side)} @ {tr.entryPrice}
                       </option>
                     ))}
                   </select>
                 </Field>
               )}
             </div>
-            <Field label="What actually happened">
+            <Field label={t('What actually happened')}>
               <textarea rows={3} value={editing.outcome ?? ''} onChange={(e) => setEditing({ ...editing, outcome: e.target.value })} />
             </Field>
             <div className="two">
-              <Field label="Was the thesis right?">
+              <Field label={t('Was the thesis right?')}>
                 <select value={editing.thesisVerdict ?? ''} onChange={(e) => setEditing({ ...editing, thesisVerdict: (e.target.value || null) as ReviewDTO['thesisVerdict'] })}>
                   <option value="">—</option>
                   {['right', 'wrong', 'mixed', 'unclear'].map((v) => (
-                    <option key={v}>{v}</option>
+                    <option key={v} value={v}>{t(v)}</option>
                   ))}
                 </select>
               </Field>
-              <Field label="Was the execution good?">
+              <Field label={t('Was the execution good?')}>
                 <select value={editing.executionVerdict ?? ''} onChange={(e) => setEditing({ ...editing, executionVerdict: (e.target.value || null) as ReviewDTO['executionVerdict'] })}>
                   <option value="">—</option>
                   {['good', 'poor', 'mixed', 'n/a'].map((v) => (
-                    <option key={v}>{v}</option>
+                    <option key={v} value={v}>{t(v)}</option>
                   ))}
                 </select>
               </Field>
             </div>
             <div className="field">
-              <span className="small sub">Where was the error? (your judgment)</span>
+              <span className="small sub">{t('Where was the error? (your judgment)')}</span>
               {ERROR_CATEGORIES.map((c) => {
                 const cur = editing.categories?.find((x) => x.category === c.value);
                 return (
@@ -508,11 +509,11 @@ function Reviews() {
                           })
                         }
                       />
-                      {c.label}
+                      {t(c.label)}
                     </label>
                     {cur && (
                       <input
-                        placeholder="What exactly went wrong?"
+                        placeholder={t('What exactly went wrong?')}
                         value={cur.notes}
                         onChange={(e) => setEditing({ ...editing, categories: (editing.categories ?? []).map((x) => (x.category === c.value ? { ...x, notes: e.target.value } : x)) })}
                       />
@@ -521,27 +522,27 @@ function Reviews() {
                 );
               })}
             </div>
-            <Field label="Lesson for the process">
+            <Field label={t('Lesson for the process')}>
               <textarea rows={2} value={editing.lessons ?? ''} onChange={(e) => setEditing({ ...editing, lessons: e.target.value })} />
             </Field>
             <div className="row">
               <button className="btn primary" disabled={!editing.title?.trim()} onClick={() => void save()} data-testid="review-save">
-                Save review
+                {t('Save review')}
               </button>
               <button className="btn ghost" onClick={() => setEditing(null)}>
-                Cancel
+                {t('Cancel')}
               </button>
               {editing.id && (
                 <button
                   className="btn danger right"
                   onClick={async () => {
-                    if (!window.confirm('Delete this review?')) return;
+                    if (!window.confirm(t('Delete this review?'))) return;
                     await api.deleteReview(editing.id!);
                     setEditing(null);
                     await useWorkspace.getState().refresh('reviews');
                   }}
                 >
-                  Delete
+                  {t('Delete')}
                 </button>
               )}
             </div>

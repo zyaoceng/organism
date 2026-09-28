@@ -146,6 +146,7 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
       name: string;
       description?: string;
       templateId?: string;
+      lang?: string;
       year?: number;
       security: { name?: string; ticker: string; exchange?: string; apiSymbol?: string; currency?: string; priceSource?: string };
     }>(req);
@@ -154,7 +155,7 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
     let state: ModelState;
     let templateName = STANDARD_TEMPLATE_NAME;
     if (!b.templateId || b.templateId === STANDARD_TEMPLATE_ID) {
-      state = standardTemplate({ currency, scale: defaultScaleFor(currency), year: b.year });
+      state = standardTemplate({ currency, scale: defaultScaleFor(currency), year: b.year, lang: b.lang === 'zh-TW' ? 'zh-TW' : 'en' });
     } else {
       const t = getSavedTemplateState(db, b.templateId);
       state = t.state;

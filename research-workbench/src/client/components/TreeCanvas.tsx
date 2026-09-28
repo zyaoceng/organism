@@ -20,10 +20,11 @@ import {
   updatePeriod,
 } from '../../domain/model/ops';
 import { childrenOf, isHeading, visibleRows } from '../../domain/model/tree';
-import { NODE_ROLES, SCALAR_KEY, type ModelNode, type ScenarioId } from '../../domain/model/types';
+import { LINK_RELATIONS, NODE_ROLES, SCALAR_KEY, scenarioName, type ModelNode, type ScenarioId } from '../../domain/model/types';
 import { toDisplay } from '../../domain/formula/refs';
 import { unitLabel } from '../../domain/units';
 import { calcOf, diffOf, indexOf } from '../lib/derived';
+import { t, tm, useLang } from '../lib/i18n';
 import { useActiveState, useWorkspace } from '../lib/store';
 import { cls } from '../lib/util';
 import { NumberField } from './ui';
@@ -46,6 +47,7 @@ export function TreeCanvas() {
   const [editing, setEditing] = useState<{ nodeId: string; key: string; initial?: string } | null>(null);
   const [drag, setDrag] = useState<{ id: string; target: string | null; pos: DropPos | null } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  useLang();
 
   const rows = useMemo(() => (state ? visibleRows(state, collapsed) : []), [state, collapsed]);
   if (!state) return null;
@@ -72,7 +74,7 @@ export function TreeCanvas() {
     const e = issueCount.get(i.nodeId) ?? { err: 0, warn: 0, msgs: [] };
     if (i.severity === 'error') e.err++;
     else e.warn++;
-    e.msgs.push(i.message);
+    e.msgs.push(tm(i.message));
     issueCount.set(i.nodeId, e);
   }
   const linkCount = new Map<string, number>();
@@ -127,7 +129,13 @@ export function TreeCanvas() {
       const next = rows[idx + 1]?.node.id ?? rows[idx - 1]?.node.id ?? null;
       select(next && next !== id ? next : null);
       toast(
-        `Deleted ${n.name}${removed > 1 ? ` and ${removed - 1} child node(s)` : ''}. ${broken.length ? `Formulas now referencing a deleted node: ${broken.join(', ')}. ` : ''}Ctrl+Z to undo.`,
+        [
+          removed > 1 ? t('Deleted {name} and {n} child node(s).', { name: n.name, n: removed - 1 }) : t('Deleted {name}.', { name: n.name }),
+          broken.length ? t('Formulas now referencing a deleted node: {names}.', { names: broken.join(', ') }) : '',
+          t('Ctrl+Z to undo.'),
+        ]
+          .filter(Boolean)
+          .join(' '),
         broken.length ? 'error' : 'info',
       );
     }
@@ -165,8 +173,8 @@ export function TreeCanvas() {
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (editing || renamingId) return;
-    const t = e.target as HTMLElement;
-    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') return;
+    const tgt = e.target as HTMLElement;
+    if (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA') return;
     const mod = e.ctrlKey || e.metaKey;
     if (selectedCell && !readOnly) {
       const n = ix.byId.get(selectedCell.nodeId);
@@ -275,14 +283,14 @@ export function TreeCanvas() {
   const cellTitle = (n: ModelNode, key: string, c: Cell | undefined): string => {
     if (!c) return '';
     const parts: string[] = [];
-    if (c.err) parts.push(c.err.code === 'UPSTREAM' ? `↳ ${c.err.message}` : c.err.message);
-    if (c.src === 'input') parts.push(n.formula && ix.periods.find((p) => p.id === key)?.status !== 'A' ? 'Typed value (overrides the formula)' : 'Typed value');
-    if (c.src === 'override') parts.push(`${scenario} override (Base: ${formatValue(calc.cells.base[n.id]?.[key]?.v, n.unit)})`);
+    if (c.err) parts.push(c.err.code === 'UPSTREAM' ? `↳ ${tm(c.err.message)}` : tm(c.err.message));
+    if (c.src === 'input') parts.push(n.formula && ix.periods.find((p) => p.id === key)?.status !== 'A' ? t('Typed value (overrides the formula)') : t('Typed value'));
+    if (c.src === 'override') parts.push(t('{scenario} override (Base: {value})', { scenario: t(scenarioName(scenario)), value: formatValue(calc.cells.base[n.id]?.[key]?.v, n.unit) }));
     if (c.src === 'formula' && n.formula) parts.push(`= ${toDisplay(n.formula, ix, n.id)}`);
-    if (c.check !== undefined && c.check !== null) parts.push(`Formula gives ${formatValue(c.check, n.unit)}`);
-    if (c.est) parts.push('Estimate');
+    if (c.check !== undefined && c.check !== null) parts.push(t('Formula gives {value}', { value: formatValue(c.check, n.unit) }));
+    if (c.est) parts.push(t('Estimate'));
     const h = headCalc?.cells[scenario][n.id]?.[key];
-    if (headCalc && h && h.v !== c.v) parts.push(`Committed: ${formatValue(h.v, n.unit)}`);
+    if (headCalc && h && h.v !== c.v) parts.push(t('Committed: {value}', { value: formatValue(h.v, n.unit) }));
     return parts.join('\n');
   };
 
@@ -343,7 +351,7 @@ export function TreeCanvas() {
           <span>{c.err.code === 'MISSING' || c.err.code === 'UPSTREAM' ? '—' : 'ERR'}</span>
         ) : (
           <>
-            {span && <span className="scalar-tag">single value</span>}
+            {span && <span className="scalar-tag">{t('single value')}</span>}
             {formatValue(c?.v, n.unit)}
           </>
         )}
@@ -355,20 +363,20 @@ export function TreeCanvas() {
     <div className="tree" tabIndex={0} ref={rootRef} onKeyDown={onKeyDown} onClick={() => select(null)} data-testid="tree">
       <div className="tree-head" style={{ gridTemplateColumns: cols }}>
         <div>
-          Research tree
+          {t('Research tree')}
           {!readOnly && (
-            <button className="btn xs" style={{ marginLeft: 8 }} onClick={(e) => (e.stopPropagation(), addChild(null))} title="Add a top-level node">
-              + node
+            <button className="btn xs" style={{ marginLeft: 8 }} onClick={(e) => (e.stopPropagation(), addChild(null))} title={t('Add a top-level node')}>
+              {t('+ node')}
             </button>
           )}
         </div>
-        <div>Unit</div>
+        <div>{t('Unit')}</div>
         {periods.map((p, i) => (
-          <div key={p.id} className={cls('ph', p.status)} title={`${p.id} · ${p.status === 'A' ? 'Actual' : 'Estimate'}${p.endDate ? ` · ends ${p.endDate}` : ''}`}>
+          <div key={p.id} className={cls('ph', p.status)} title={`${p.id} · ${p.status === 'A' ? t('Actual') : t('Estimate')}${p.endDate ? ` · ${t('ends {date}', { date: p.endDate })}` : ''}`}>
             {!readOnly && i === 0 && (
               <button
                 className="icon-btn"
-                title="Add an earlier period"
+                title={t('Add an earlier period')}
                 onClick={(e) => {
                   e.stopPropagation();
                   edit((s) => addPeriod(s, previousPeriodSuggestion(s), 'start'));
@@ -381,7 +389,7 @@ export function TreeCanvas() {
             <button
               className="icon-btn stat"
               disabled={readOnly}
-              title={readOnly ? '' : `Mark as ${p.status === 'A' ? 'Estimate' : 'Actual'}${p.status === 'E' ? ' (drops Bear/Bull overrides for this period)' : ''}`}
+              title={readOnly ? '' : p.status === 'A' ? t('Mark as Estimate') : t('Mark as Actual (drops Bear/Bull overrides for this period)')}
               onClick={(e) => {
                 e.stopPropagation();
                 edit((s) => updatePeriod(s, p.id, { status: p.status === 'A' ? 'E' : 'A' }));
@@ -392,10 +400,10 @@ export function TreeCanvas() {
             {!readOnly && (
               <button
                 className="icon-btn"
-                title="Remove this period"
+                title={t('Remove this period')}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (window.confirm(`Remove period ${p.label}${p.status}? Its values are removed from the draft (undo with Ctrl+Z).`)) edit((s) => removePeriod(s, p.id));
+                  if (window.confirm(t('Remove period {period}? Its values are removed from the draft (undo with Ctrl+Z).', { period: `${p.label}${p.status}` }))) edit((s) => removePeriod(s, p.id));
                 }}
               >
                 ×
@@ -404,7 +412,7 @@ export function TreeCanvas() {
             {!readOnly && i === periods.length - 1 && (
               <button
                 className="icon-btn"
-                title="Add the next period"
+                title={t('Add the next period')}
                 onClick={(e) => {
                   e.stopPropagation();
                   edit((s) => addPeriod(s, nextPeriodSuggestion(s)));
@@ -500,13 +508,13 @@ export function TreeCanvas() {
                 )}
               </span>
               <span className="marks">
-                {isSel && depIn.size > 0 && <span className="mark depin" title="Rows marked blue feed this node's formula">inputs</span>}
-                {depIn.has(n.id) && <span className="mark depin" title={`Input to ${sel?.name}`}>in</span>}
-                {depOut.has(n.id) && <span className="mark depout" title={`Uses ${sel?.name}`}>uses</span>}
-                {role && <span className="mark role">{role.label}</span>}
+                {isSel && depIn.size > 0 && <span className="mark depin" title={t("Rows marked blue feed this node's formula")}>{t('inputs')}</span>}
+                {depIn.has(n.id) && <span className="mark depin" title={t('Input to {name}', { name: sel?.name })}>{t('in')}</span>}
+                {depOut.has(n.id) && <span className="mark depout" title={t('Uses {name}', { name: sel?.name })}>{t('uses')}</span>}
+                {role && <span className="mark role">{t(role.label)}</span>}
                 {n.formula && <span className="mark fx" title={toDisplay(n.formula, ix, n.id)}>ƒ</span>}
                 {evN > 0 && (
-                  <span className="mark ev" title={state.links.filter((l) => l.nodeId === n.id).map((l) => `${l.relation}: ${evTitles.get(l.evidenceId) ?? 'evidence'}`).join('\n')}>
+                  <span className="mark ev" title={state.links.filter((l) => l.nodeId === n.id).map((l) => `${t(LINK_RELATIONS.find((r) => r.value === l.relation)?.label ?? l.relation)}: ${evTitles.get(l.evidenceId) ?? t('evidence')}`).join('\n')}>
                     📎{evN}
                   </span>
                 )}
@@ -514,13 +522,13 @@ export function TreeCanvas() {
                 {issues && issues.err === 0 && issues.warn > 0 && <span className="mark warn" title={issues.msgs.join('\n')}>⚠</span>}
                 {!readOnly && (
                   <span className="hover-actions">
-                    <button className="icon-btn" title="Add child (A)" onClick={(e) => (e.stopPropagation(), addChild(n.id))}>
+                    <button className="icon-btn" title={t('Add child (A)')} onClick={(e) => (e.stopPropagation(), addChild(n.id))}>
                       ＋
                     </button>
-                    <button className="icon-btn" title="Duplicate branch (Ctrl+D)" onClick={(e) => (e.stopPropagation(), duplicate(n.id))}>
+                    <button className="icon-btn" title={t('Duplicate branch (Ctrl+D)')} onClick={(e) => (e.stopPropagation(), duplicate(n.id))}>
                       ⧉
                     </button>
-                    <button className="icon-btn" title="Delete (Del)" onClick={(e) => (e.stopPropagation(), remove(n.id))}>
+                    <button className="icon-btn" title={t('Delete (Del)')} onClick={(e) => (e.stopPropagation(), remove(n.id))}>
                       ✕
                     </button>
                   </span>
@@ -539,27 +547,27 @@ export function TreeCanvas() {
         <span className="legend">
           <span>
             <i style={{ background: '#fff', borderColor: 'var(--input)' }} />
-            <span style={{ color: 'var(--input)' }}>blue</span> = typed input
+            <span style={{ color: 'var(--input)' }}>{t('blue')}</span> {t('= typed input')}
           </span>
-          <span>black = formula</span>
+          <span>{t('black = formula')}</span>
           <span>
             <i style={{ background: '#f7f8fa' }} />
-            actual period
+            {t('actual period')}
           </span>
           <span>
             <i style={{ background: 'var(--draft-strong)' }} />
-            edited in draft
+            {t('edited in draft')}
           </span>
           <span>
             <i style={{ background: 'var(--draft)' }} />
-            changed downstream
+            {t('changed downstream')}
           </span>
-          <span>● scenario override</span>
-          <span style={{ color: '#e67e22' }}>◥ typed over a formula</span>
+          <span>● {t('scenario override')}</span>
+          <span style={{ color: '#e67e22' }}>◥ {t('typed over a formula')}</span>
         </span>
         <span className="right">
-          <span className="kbd">A</span> child <span className="kbd">S</span> sibling <span className="kbd">F2</span> rename <span className="kbd">Tab</span> indent <span className="kbd">Alt+↑↓</span> move{' '}
-          <span className="kbd">Ctrl+D</span> duplicate <span className="kbd">Del</span> delete <span className="kbd">1 2 3</span> scenario
+          <span className="kbd">A</span> {t('child')} <span className="kbd">S</span> {t('sibling')} <span className="kbd">F2</span> {t('rename')} <span className="kbd">Tab</span> {t('indent')} <span className="kbd">Alt+↑↓</span> {t('move')}{' '}
+          <span className="kbd">Ctrl+D</span> {t('duplicate')} <span className="kbd">Del</span> {t('delete')} <span className="kbd">1 2 3</span> {t('scenario')}
         </span>
       </div>
     </div>
