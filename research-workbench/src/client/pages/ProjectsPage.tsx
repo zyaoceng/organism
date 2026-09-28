@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { ProjectSummaryDTO, ProviderDTO, TemplateDTO } from '../../shared/api';
+import type { ProjectSummaryDTO, ProviderDTO, SymbolMatchDTO, TemplateDTO } from '../../shared/api';
+import { SymbolPicker } from '../components/SymbolPicker';
 import { Field, LangToggle } from '../components/ui';
 import { api } from '../lib/api';
 import { getLang, t, tm, useLang } from '../lib/i18n';
@@ -8,10 +9,11 @@ import { useWorkspace } from '../lib/store';
 import { timeAgo } from '../lib/util';
 
 const EXCHANGES = [
-  { exchange: 'TWSE', suffix: '.TW', currency: 'TWD' },
-  { exchange: 'TPEx', suffix: '.TWO', currency: 'TWD' },
-  { exchange: 'NASDAQ', suffix: '', currency: 'USD' },
-  { exchange: 'NYSE', suffix: '', currency: 'USD' },
+  { exchange: 'TWSE', suffix: '.TW', currency: 'TWD', source: 'finmind' },
+  { exchange: 'TPEx', suffix: '.TWO', currency: 'TWD', source: 'finmind' },
+  { exchange: 'Emerging', suffix: '.TWO', currency: 'TWD', source: 'finmind' },
+  { exchange: 'NASDAQ', suffix: '', currency: 'USD', source: 'yahoo' },
+  { exchange: 'NYSE', suffix: '', currency: 'USD', source: 'yahoo' },
 ];
 
 export function ProjectsPage() {
@@ -127,13 +129,24 @@ function NewProjectForm({ templates, providers, onDone }: { templates: TemplateD
   const [apiSymbol, setApiSymbol] = useState('');
   const [symbolTouched, setSymbolTouched] = useState(false);
   const [currency, setCurrency] = useState('TWD');
-  const [priceSource, setPriceSource] = useState('yahoo');
+  const [priceSource, setPriceSource] = useState(() => (providers.some((p) => p.id === 'finmind') ? 'finmind' : 'yahoo'));
   const [templateId, setTemplateId] = useState('standard');
   const [year, setYear] = useState(new Date().getFullYear());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const suggestSymbol = (tk: string, ex: string) => `${tk.trim().toUpperCase()}${EXCHANGES.find((e) => e.exchange === ex)?.suffix ?? ''}`;
+
+  const hasProvider = (id: string) => providers.some((p) => p.id === id);
+  const pick = (m: SymbolMatchDTO) => {
+    if (!name.trim()) setName(m.name);
+    setTicker(m.ticker);
+    setExchange(EXCHANGES.some((e) => e.exchange === m.exchange) ? m.exchange : 'OTHER');
+    setApiSymbol(m.apiSymbol);
+    setSymbolTouched(true);
+    if (m.currency) setCurrency(m.currency);
+    if (hasProvider(m.suggestedProvider)) setPriceSource(m.suggestedProvider);
+  };
 
   const submit = async () => {
     setBusy(true);
@@ -159,9 +172,12 @@ function NewProjectForm({ templates, providers, onDone }: { templates: TemplateD
   return (
     <div className="card" style={{ marginBottom: 14 }} data-testid="new-project-form">
       <h2>{t('New company project')}</h2>
-      <div className="three">
+      <Field label={t('Find the company (fills code, exchange, symbol and price source)')}>
+        <SymbolPicker autoFocus onPick={pick} providerLabel={(id) => t(providers.find((p) => p.id === id)?.label ?? id)} />
+      </Field>
+      <div className="three" style={{ marginTop: 10 }}>
         <Field label={t('Company name')}>
-          <input value={name} autoFocus placeholder="Lite-On Technology" onChange={(e) => setName(e.target.value)} data-testid="np-name" />
+          <input value={name} placeholder="Lite-On Technology" onChange={(e) => setName(e.target.value)} data-testid="np-name" />
         </Field>
         <Field label={t('Ticker')}>
           <input
@@ -180,7 +196,10 @@ function NewProjectForm({ templates, providers, onDone }: { templates: TemplateD
             onChange={(e) => {
               setExchange(e.target.value);
               const ex = EXCHANGES.find((x) => x.exchange === e.target.value);
-              if (ex) setCurrency(ex.currency);
+              if (ex) {
+                setCurrency(ex.currency);
+                if (hasProvider(ex.source)) setPriceSource(ex.source);
+              }
               if (!symbolTouched) setApiSymbol(suggestSymbol(ticker, e.target.value));
             }}
           >

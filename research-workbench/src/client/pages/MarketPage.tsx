@@ -3,6 +3,7 @@ import { atr } from '../../domain/market/indicators';
 import { findByRole } from '../../domain/model/tree';
 import type { ProviderDTO } from '../../shared/api';
 import { PriceChart, type ChartMarker, type ChartPriceLine } from '../components/PriceChart';
+import { SymbolPicker } from '../components/SymbolPicker';
 import { Field } from '../components/ui';
 import { api } from '../lib/api';
 import { useWorkspace } from '../lib/store';
@@ -108,7 +109,7 @@ export function MarketPage() {
           </button>
         </span>
       </div>
-      {res?.error && <div className="msg err" style={{ marginBottom: 10 }}>{t('Provider error: {error}', { error: tm(res.error) })}{bars.length ? t(' — showing cached data.') : ''}</div>}
+      {res?.error && <div className="msg err" style={{ marginBottom: 10 }}>{t('Provider error: {error}', { error: tm(res.error) })}{bars.length ? t(' — showing cached data.') : t(' Use “Find by code or name” on the right to pick the correct code or another price source.')}</div>}
       <div className="split" style={{ gridTemplateColumns: 'minmax(0, 1fr) 320px' }}>
         <div className="card" style={{ padding: 10 }}>
           <div className="row wrap" style={{ marginBottom: 8 }}>
@@ -211,6 +212,8 @@ function SecurityCard({ providers, onSource, onImported }: { providers: Provider
   const sec = useWorkspace((s) => s.securities[0]);
   const { refresh, toast } = useWorkspace.getState();
   const [form, setForm] = useState({ ticker: sec.ticker, exchange: sec.exchange, apiSymbol: sec.apiSymbol, currency: sec.currency });
+  const [finding, setFinding] = useState(false);
+  useEffect(() => setForm({ ticker: sec.ticker, exchange: sec.exchange, apiSymbol: sec.apiSymbol, currency: sec.currency }), [sec]);
   const dirty = form.ticker !== sec.ticker || form.exchange !== sec.exchange || form.apiSymbol !== sec.apiSymbol || form.currency !== sec.currency;
   return (
     <div className="card">
@@ -226,6 +229,28 @@ function SecurityCard({ providers, onSource, onImported }: { providers: Provider
           </select>
         </Field>
         <div className="tiny sub">{t(providers.find((p) => p.id === sec.priceSource)?.description ?? '')}</div>
+        {finding ? (
+          <SymbolPicker
+            autoFocus
+            providerLabel={(id) => t(providers.find((p) => p.id === id)?.label ?? id)}
+            onPick={async (m) => {
+              const priceSource = providers.some((p) => p.id === m.suggestedProvider) ? m.suggestedProvider : sec.priceSource;
+              try {
+                await api.updateSecurity(sec.id, { name: m.name, ticker: m.ticker, exchange: m.exchange, apiSymbol: m.apiSymbol, currency: m.currency || sec.currency, priceSource });
+                setFinding(false);
+                await refresh('project');
+                await refresh('quote');
+                toast(t('Now using {symbol} ({name}) from {provider}', { symbol: m.apiSymbol, name: m.name, provider: t(providers.find((p) => p.id === priceSource)?.label ?? priceSource) }), 'success');
+              } catch (e) {
+                toast(tm((e as Error).message), 'error');
+              }
+            }}
+          />
+        ) : (
+          <button type="button" className="btn sm" onClick={() => setFinding(true)} data-testid="find-symbol">
+            {t('🔍 Find by code or name')}
+          </button>
+        )}
         <div className="two">
           <Field label={t('Ticker')}>
             <input value={form.ticker} onChange={(e) => setForm({ ...form, ticker: e.target.value })} />

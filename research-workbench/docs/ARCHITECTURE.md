@@ -361,9 +361,19 @@ MarketDataProvider (server only)
   getHistoricalPrices(symbol, start, end): Promise<Bar[]>
 ```
 
-- Providers: `yahoo` (unofficial chart endpoint, see §22), `demo`
-  (deterministic synthetic series, always labelled SYNTHETIC in the UI), and
-  CSV import (user-supplied file; provenance = filename + import time).
+- Providers: `yahoo` (unofficial chart endpoint, see §22; Taiwan codes try
+  `.TW` then `.TWO`), `finmind` (FinMind open data: Taiwan listed, OTC and
+  emerging daily prices), `fugle` (富果 market data, only with
+  `FUGLE_API_KEY`), `demo` (deterministic synthetic series, always labelled
+  SYNTHETIC in the UI), and CSV import (user-supplied file; provenance =
+  filename + import time).
+- Symbol search: `SymbolSearch` resolves a code or company name (Chinese or
+  English) to exchange, board, currency, provider symbol and a suggested
+  provider. Sources: FinMind's Taiwan stock list, falling back to TWSE's ISIN
+  lists (Big5 HTML, strMode 2/4/5), cached 12 h; Yahoo's search endpoint for
+  other markets. A failing source is reported next to the other sources'
+  results. Changing a security's provider symbol deletes its cached fetched
+  prices so bars from two symbols never mix.
 - `MarketDataService` wraps providers with: SQLite cache (`price_bars`,
   `quotes`), incremental history fetch, per-provider minimum request
   interval, typed errors (`NOT_FOUND`, `RATE_LIMITED`, `NETWORK`, `PROVIDER`)
@@ -521,6 +531,11 @@ Known V1 limitations (accepted, documented):
   Taiwan listings use the `.TW` (TWSE) / `.TWO` (TPEx) suffix convention.
   This provider may break or rate-limit without notice, which is why the
   provider interface, CSV import and the demo provider exist.
+- FinMind (`/api/v4/data`, datasets `TaiwanStockPrice` and `TaiwanStockInfo`)
+  and Fugle (`/marketdata/v1.0/stock/intraday/quote`, `/historical/candles`,
+  header `X-API-KEY`) follow their public documentation; field names were
+  taken from the documentation and tests use recorded shapes. FinMind's
+  `TaiwanStockInfo.type` values for emerging stocks are matched loosely.
 - Model sizes stay below ~500 nodes × ~40 periods, so a full recalculation
   per edit (and one per changed node for attribution) is fast enough.
 - SQLite's single-writer model is sufficient for one to five users.
@@ -552,7 +567,7 @@ Built as designed above; deviations are listed at the end of this section.
 | Interface language (English / Traditional Chinese) | `src/client/i18n/`, `src/client/lib/i18n.ts` | `i18n.test.ts` (every `t('…')` literal has a Chinese entry, placeholders match, runtime message patterns), `standard.test.ts` (Chinese template computes like the English one) |
 | UI and end-to-end workflow | `src/client/` | `e2e/acceptance.mjs` — 20 checks: acceptance tests 1–18 through the real UI in English, plus the language switch, against a production build on a throwaway data directory |
 
-Results at the time of writing: `npm run typecheck` clean, `npm test` 78/78,
+Results at the time of writing: `npm run typecheck` clean, `npm test` 92/92,
 `npm run e2e` 20/20.
 
 Language: UI strings are keyed by their English text (`t('Model')`), so a

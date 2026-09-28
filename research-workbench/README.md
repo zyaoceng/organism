@@ -52,7 +52,7 @@ Checks
 
 ```bash
 npm run typecheck    # TypeScript
-npm test             # 78 unit + API tests (domain engine, revisions, server, client store, translations)
+npm test             # 92 unit + API tests (domain engine, revisions, server, client store, translations)
 npm run e2e          # builds, starts a throwaway server, drives the UI through acceptance tests 1-18
 ```
 
@@ -110,13 +110,27 @@ Market data
 
 | Provider | Status |
 |---|---|
-| `yahoo` | Unofficial Yahoo Finance chart endpoint; US and Taiwan (`2301.TW`, `.TWO`). Undocumented and **not verified from the build environment** (network blocked there); it may change or rate-limit. |
+| `yahoo` | Unofficial Yahoo Finance chart endpoint; US and Taiwan (`2301.TW`, `7899.TWO`). For Taiwan codes both `.TW` and `.TWO` are tried. Undocumented; it may change or rate-limit. |
+| `finmind` | FinMind open data API: Taiwan listed, OTC and emerging (興櫃) daily prices; the quote is the latest close. No key needed; `FINMIND_TOKEN` raises the hourly limit. |
+| `fugle` | Fugle (富果) market data API: real-time Taiwan quotes and daily candles. Offered only when `FUGLE_API_KEY` is set. |
 | `demo` | Deterministic synthetic prices, always labelled SYNTHETIC. For offline use and tests. |
 | `csv` | Import daily OHLCV (Yahoo-style or TWSE Chinese headers). |
 
+None of the three network providers could be exercised from the build
+environment (egress blocked); they follow the providers' documentation and are
+covered by tests against recorded response shapes.
+
+**Symbol search** (`GET /api/symbols/search?q=`) finds a security by code or
+company name, Chinese or English. Taiwan stocks come from FinMind's stock list
+(fallback: TWSE's public ISIN lists for 上市 / 上櫃 / 興櫃); other markets come
+from Yahoo's search endpoint. Each hit carries the exchange, the provider symbol
+with the right suffix and a suggested price source. The UI uses it in the new
+company form and on the Market page. Changing a security's provider symbol drops
+its cached prices (imported CSV bars are kept).
+
 Providers live in `src/server/market/`; add one by implementing
 `MarketDataProvider` (`getQuote`, `getHistoricalPrices`). Keys, if a
-provider needs one, belong in server environment variables.
+provider needs one, belong in server environment variables (`FINMIND_TOKEN`, `FUGLE_API_KEY`).
 
 Layout
 ------

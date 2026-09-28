@@ -1,24 +1,4 @@
-import type {
-  AuditEntryDTO,
-  BarsResponse,
-  CatalystDTO,
-  DraftDTO,
-  EvidenceDTO,
-  NoteDTO,
-  ProjectBundleDTO,
-  ProjectDTO,
-  ProjectSummaryDTO,
-  ProviderDTO,
-  QuoteResponse,
-  ReviewDTO,
-  RevisionFull,
-  RevisionKind,
-  RevisionMeta,
-  SecurityDTO,
-  SeriesPoint,
-  TemplateDTO,
-  TradeDTO,
-} from '../../shared/api';
+import type { AuditEntryDTO, BarsResponse, CatalystDTO, DraftDTO, EvidenceDTO, NoteDTO, ProjectBundleDTO, ProjectDTO, ProjectSummaryDTO, ProviderDTO, QuoteResponse, ReviewDTO, RevisionFull, RevisionKind, RevisionMeta, SecurityDTO, SeriesPoint, SymbolSearchDTO, TemplateDTO, TradeDTO } from '../../shared/api';
 import type { ModelState } from '../../domain/model/types';
 import { t } from './i18n';
 
@@ -123,6 +103,7 @@ export const api = {
   deleteTemplate: (tid: string) => del<{ ok: true }>(`/api/templates/${tid}`),
 
   providers: () => get<ProviderDTO[]>('/api/market/providers'),
+  searchSymbols: (q: string) => get<SymbolSearchDTO>(`/api/symbols/search?q=${encodeURIComponent(q)}`),
   quote: (sid: string, provider?: string, refresh = false) => get<QuoteResponse>(`/api/securities/${sid}/quote?${new URLSearchParams({ ...(provider ? { provider } : {}), ...(refresh ? { refresh: '1' } : {}) })}`),
   bars: (sid: string, provider?: string, refresh = false) => get<BarsResponse>(`/api/securities/${sid}/bars?${new URLSearchParams({ ...(provider ? { provider } : {}), ...(refresh ? { refresh: '1' } : {}) })}`),
   importBars: (sid: string, fd: FormData) => post<{ imported: number; skipped: number; first: string; last: string }>(`/api/securities/${sid}/bars/import`, fd),

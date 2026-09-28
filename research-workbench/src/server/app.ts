@@ -13,6 +13,9 @@ import { CsvProvider } from './market/csv';
 import { DemoProvider } from './market/demo';
 import { MarketDataError, type MarketDataProvider } from './market/provider';
 import { MarketService } from './market/service';
+import { FinMindProvider } from './market/finmind';
+import { FugleProvider } from './market/fugle';
+import { loadFinMindDirectory, loadIsinDirectory, SymbolSearch } from './market/symbols';
 import { YahooChartProvider } from './market/yahoo';
 import { listAudit } from './repos/audit';
 import {
@@ -70,8 +73,10 @@ import { badRequest, HttpError, isDate, notFound, nowIso } from './util';
 
 export interface AppOptions {
   dataDir: string;
-  /** Override providers (tests). Defaults: yahoo, demo, csv. */
+  /** Override providers (tests). Defaults: yahoo, finmind, fugle (when FUGLE_API_KEY is set), demo, csv. */
   providers?: MarketDataProvider[];
+  /** Override the symbol search (tests). */
+  symbolSearch?: SymbolSearch;
   logger?: boolean;
   /** Directory with the built client to serve at / (optional). */
   clientDir?: string;
@@ -91,7 +96,17 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
   fs.mkdirSync(opts.dataDir, { recursive: true });
   const db = openDatabase(path.join(opts.dataDir, 'workbench.db'));
   const attachments = new AttachmentStore(db, path.join(opts.dataDir, 'attachments'));
-  const providers = opts.providers ?? [new YahooChartProvider(), new DemoProvider(), new CsvProvider()];
+  const yahoo = new YahooChartProvider();
+  const finmind = new FinMindProvider();
+  const fugleKey = process.env.FUGLE_API_KEY?.trim();
+  const providers = opts.providers ?? [yahoo, finmind, ...(fugleKey ? [new FugleProvider(fugleKey)] : []), new DemoProvider(), new CsvProvider()];
+  const symbols =
+    opts.symbolSearch ??
+    new SymbolSearch({
+      // FinMind's list covers listed, OTC and emerging stocks; TWSE's ISIN pages are the fallback.
+      taiwanDirectory: () => loadFinMindDirectory(finmind).catch(() => loadIsinDirectory()),
+      yahooSearch: (q) => yahoo.search(q),
+    });
   const market = new MarketService(db, Object.fromEntries(providers.map((p) => [p.id, p])));
   const app = Fastify({ logger: opts.logger ?? false, bodyLimit: 25 * 1024 * 1024 });
   await app.register(fastifyMultipart, { limits: { fileSize: opts.maxUploadBytes ?? 100 * 1024 * 1024, files: 20, fields: 50 } });
@@ -386,6 +401,7 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
 
   // ------------------------------------------------------------ market data
   app.get('/api/market/providers', async () => market.listProviders());
+  app.get<{ Querystring: { q?: string } }>('/api/symbols/search', async (req) => symbols.search(req.query.q ?? ''));
   app.get<{ Params: Params; Querystring: { provider?: string; refresh?: string } }>('/api/securities/:id/quote', async (req) => {
     const sec = getSecurity(db, req.params.id);
     return market.quote(sec, req.query.provider || sec.priceSource, req.query.refresh === '1');

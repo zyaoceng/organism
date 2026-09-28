@@ -1,5 +1,27 @@
 import type { Bar } from '../../domain/market/indicators';
+import { getJson, taiwanCode } from './http';
 import { MarketDataError, type MarketDataProvider, type ProviderQuote } from './provider';
+
+/**
+ * Symbols to try in order. Taiwan codes exist under `.TW` (TWSE) or `.TWO` (TPEx, including
+ * emerging stocks), and people often pick the wrong one, so both are tried.
+ */
+export function yahooCandidates(symbol: string): string[] {
+  const s = symbol.trim().toUpperCase();
+  const code = taiwanCode(s);
+  if (!code) return [s];
+  if (s.endsWith('.TWO')) return [s, `${code}.TW`];
+  return [`${code}.TW`, `${code}.TWO`];
+}
+
+export interface YahooSearchQuote {
+  symbol: string;
+  shortname?: string;
+  longname?: string;
+  exchange?: string;
+  exchDisp?: string;
+  quoteType?: string;
+}
 
 /**
  * Yahoo Finance chart endpoint (`/v8/finance/chart/{symbol}`).
@@ -13,7 +35,7 @@ import { MarketDataError, type MarketDataProvider, type ProviderQuote } from './
 export class YahooChartProvider implements MarketDataProvider {
   id = 'yahoo';
   label = 'Yahoo Finance (unofficial)';
-  description = 'Undocumented public chart endpoint. Works for US and Taiwan symbols (2301.TW) when reachable; may change or rate-limit without notice.';
+  description = 'Undocumented public chart endpoint. Works for US and Taiwan symbols (2301.TW, 7899.TWO) when reachable; for Taiwan codes both .TW and .TWO are tried. May change or rate-limit without notice.';
   synthetic = false;
   fetches = true;
 
@@ -56,7 +78,41 @@ export class YahooChartProvider implements MarketDataProvider {
     return result;
   }
 
-  async getQuote(symbol: string): Promise<ProviderQuote> {
+  /** Run `fn` on each candidate symbol until one is found. */
+  private async firstFound<T>(symbol: string, fn: (s: string) => Promise<T>): Promise<T> {
+    const tried = yahooCandidates(symbol);
+    let notFound: MarketDataError | null = null;
+    for (const s of tried) {
+      try {
+        return await fn(s);
+      } catch (e) {
+        if (!(e instanceof MarketDataError) || e.code !== 'NOT_FOUND') throw e;
+        notFound = e;
+      }
+    }
+    if (tried.length > 1) {
+      throw new MarketDataError('NOT_FOUND', `Yahoo Finance has no data for ${tried.join(' or ')}. Search by name to find the right code, or switch the price source to FinMind.`);
+    }
+    throw notFound!;
+  }
+
+  /** Yahoo's public search endpoint (company name or ticker → symbols). Same caveats as the chart endpoint. */
+  async search(query: string): Promise<YahooSearchQuote[]> {
+    const qs = new URLSearchParams({ q: query, quotesCount: '10', newsCount: '0', listsCount: '0' }).toString();
+    const { status, body } = await getJson<{ quotes?: YahooSearchQuote[] }>(this.fetchImpl, 'Yahoo Finance', `${this.baseUrl.replace('query1', 'query2')}/v1/finance/search?${qs}`);
+    if (status >= 400) throw new MarketDataError('PROVIDER', `Yahoo Finance search HTTP ${status}`);
+    return (body.quotes ?? []).filter((q) => q.symbol && (q.quoteType === 'EQUITY' || q.quoteType === 'ETF'));
+  }
+
+  getQuote(symbol: string): Promise<ProviderQuote> {
+    return this.firstFound(symbol, (s) => this.quoteOnce(s));
+  }
+
+  getHistoricalPrices(symbol: string, startDate: string, endDate: string): Promise<Bar[]> {
+    return this.firstFound(symbol, (s) => this.historyOnce(s, startDate, endDate));
+  }
+
+  private async quoteOnce(symbol: string): Promise<ProviderQuote> {
     const r = await this.call(symbol, { range: '5d', interval: '1d' });
     const price = r.meta.regularMarketPrice;
     const time = r.meta.regularMarketTime;
@@ -68,7 +124,7 @@ export class YahooChartProvider implements MarketDataProvider {
     };
   }
 
-  async getHistoricalPrices(symbol: string, startDate: string, endDate: string): Promise<Bar[]> {
+  private async historyOnce(symbol: string, startDate: string, endDate: string): Promise<Bar[]> {
     const p1 = Math.floor(Date.parse(`${startDate}T00:00:00Z`) / 1000);
     const p2 = Math.floor(Date.parse(`${endDate}T00:00:00Z`) / 1000) + 86_400;
     const r = await this.call(symbol, { period1: String(p1), period2: String(p2), interval: '1d', includeAdjustedClose: 'true', events: 'div,split' });

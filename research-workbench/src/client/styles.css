@@ -287,6 +287,8 @@ table.grid input.l { text-align: left; }
 .split { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 16px; align-items: start; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.two > *, .three > * { min-width: 0; }
+.two input, .two select, .three input, .three select { width: 100%; box-sizing: border-box; }
 .scen-card { border-top: 3px solid var(--base); }
 .scen-card.bear { border-top-color: var(--bear); }
 .scen-card.bull { border-top-color: var(--bull); }
@@ -317,3 +319,8 @@ table.grid input.l { text-align: left; }
 .proj-card:hover { border-color: var(--accent); }
 .svgchart text { font-size: 10.5px; fill: var(--sub); }
 details > summary { cursor: pointer; color: var(--sub); font-size: 12px; }
+.symbol-picker { display: flex; flex-direction: column; gap: 6px; }
+.symbol-results { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); max-height: 260px; overflow: auto; }
+.symbol-hit { display: flex; align-items: baseline; gap: 8px; padding: 6px 10px; border: 0; border-bottom: 1px solid var(--line); background: #fff; text-align: left; cursor: pointer; flex-wrap: wrap; }
+.symbol-hit:last-child { border-bottom: 0; }
+.symbol-hit:hover { background: var(--accent-bg); }

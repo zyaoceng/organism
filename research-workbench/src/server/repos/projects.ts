@@ -207,6 +207,11 @@ export function updateSecurity(db: DB, id: string, patch: Partial<SecurityInput>
     next.priceSource,
     id,
   );
+  if (next.apiSymbol !== before.apiSymbol) {
+    // Cached prices belong to the old symbol; imported CSV bars are kept.
+    db.prepare("DELETE FROM price_bars WHERE security_id = ? AND provider <> 'csv'").run(id);
+    db.prepare("DELETE FROM quotes WHERE security_id = ? AND provider <> 'csv'").run(id);
+  }
   audit(db, before.projectId, 'security', id, 'update', before, next);
   return getSecurity(db, id);
 }

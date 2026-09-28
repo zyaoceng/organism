@@ -222,6 +222,30 @@ export interface TemplateDTO {
   createdAt: string | null;
 }
 
+/** One candidate from the symbol search (code or company name → the identifiers a provider needs). */
+export interface SymbolMatchDTO {
+  ticker: string;
+  name: string;
+  /** TWSE, TPEx, Emerging (興櫃), NASDAQ, NYSE, or the provider's exchange name. */
+  exchange: string;
+  board: 'listed' | 'otc' | 'emerging' | 'other';
+  currency: string;
+  /** Symbol to store on the security; Taiwan codes carry the Yahoo suffix (.TW / .TWO). */
+  apiSymbol: string;
+  /** Price source that is expected to cover this security. */
+  suggestedProvider: string;
+  industry?: string;
+  /** Where the match came from: taiwan-directory or yahoo-search. */
+  source: string;
+}
+
+export interface SymbolSearchDTO {
+  query: string;
+  results: SymbolMatchDTO[];
+  /** Sources that failed; results from the others are still returned. */
+  errors: string[];
+}
+
 export interface ProviderDTO {
   id: string;
   label: string;

@@ -12,6 +12,7 @@ import { openDatabase } from './db/connection';
 import { CsvProvider } from './market/csv';
 import { DemoProvider } from './market/demo';
 import { MarketDataError, type MarketDataProvider } from './market/provider';
+import { SymbolSearch } from './market/symbols';
 
 let ctx: AppContext;
 let dir: string;
@@ -32,7 +33,11 @@ class FailingProvider implements MarketDataProvider {
 
 beforeEach(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-test-'));
-  ctx = await buildApp({ dataDir: dir, providers: [new DemoProvider(() => '2026-09-25'), new CsvProvider(), new FailingProvider()] });
+  ctx = await buildApp({
+    dataDir: dir,
+    providers: [new DemoProvider(() => '2026-09-25'), new CsvProvider(), new FailingProvider()],
+    symbolSearch: new SymbolSearch({ taiwanDirectory: async () => [{ code: '7899', name: '景美', board: 'emerging' }] }),
+  });
 });
 afterEach(async () => {
   await ctx.app.close();
@@ -465,5 +470,22 @@ describe('catalysts, notes, reviews, templates, export, migrations', () => {
     const tables = (b.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all() as { name: string }[]).map((r) => r.name);
     expect(tables).toEqual(expect.arrayContaining(['projects', 'revisions', 'drafts', 'evidence', 'attachments', 'catalysts', 'trades', 'price_bars', 'quotes', 'audit_log']));
     b.close();
+  });
+});
+
+describe('symbol search and security identity', () => {
+  it('searches by name and drops cached prices when the provider symbol changes', async () => {
+    const r = await api<{ results: { ticker: string; apiSymbol: string; suggestedProvider: string }[] }>('GET', `/api/symbols/search?q=${encodeURIComponent('景美')}`);
+    expect(r.results[0]).toMatchObject({ ticker: '7899', apiSymbol: '7899.TWO', suggestedProvider: 'finmind' });
+
+    const b = await newProject();
+    const sec = b.securities[0];
+    expect((await api<BarsResponse>('GET', `/api/securities/${sec.id}/bars`)).bars.length).toBeGreaterThan(0);
+    await api('PATCH', `/api/securities/${sec.id}`, { exchange: 'TPEx' });
+    const kept = ctx.db.prepare('SELECT COUNT(*) AS n FROM price_bars WHERE security_id = ?').get(sec.id) as { n: number };
+    expect(kept.n).toBeGreaterThan(0);
+    await api('PATCH', `/api/securities/${sec.id}`, { apiSymbol: '2301.TWO' });
+    const left = ctx.db.prepare('SELECT COUNT(*) AS n FROM price_bars WHERE security_id = ?').get(sec.id) as { n: number };
+    expect(left.n).toBe(0);
   });
 });

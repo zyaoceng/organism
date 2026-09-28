@@ -53,8 +53,27 @@ export const records: Record<string, string> = {
   'Demo (synthetic)': '示範（模擬）',
   'Generated random-walk prices for offline use. Not real market data.': '離線使用的隨機漫步模擬股價，非真實市場資料。',
   'Yahoo Finance (unofficial)': 'Yahoo Finance（非官方）',
-  'Undocumented public chart endpoint. Works for US and Taiwan symbols (2301.TW) when reachable; may change or rate-limit without notice.':
-    '未公開文件的公開圖表端點。可連線時適用美股與台股代號（2301.TW）；可能隨時變更或限流。',
+  'Undocumented public chart endpoint. Works for US and Taiwan symbols (2301.TW, 7899.TWO) when reachable; for Taiwan codes both .TW and .TWO are tried. May change or rate-limit without notice.':
+    '未公開文件的公開圖表端點。可連線時適用美股與台股代號（2301.TW、7899.TWO）；台股代號會自動試 .TW 和 .TWO。可能隨時變更或限流。',
+  'FinMind (Taiwan listed, OTC and emerging)': 'FinMind（台股上市、上櫃、興櫃）',
+  'Free Taiwan stock data covering 上市, 上櫃 and 興櫃. Daily prices; the quote is the latest daily close. Optional FINMIND_TOKEN raises the request limit.':
+    '免費的台股資料，涵蓋上市、上櫃、興櫃。提供日線股價，報價是最近一天的收盤價。設定 FINMIND_TOKEN 可以提高請求上限。',
+  'Fugle (Taiwan, API key)': '富果 Fugle（台股，需要 API 金鑰）',
+  'Fugle (富果) market data API: real-time quote and daily candles for Taiwan stocks. Uses FUGLE_API_KEY.': '富果行情 API：台股即時報價和日 K。使用 FUGLE_API_KEY。',
+  // symbol search
+  'Search by code or company name, e.g. 7899, 景美, NVIDIA': '輸入股票代號或公司名稱，例如 7899、景美、NVIDIA',
+  'Searching…': '搜尋中…',
+  'No match for “{q}”. Check the code, or try the company name.': '找不到「{q}」。請確認代號，或改用公司名稱搜尋。',
+  '{symbol} via {provider}': '{symbol}，來源 {provider}',
+  'Not searched: {error}': '這個來源沒搜到：{error}',
+  'Listed (上市)': '上市',
+  'OTC (上櫃)': '上櫃',
+  'Emerging (興櫃)': '興櫃',
+  Emerging: '興櫃',
+  ' Use “Find by code or name” on the right to pick the correct code or another price source.': '請用右邊的「用代號或名稱搜尋」選正確的代號或換一個股價來源。',
+  'Now using {symbol} ({name}) from {provider}': '已改用 {symbol}（{name}），來源 {provider}',
+  '🔍 Find by code or name': '🔍 用代號或名稱搜尋',
+  'Find the company (fills code, exchange, symbol and price source)': '搜尋公司（自動填入代號、交易所、資料來源代號和股價來源）',
 
   // ---------------------------------------------------------------- Trades page
   'Buy {price}': '買進 {price}',
