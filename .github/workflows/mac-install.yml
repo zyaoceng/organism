@@ -1,0 +1,177 @@
+# Runs the Mac installer (research-workbench/scripts/mac) for real on GitHub's macOS runners:
+# Node download + checksum, npm ci, build, LaunchAgent bootstrap, launcher app, --doctor, an update to
+# the published commit with a data import, and --uninstall. If the runner does not allow
+# `launchctl bootstrap gui/<uid>`, the installer health-checks the server directly instead and the job
+# reports launchd as SKIPPED (a warning annotation and the step summary), never as verified.
+name: Mac install
+
+on:
+  push:
+    branches: [claude/vibrant-thompson-s3npyj]
+    paths:
+      - 'research-workbench/**'
+      - '.github/workflows/mac-install.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mac-install-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dry-run:
+    name: installer dry run (ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint the starter and check the Node scripts parse
+        run: |
+          bash -n research-workbench/scripts/mac/install.sh
+          shellcheck -s bash research-workbench/scripts/mac/install.sh
+          for f in research-workbench/scripts/mac/install.mjs research-workbench/scripts/mac/lib/*.mjs; do node --check "$f"; done
+      - name: install.sh --dry-run --no-launchd --source-dir (downloads and verifies Node, changes nothing)
+        run: bash research-workbench/scripts/mac/install.sh --dry-run --no-launchd --source-dir "$GITHUB_WORKSPACE/research-workbench"
+      - name: The dry run left no trace
+        run: |
+          test ! -e "$HOME/ResearchWorkbench"
+          test ! -e "$HOME/.local/share/research-workbench"
+
+  macos:
+    name: install on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      WB_APP: 研究工作台
+      WB_LABEL: com.researchworkbench
+    steps:
+      - uses: actions/checkout@v4
+
+      # macOS's own /bin/bash (3.2) in the same `-c "$(…)" -- <args>` form as the one-liner users paste;
+      # the runner images put a newer Homebrew bash first on PATH
+      - name: Install from this checkout
+        id: install
+        env:
+          WB_SOURCE_DIR: ${{ github.workspace }}/research-workbench
+        run: |
+          /bin/bash --version | head -1
+          /bin/bash -c "$(cat research-workbench/scripts/mac/install.sh)" -- --yes
+
+      - name: The LaunchAgent serves /api/health
+        env:
+          LAUNCHD: ${{ steps.install.outputs.launchd }}
+        run: |
+          if [ "$LAUNCHD" = "ok" ]; then
+            curl -fsS http://127.0.0.1:4310/api/health
+            echo
+            launchctl print "gui/$(id -u)/$WB_LABEL" | head -40
+            echo "### launchd: verified on ${{ matrix.os }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning title=launchd SKIPPED::launchctl bootstrap was not possible on ${{ matrix.os }} (installer output: '$LAUNCHD'); the LaunchAgent is NOT verified, the server was health-checked directly"
+            echo "### launchd: SKIPPED on ${{ matrix.os }} (not verified)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Files are in place (plist, links, folders, launcher)
+        run: |
+          plutil -lint "$HOME/Library/LaunchAgents/$WB_LABEL.plist"
+          plutil -p "$HOME/Library/LaunchAgents/$WB_LABEL.plist"
+          test -L "$HOME/ResearchWorkbench/current"
+          test -L "$HOME/ResearchWorkbench/runtime/current"
+          cat "$HOME/ResearchWorkbench/current/version.json"
+          test -d "$HOME/Library/Application Support/ResearchWorkbench/backups"
+          test -d "$HOME/Library/Logs/ResearchWorkbench"
+          test -f "$HOME/Applications/$WB_APP.app/Contents/Resources/Scripts/main.scpt"
+          osadecompile "$HOME/Applications/$WB_APP.app/Contents/Resources/Scripts/main.scpt"
+
+      - name: Doctor
+        env:
+          WB_SOURCE_DIR: ${{ github.workspace }}/research-workbench
+          LAUNCHD: ${{ steps.install.outputs.launchd }}
+        run: |
+          if /bin/bash research-workbench/scripts/mac/install.sh --doctor; then exit 0; fi
+          if [ "$LAUNCHD" = "ok" ]; then exit 1; fi
+          echo "::warning title=doctor::doctor printed FAIL lines because launchd was skipped on this runner"
+
+      - name: Installer unit tests on macOS (bsdtar, plutil)
+        run: |
+          cd "$HOME/ResearchWorkbench/current"
+          PATH="$HOME/ResearchWorkbench/runtime/current/bin:$PATH" npx vitest run scripts/mac
+
+      - name: Put a Codespaces-style data archive (the M0 command) in ~/Downloads
+        run: |
+          export PATH="$HOME/ResearchWorkbench/runtime/current/bin:$PATH"
+          app="$HOME/ResearchWorkbench/current"
+          src="$RUNNER_TEMP/codespace"
+          mkdir -p "$src/data" "$HOME/Downloads"
+          (cd "$app" && WORKBENCH_DATA_DIR="$src/data" node --import tsx src/server/seedDemo.ts)
+          cd "$src"
+          node -e "const D=require('$app/node_modules/better-sqlite3');const d=new D('data/workbench.db');d.backup('wb.db').then(()=>{d.close();console.log('ok')})"
+          tar czf "$HOME/Downloads/wb-data.tgz" wb.db $(ls -d data/attachments 2>/dev/null)
+
+      - name: Update to this commit as published on GitHub (codeload + raw), importing the archive
+        id: update
+        env:
+          WB_RELEASE_COMMIT: ${{ github.sha }}
+        run: /bin/bash research-workbench/scripts/mac/install.sh --yes
+
+      - name: The update switched versions, kept the previous one and imported the data
+        env:
+          LAUNCHD: ${{ steps.update.outputs.launchd }}
+        run: |
+          short="$(printf '%s' "$GITHUB_SHA" | cut -c1-7)"
+          test "$(readlink "$HOME/ResearchWorkbench/current")" = "app-$short"
+          test -d "$HOME/ResearchWorkbench/app-$short-local"
+          test ! -e "$HOME/Downloads/wb-data.tgz"
+          ls "$HOME/Downloads"/wb-data.imported-*.tgz
+          if [ "$LAUNCHD" = "ok" ]; then
+            curl -fsS http://127.0.0.1:4310/api/projects | "$HOME/ResearchWorkbench/runtime/current/bin/node" -e \
+              'let s="";process.stdin.on("data",(d)=>(s+=d)).on("end",()=>{const n=JSON.parse(s).length;console.log("companies after import:",n);if(n<1)process.exit(1)})'
+          else
+            echo "::warning title=launchd SKIPPED::not verified after the update either"
+          fi
+
+      - name: Doctor after the update
+        env:
+          LAUNCHD: ${{ steps.update.outputs.launchd }}
+        run: |
+          node="$HOME/ResearchWorkbench/runtime/current/bin/node"
+          if "$node" "$HOME/ResearchWorkbench/current/scripts/mac/install.mjs" --doctor; then exit 0; fi
+          if [ "$LAUNCHD" = "ok" ]; then exit 1; fi
+          echo "::warning title=doctor::doctor printed FAIL lines because launchd was skipped on this runner"
+
+      - name: Collect logs
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/wb-logs"
+          cp -R "$HOME/Library/Logs/ResearchWorkbench/." "$RUNNER_TEMP/wb-logs/" 2>/dev/null || true
+          cp "$HOME/Library/LaunchAgents/$WB_LABEL.plist" "$RUNNER_TEMP/wb-logs/" 2>/dev/null || true
+          launchctl print "gui/$(id -u)/$WB_LABEL" > "$RUNNER_TEMP/wb-logs/launchctl-print.txt" 2>&1 || true
+          ls -la "$HOME/ResearchWorkbench" > "$RUNNER_TEMP/wb-logs/ResearchWorkbench-ls.txt" 2>&1 || true
+
+      - name: Upload logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-workbench-logs-${{ matrix.os }}
+          path: ${{ runner.temp }}/wb-logs
+          if-no-files-found: warn
+
+      - name: Uninstall (keeps data)
+        if: always()
+        env:
+          WB_SOURCE_DIR: ${{ github.workspace }}/research-workbench
+        run: |
+          /bin/bash research-workbench/scripts/mac/install.sh --uninstall --yes
+          sleep 2
+          test ! -e "$HOME/Library/LaunchAgents/$WB_LABEL.plist"
+          test ! -e "$HOME/Applications/$WB_APP.app"
+          test ! -e "$HOME/ResearchWorkbench"
+          if launchctl print "gui/$(id -u)/$WB_LABEL" >/dev/null 2>&1; then echo "the job is still loaded"; exit 1; fi
+          if curl -fs http://127.0.0.1:4310/api/health; then echo "still serving after uninstall"; exit 1; fi
+          if [ -d "$HOME/Library/Application Support/ResearchWorkbench" ]; then echo "data kept as intended"; fi

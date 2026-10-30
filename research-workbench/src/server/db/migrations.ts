@@ -231,9 +231,15 @@ CREATE INDEX audit_entity ON audit_log(entity, entity_id);
   },
 ];
 
+/** Apply pending migrations. Refuses a database written by a newer version of the app. */
 export function migrate(db: Database.Database): number[] {
   db.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)');
   const applied = new Set((db.prepare('SELECT version FROM schema_migrations').all() as { version: number }[]).map((r) => r.version));
+  const known = Math.max(...MIGRATIONS.map((m) => m.version));
+  const newest = Math.max(0, ...applied);
+  if (newest > known) {
+    throw new Error(`This database was created by a newer version of Research Workbench (schema v${newest}; this version knows up to v${known}). Update the app before opening it.`);
+  }
   const ran: number[] = [];
   for (const m of MIGRATIONS) {
     if (applied.has(m.version)) continue;

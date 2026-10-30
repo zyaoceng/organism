@@ -15,15 +15,15 @@ export const LANGS: { value: Lang; label: string }[] = [
 const STORAGE_KEY = 'workbench.lang';
 const listeners = new Set<() => void>();
 
+/** The saved choice, else Chinese: the app is set up for a Taiwanese user. */
 function initialLang(): Lang {
   try {
     const saved = globalThis.localStorage?.getItem(STORAGE_KEY);
     if (saved === 'en' || saved === 'zh-TW') return saved;
   } catch {
-    // storage blocked: fall through to the browser language
+    // storage blocked: use the default
   }
-  const nav = typeof navigator !== 'undefined' ? navigator.language : 'en';
-  return nav?.toLowerCase().startsWith('zh') ? 'zh-TW' : 'en';
+  return 'zh-TW';
 }
 
 let current: Lang = initialLang();

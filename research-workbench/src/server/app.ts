@@ -8,7 +8,7 @@ import type { ModelState, ScenarioId } from '../domain/model/types';
 import { defaultScaleFor, STANDARD_TEMPLATE_ID, STANDARD_TEMPLATE_NAME, standardTemplate, structureOnly } from '../domain/templates/standard';
 import type { FrozenOutputs } from '../domain/calc/engine';
 import type { ProjectBundleDTO, SeriesPoint } from '../shared/api';
-import { openDatabase, type DB } from './db/connection';
+import { openDatabase, schemaVersion, type DB } from './db/connection';
 import { CsvProvider } from './market/csv';
 import { DemoProvider } from './market/demo';
 import { MarketDataError, type MarketDataProvider } from './market/provider';
@@ -67,9 +67,11 @@ import {
   updateTrade,
   type EvidenceInput,
 } from './repos/records';
+import { BackupService } from './services/backup';
 import { commitDraft } from './services/commit';
 import { AttachmentStore, INLINE_SAFE, sanitizeFilename } from './storage/attachments';
 import { badRequest, HttpError, isDate, notFound, nowIso } from './util';
+import { APP_ROOT, readVersion } from './version';
 
 export interface AppOptions {
   dataDir: string;
@@ -77,10 +79,25 @@ export interface AppOptions {
   providers?: MarketDataProvider[];
   /** Override the symbol search (tests). */
   symbolSearch?: SymbolSearch;
-  logger?: boolean;
+  /** Fastify logger: false, true (info) or a level such as { level: 'warn' }. */
+  logger?: boolean | { level: string };
   /** Directory with the built client to serve at / (optional). */
   clientDir?: string;
   maxUploadBytes?: number;
+  /** Daily and pre-migration backups. Default <dataDir>/backups. */
+  backupDir?: string;
+  /** Run the daily backup check at startup and every hour (main.ts). Default false. */
+  startBackups?: boolean;
+  /**
+   * Accepted Host headers ("127.0.0.1:4310"). When set, other hosts are refused (DNS rebinding), and a
+   * request with an Origin header must come from http://<allowed host> or one of allowedOrigins.
+   * Unset (tests, app.inject): no check.
+   */
+  allowedHosts?: string[];
+  /** Extra origins accepted when allowedHosts is set, e.g. 'app://obsidian.md'. */
+  allowedOrigins?: string[];
+  /** Where version.json lives. Default: the research-workbench directory. */
+  appRoot?: string;
 }
 
 export interface AppContext {
@@ -88,13 +105,18 @@ export interface AppContext {
   db: DB;
   attachments: AttachmentStore;
   market: MarketService;
+  backups: BackupService;
 }
 
 type Params = { id: string };
 
 export async function buildApp(opts: AppOptions): Promise<AppContext> {
+  const startedAt = Date.now();
   fs.mkdirSync(opts.dataDir, { recursive: true });
-  const db = openDatabase(path.join(opts.dataDir, 'workbench.db'));
+  const dbFile = path.join(opts.dataDir, 'workbench.db');
+  const backupDir = opts.backupDir ?? path.join(opts.dataDir, 'backups');
+  const version = readVersion(opts.appRoot ?? APP_ROOT);
+  const db = openDatabase(dbFile, { backupDir });
   const attachments = new AttachmentStore(db, path.join(opts.dataDir, 'attachments'));
   const yahoo = new YahooChartProvider();
   const finmind = new FinMindProvider();
@@ -109,7 +131,19 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
     });
   const market = new MarketService(db, Object.fromEntries(providers.map((p) => [p.id, p])));
   const app = Fastify({ logger: opts.logger ?? false, bodyLimit: 25 * 1024 * 1024 });
+  const backups = new BackupService(db, backupDir, { onError: (err) => app.log.error({ err }, 'daily backup failed') });
   await app.register(fastifyMultipart, { limits: { fileSize: opts.maxUploadBytes ?? 100 * 1024 * 1024, files: 20, fields: 50 } });
+
+  if (opts.allowedHosts) {
+    // The API has no login; only the local app (or a listed client) may call it, never another web page.
+    const hosts = new Set(opts.allowedHosts.map((h) => h.toLowerCase()));
+    const origins = new Set([...[...hosts].map((h) => `http://${h}`), ...(opts.allowedOrigins ?? []).map((o) => o.toLowerCase())]);
+    app.addHook('onRequest', async (req, reply) => {
+      if (!hosts.has((req.headers.host ?? '').toLowerCase())) return reply.status(403).send({ error: 'Host not allowed' });
+      const origin = req.headers.origin;
+      if (origin !== undefined && !origins.has(origin.toLowerCase())) return reply.status(403).send({ error: 'Origin not allowed' });
+    });
+  }
 
   app.setErrorHandler((err, req, reply) => {
     if (err instanceof HttpError) return reply.status(err.status).send({ error: err.message, details: err.details ?? null });
@@ -151,7 +185,20 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
   const projectOf = (projectId: string) => getProject(db, projectId);
 
   // ------------------------------------------------------------ health
-  app.get('/api/health', async () => ({ ok: true, time: nowIso() }));
+  app.get('/api/health', async () => ({ ok: true, time: nowIso(), version }));
+
+  app.get('/api/diagnostics', async () => ({
+    version,
+    node: process.version,
+    platform: process.platform,
+    dataDir: path.resolve(opts.dataDir),
+    dbFile: path.resolve(dbFile),
+    schemaVersion: schemaVersion(db),
+    backups: backups.status(),
+    uptimeSec: Math.round((Date.now() - startedAt) / 1000),
+    // last connection of each AI client (M3)
+    clients: [],
+  }));
 
   // ------------------------------------------------------------ projects
   app.get('/api/projects', async () => listProjectSummaries(db));
@@ -426,6 +473,10 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
     await app.register(fastifyStatic, { root: path.resolve(opts.clientDir), prefix: '/' });
   }
 
-  app.addHook('onClose', async () => db.close());
-  return { app, db, attachments, market };
+  app.addHook('onClose', async () => {
+    await backups.stop();
+    db.close();
+  });
+  if (opts.startBackups) backups.start();
+  return { app, db, attachments, market, backups };
 }

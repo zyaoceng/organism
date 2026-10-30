@@ -41,6 +41,15 @@ if (!BASE) {
 const launch = { executablePath: process.env.CHROME ?? (fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined) };
 const browser = await chromium.launch(launch);
 const page = await browser.newPage({ viewport: { width: 1680, height: 1050 }, locale: 'en-US' });
+// The app opens in Chinese by default; these checks are written against the English interface.
+// Only when nothing is saved, because T20 switches to Chinese and reloads.
+await page.addInitScript(() => {
+  try {
+    if (!localStorage.getItem('workbench.lang')) localStorage.setItem('workbench.lang', 'en');
+  } catch {
+    /* storage blocked */
+  }
+});
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('dialog', (d) => d.accept());

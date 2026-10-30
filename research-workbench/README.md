@@ -40,9 +40,12 @@ npm run seed:demo
 
 | Environment variable | Default | Meaning |
 |---|---|---|
-| `WORKBENCH_DATA_DIR` | `./data` | SQLite file (`workbench.db`) and uploaded files (`attachments/`) |
+| `WORKBENCH_DATA_DIR` | `./data` | SQLite file (`workbench.db`), uploaded files (`attachments/`) and `backups/` (daily copies in `daily/`, kept 14 days + 8 weeks; `pre-v<N>-…` before a schema migration and `pre-import-…` before a data import, never deleted) |
 | `WORKBENCH_PORT` | `4310` | API port (the dev UI proxies `/api` to it) |
 | `WORKBENCH_HOST` | `127.0.0.1` | Bind address. V1 has no login, so keep it local or put an authenticating proxy in front |
+| `WORKBENCH_ALLOWED_HOSTS` | (none) | Extra `host:port` names, comma-separated, that requests may use. The server accepts only `127.0.0.1:<port>` and `localhost:<port>` (plus `WORKBENCH_HOST`) and refuses requests from other web origins |
+| `WORKBENCH_LOG_LEVEL` | `info` | Server log level (`warn`, `error`, `debug`, …) |
+| `WORKBENCH_QUIET` | (unset) | Any value turns server logging off |
 
 Back up by copying the data directory. Everything in it is yours; nothing is
 sent anywhere except price requests to the chosen market-data provider.
@@ -96,7 +99,7 @@ Language
 
 The interface switches between English and Traditional Chinese (中文 / English
 buttons in the sidebar and on the company list). The choice is remembered in
-the browser; the first visit follows the browser language. New companies built
+the browser; the first visit opens in Chinese. New companies built
 from the standard template get Chinese node names when Chinese is on. Your own
 text (node names, notes, evidence) is never translated.
 

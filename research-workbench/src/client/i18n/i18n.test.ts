@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FUNCTIONS } from '../../domain/formula/parser';
 import { describeChange } from '../../domain/revision/describe';
 import { LINK_RELATIONS, NODE_ROLES, SCENARIOS } from '../../domain/model/types';
@@ -80,6 +80,24 @@ describe('zh-TW dictionary', () => {
       ...FUNCTIONS.map((x) => x.help),
     ];
     expect(labels.filter((l) => !(l in zhTW))).toEqual([]);
+  });
+});
+
+describe('initial language', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  async function freshLang(saved: string | null) {
+    vi.stubGlobal('localStorage', { getItem: () => saved, setItem: () => {} });
+    vi.resetModules();
+    const mod = await import('../lib/i18n');
+    return mod.getLang();
+  }
+
+  it('is Chinese when nothing is saved, and the saved choice otherwise', async () => {
+    expect(await freshLang(null)).toBe('zh-TW');
+    expect(await freshLang('en')).toBe('en');
+    expect(await freshLang('zh-TW')).toBe('zh-TW');
+    expect(await freshLang('fr')).toBe('zh-TW');
   });
 });
 

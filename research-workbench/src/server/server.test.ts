@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -13,6 +14,7 @@ import { CsvProvider } from './market/csv';
 import { DemoProvider } from './market/demo';
 import { MarketDataError, type MarketDataProvider } from './market/provider';
 import { SymbolSearch } from './market/symbols';
+import { APP_ROOT, readVersion } from './version';
 
 let ctx: AppContext;
 let dir: string;
@@ -488,4 +490,106 @@ describe('symbol search and security identity', () => {
     const left = ctx.db.prepare('SELECT COUNT(*) AS n FROM price_bars WHERE security_id = ?').get(sec.id) as { n: number };
     expect(left.n).toBe(0);
   });
+});
+
+describe('host and origin check', () => {
+  it('accepts any host and origin when allowedHosts is not set', async () => {
+    const res = await ctx.app.inject({ method: 'GET', url: '/api/health', headers: { host: 'anything.example:80', origin: 'https://elsewhere.example' } });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('refuses other hosts (DNS rebinding) and cross-site origins', async () => {
+    const g = await buildApp({ dataDir: path.join(dir, 'guarded'), providers: [new DemoProvider()], allowedHosts: ['127.0.0.1:4310', 'localhost:4310'], allowedOrigins: ['app://obsidian.md'] });
+    try {
+      const get = (host: string) => g.app.inject({ method: 'GET', url: '/api/health', headers: { host } });
+      expect((await get('127.0.0.1:4310')).statusCode).toBe(200);
+      expect((await get('LOCALHOST:4310')).statusCode).toBe(200);
+      const rebound = await get('attacker.example:4310');
+      expect(rebound.statusCode).toBe(403);
+      expect(rebound.json()).toEqual({ error: 'Host not allowed' });
+      expect((await get('127.0.0.1:4311')).statusCode).toBe(403);
+
+      const create = (origin: string) =>
+        g.app.inject({ method: 'POST', url: '/api/projects', headers: { host: '127.0.0.1:4310', origin }, payload: { name: 'X', security: { ticker: '1', priceSource: 'demo' } } });
+      expect((await create('http://127.0.0.1:4310')).statusCode).toBe(200);
+      expect((await create('http://localhost:4310')).statusCode).toBe(200);
+      expect((await create('app://obsidian.md')).statusCode).toBe(200);
+      const cross = await create('https://evil.example');
+      expect(cross.statusCode).toBe(403);
+      expect(cross.json()).toEqual({ error: 'Origin not allowed' });
+      expect((await create('null')).statusCode).toBe(403);
+      expect((await create('http://localhost:5173')).statusCode).toBe(403);
+      const list = await g.app.inject({ method: 'GET', url: '/api/projects', headers: { host: 'localhost:4310' } });
+      expect(list.json()).toHaveLength(3);
+    } finally {
+      await g.app.close();
+    }
+  });
+});
+
+describe('version and diagnostics', () => {
+  it('reports the installed version, data location, schema and backups', async () => {
+    const appRoot = path.join(dir, 'app-abc123');
+    fs.mkdirSync(appRoot);
+    fs.writeFileSync(path.join(appRoot, 'version.json'), JSON.stringify({ commit: 'abc123', installedAt: '2026-10-30T08:00:00.000Z' }));
+    const dataDir = path.join(dir, 'diag');
+    const d = await buildApp({ dataDir, appRoot, startBackups: true, providers: [new DemoProvider()] });
+    try {
+      await d.backups.maybeBackup(); // the startup backup
+      const version = { commit: 'abc123', installedAt: '2026-10-30T08:00:00.000Z' };
+      expect((await d.app.inject({ method: 'GET', url: '/api/health' })).json()).toMatchObject({ ok: true, version });
+      const diag = (await d.app.inject({ method: 'GET', url: '/api/diagnostics' })).json();
+      expect(diag).toMatchObject({
+        version,
+        node: process.version,
+        platform: process.platform,
+        dataDir,
+        dbFile: path.join(dataDir, 'workbench.db'),
+        schemaVersion: 1,
+        backups: { count: 1, dir: path.join(dataDir, 'backups'), lastError: null },
+        clients: [],
+      });
+      expect(diag.backups.lastBackupAt).toEqual(expect.any(String));
+      expect(diag.uptimeSec).toBeGreaterThanOrEqual(0);
+    } finally {
+      await d.app.close();
+    }
+    // a development checkout has no version.json; backups are off unless asked for
+    expect(readVersion(path.join(dir, 'nowhere'))).toEqual({ commit: 'dev' });
+    fs.writeFileSync(path.join(appRoot, 'version.json'), '{ broken');
+    expect(readVersion(appRoot)).toEqual({ commit: 'dev' });
+    expect(fs.existsSync(path.join(dir, 'backups'))).toBe(false);
+    expect(ctx.backups.status().count).toBe(0);
+  });
+});
+
+describe('main.ts', () => {
+  it('closes the database and exits 0 on SIGTERM', async () => {
+    const dataDir = path.join(dir, 'main');
+    const port = 5300 + Math.floor(Math.random() * 600);
+    const child = spawn(process.execPath, ['--import', 'tsx', 'src/server/main.ts'], {
+      cwd: APP_ROOT,
+      env: { ...process.env, WORKBENCH_DATA_DIR: dataDir, WORKBENCH_PORT: String(port), WORKBENCH_QUIET: '1' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let output = '';
+    const exited = new Promise<number | null>((resolve) => child.on('exit', (code) => resolve(code)));
+    await new Promise<void>((resolve, reject) => {
+      child.stdout.on('data', (b: Buffer) => {
+        output += b;
+        if (output.includes('Research Workbench API on')) resolve();
+      });
+      child.stderr.on('data', (b: Buffer) => (output += b));
+      void exited.then(() => reject(new Error(`server exited early: ${output}`)));
+    });
+    const health = await fetch(`http://127.0.0.1:${port}/api/health`);
+    expect(health.status).toBe(200);
+    const cross = await fetch(`http://127.0.0.1:${port}/api/health`, { headers: { Origin: 'https://evil.example' } });
+    expect(cross.status).toBe(403);
+    child.kill('SIGTERM');
+    expect(await exited).toBe(0);
+    // closed cleanly: the write-ahead log was checkpointed and removed; the startup backup is complete
+    expect(fs.readdirSync(dataDir).sort()).toEqual(['attachments', 'backups', 'workbench.db']);
+    expect(fs.readdirSync(path.join(dataDir, 'backups', 'daily'))).toEqual([expect.stringMatching(/^workbench-\d{8}-\d{6}\.db$/)]);
+  }, 30_000);
 });
