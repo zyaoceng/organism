@@ -207,9 +207,11 @@ Modal dialogs are avoided; editing happens inline or in the inspector.
 ## 7. Non-goals for V1
 
 Automated SEC / MOPS parsing, AI research agent, consensus ingestion,
-portfolio management, advanced VRVP, ATR / position-size optimization,
-broker integration, real-time trading, SaaS features, billing, permissions,
-social features. Extension points are documented in `ARCHITECTURE.md`.
+portfolio optimisation and position sizing (the cross-company dashboard and
+trade log only report positions, R and P&L per currency), advanced VRVP, ATR
+optimisation, broker integration, real-time trading, SaaS features, billing,
+permissions, social features. Extension points are documented in
+`ARCHITECTURE.md`.
 
 ## 8. Acceptance tests (V1)
 

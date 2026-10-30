@@ -17,12 +17,13 @@ import {
   type AiSessionDTO,
   type CatalystDTO,
   type CommitPreviewDTO,
+  type DashboardDTO,
   type DraftMetaDTO,
   type DraftOpsResponse,
   type DraftPendingDTO,
   type EvidenceDTO,
   type ProjectBundleDTO,
-  type ProjectSummaryDTO,
+  type RefreshRunDTO,
   type RevisionFull,
   type RevisionMeta,
   type SecurityMatchDTO,
@@ -31,9 +32,24 @@ import {
   type TradeCloseResponse,
   type TradeDTO,
   type TradeRecordResponse,
+  type TradesJournalDTO,
 } from '../shared/api';
-import { resolveCompany } from './company';
-import { errorText, formatCommitted, formatCompanyList, formatCompanySummary, formatModelOutline, formatOpsResult, formatPreview, formatSession, formatTrade, siteUrl } from './format';
+import { companyLabel, resolveCompany } from './company';
+import {
+  errorText,
+  formatCommitted,
+  formatCompanyList,
+  formatCompanySummary,
+  formatModelOutline,
+  formatOpsResult,
+  formatPreview,
+  formatRefreshStarted,
+  formatRefreshStatus,
+  formatSession,
+  formatTrade,
+  formatTradeLog,
+  siteUrl,
+} from './format';
 import { ToolError, type Http, type RequestOptions } from './http';
 
 export const TOOL_NAMES = [
@@ -47,6 +63,9 @@ export const TOOL_NAMES = [
   'record_trade',
   'close_trade',
   'save_session_summary',
+  'list_trades',
+  'refresh_prices',
+  'get_refresh_status',
 ] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
 
@@ -63,6 +82,7 @@ const WRITE: ToolAnnotations = { readOnlyHint: false, destructiveHint: false, id
 const companyRef = z.string().trim().min(1).max(200).describe('公司：id、股票代號（2301）或名稱');
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式 YYYY-MM-DD');
 const SOURCE_TYPE_VALUES = SOURCE_TYPES.map((s) => s.value) as [SourceType, ...SourceType[]];
+const TRADE_STATUS_ZH = { all: '全部', open: '未平倉', closed: '已平倉' } as const;
 
 export function localDate(d = new Date()): string {
   const p = (n: number) => String(n).padStart(2, '0');
@@ -114,7 +134,8 @@ export function registerTools(server: McpServer, http: Http, ctx: ToolContext): 
     'list_companies',
     {
       title: '列出公司',
-      description: '列出研究工作台裡的公司：代號、股價、三情境目標價、最近一次研究更新、草稿是否有未提交修改，以及網站連結。',
+      description:
+        '跨公司總覽（和網站首頁相同）：每家公司的代號、股價（日期、是否過期）、最近一次研究更新（標題、知情日）和它的三情境目標價、機率加權目標價與上檔空間、草稿是否有未提交修改、未平倉部位、過期的催化劑、到了檢查日的論點，以及網站連結。股價是快取的；要抓最新股價先用 refresh_prices。',
       annotations: READ,
       input: {
         include_archived: z.boolean().optional().describe('也列出已封存的公司'),
@@ -122,11 +143,12 @@ export function registerTools(server: McpServer, http: Http, ctx: ToolContext): 
       },
     },
     async ({ include_archived, query }, h) => {
-      let list = await h.get<ProjectSummaryDTO[]>('/api/projects');
-      if (!include_archived) list = list.filter((p) => !p.archivedAt);
+      const dash = await h.get<DashboardDTO>('/api/dashboard');
+      let rows = dash.rows;
+      if (!include_archived) rows = rows.filter((r) => !r.archivedAt);
       const q = query?.normalize('NFKC').toLowerCase();
-      if (q) list = list.filter((p) => [p.name, p.security?.name, p.security?.ticker, p.security?.apiSymbol].some((x) => x?.normalize('NFKC').toLowerCase().includes(q)));
-      return formatCompanyList(list, port);
+      if (q) rows = rows.filter((r) => [r.name, r.security?.name, r.security?.ticker, r.security?.apiSymbol].some((x) => x?.normalize('NFKC').toLowerCase().includes(q)));
+      return formatCompanyList(rows, port, { today: dash.today, refreshing: dash.refresh?.state === 'running' });
     },
   );
 
@@ -488,6 +510,69 @@ export function registerTools(server: McpServer, http: Http, ctx: ToolContext): 
       });
       return formatTrade(r.trade, r.warnings, port, '已記錄出場：');
     },
+  );
+
+  define(
+    'list_trades',
+    {
+      title: '交易紀錄',
+      description:
+        '跨公司的交易日誌：每筆交易的進出場、報酬、損益、R 倍數、持有天數、MFE/MAE、追蹤停損的對照、進場時連結的研究更新與檢討，前面附摘要（各幣別的勝率與損益、平均 R、還沒檢討的交易、檢討裡的錯誤類型）。金額依股票的幣別分開列，不換算也不跨幣別加總；不要自己把不同幣別的金額加起來。可用 status、company 與 from / to（進場日）篩選。',
+      annotations: READ,
+      input: {
+        status: z.enum(['all', 'open', 'closed']).default('all').describe('all：全部（預設）；open：未平倉；closed：已平倉'),
+        company: companyRef.optional().describe('只列這家公司：id、股票代號（2301）或名稱'),
+        from: isoDate.optional().describe('進場日從這天起（含）YYYY-MM-DD'),
+        to: isoDate.optional().describe('進場日到這天為止（含）YYYY-MM-DD'),
+      },
+    },
+    async (a, h) => {
+      if (a.from && a.to && a.from > a.to) throw new ToolError(`from（${a.from}）不能晚於 to（${a.to}）。`);
+      const company = a.company ? await resolveCompany(h, a.company) : null;
+      const q = new URLSearchParams({ status: a.status });
+      if (company) q.set('projectId', company.id);
+      if (a.from) q.set('from', a.from);
+      if (a.to) q.set('to', a.to);
+      const r = await h.get<TradesJournalDTO>(`/api/trades?${q}`);
+      const scope = [
+        TRADE_STATUS_ZH[a.status],
+        company ? companyLabel(company) : '全部公司',
+        a.from || a.to ? `進場日 ${a.from ?? '最早'} 到 ${a.to ?? '最新'}` : null,
+      ]
+        .filter(Boolean)
+        .join('｜');
+      return formatTradeLog(r.trades, port, { scope });
+    },
+  );
+
+  // ------------------------------------------------------------ prices
+
+  define(
+    'refresh_prices',
+    {
+      title: '更新全部股價',
+      description:
+        '在背景更新股價（和網站首頁的「更新全部股價」相同）：每家進行中公司的股票，加上有未平倉交易的股票，抓日 K 線並更新報價。會立刻回傳、不等更新完成：之後每隔幾秒用 get_refresh_status 查進度，完成後再用 list_companies 讀新的股價。已經有一次在進行中時回傳那一次，不會重複啟動。',
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      input: {},
+    },
+    async (_a, h) => {
+      // the server returns a run already in progress instead of starting another; tell the two apart
+      const before = await h.get<RefreshRunDTO | null>('/api/market/refresh');
+      const run = await h.post<RefreshRunDTO>('/api/market/refresh');
+      return formatRefreshStarted(run, before?.state === 'running' && before.id === run.id);
+    },
+  );
+
+  define(
+    'get_refresh_status',
+    {
+      title: '股價更新進度',
+      description: '查「更新全部股價」（refresh_prices 或網站首頁的按鈕）的進度與結果：成功、失敗、達到請求上限與略過的檔數，每個股價來源的狀態，以及沒有更新的股票和原因。',
+      annotations: READ,
+      input: {},
+    },
+    async (_a, h) => formatRefreshStatus(await h.get<RefreshRunDTO | null>('/api/market/refresh'), port),
   );
 
   // ------------------------------------------------------------ sessions

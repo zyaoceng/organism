@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
-import type { ProjectSummaryDTO, ProviderDTO, SymbolMatchDTO, TemplateDTO } from '../../shared/api';
+import type { DashboardDTO, ProviderDTO, SymbolMatchDTO, TemplateDTO } from '../../shared/api';
+import { CompanySwitcher } from '../components/CompanySwitcher';
+import { DashboardTable } from '../components/DashboardTable';
+import { RefreshAllButton, RefreshStatus, useRefreshRun } from '../components/RefreshAll';
 import { SymbolPicker } from '../components/SymbolPicker';
 import { Advanced, AdvancedToggle, Field, LangToggle } from '../components/ui';
 import { api } from '../lib/api';
+import { dashboardCompany, rememberCompanies } from '../lib/companies';
+import { useModK } from '../lib/hotkeys';
 import { getLang, t, tm, useLang } from '../lib/i18n';
 import { providerVisible, useAdvanced } from '../lib/prefs';
 import { href, navigate } from '../lib/router';
 import { useWorkspace } from '../lib/store';
-import { timeAgo } from '../lib/util';
 
 const EXCHANGES = [
   { exchange: 'TWSE', suffix: '.TW', currency: 'TWD', source: 'finmind' },
@@ -17,19 +21,23 @@ const EXCHANGES = [
   { exchange: 'NYSE', suffix: '', currency: 'USD', source: 'yahoo' },
 ];
 
+/** The home page: every company in one sortable table, "Update all prices", the trade log and Ctrl+K. */
 export function ProjectsPage() {
-  const [projects, setProjects] = useState<ProjectSummaryDTO[] | null>(null);
+  const [dash, setDash] = useState<DashboardDTO | null>(null);
   const [templates, setTemplates] = useState<TemplateDTO[]>([]);
   const [providers, setProviders] = useState<ProviderDTO[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [query, setQuery] = useState('');
+  const [switching, setSwitching] = useState(false);
   useLang();
 
   const reload = async () => {
     try {
-      const [p, tpl, pr] = await Promise.all([api.projects(), api.templates(), api.providers()]);
-      setProjects(p);
+      const [d, tpl, pr] = await Promise.all([api.dashboard(), api.templates(), api.providers()]);
+      setDash(d);
+      rememberCompanies(d.rows.map(dashboardCompany));
       setTemplates(tpl);
       setProviders(pr);
       setError(null);
@@ -39,12 +47,19 @@ export function ProjectsPage() {
   };
   useEffect(() => {
     void reload();
+    // back from another window or an AI conversation: show what changed meanwhile
+    const on = () => document.visibilityState === 'visible' && void reload();
+    document.addEventListener('visibilitychange', on);
+    return () => document.removeEventListener('visibilitychange', on);
   }, []);
+  const refresh = useRefreshRun(dash?.refresh, () => void reload());
+  useModK(() => setSwitching(true));
 
-  const visible = (projects ?? []).filter((p) => showArchived || !p.archivedAt);
+  const rows = dash?.rows ?? [];
+  const visible = rows.filter((p) => showArchived || !p.archivedAt);
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <div className="projects">
+      <div className="projects wide">
         <div className="page-head">
           <div>
             <h1>{t('Research Workbench')}</h1>
@@ -54,10 +69,10 @@ export function ProjectsPage() {
             <Advanced>
               <LangToggle />
             </Advanced>
-            <label className="small sub row" style={{ gap: 4 }}>
-              <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> {t('show archived')}
-            </label>
             <AdvancedToggle />
+            <a className="btn" href={href({ page: 'journal' })} data-testid="nav-journal">
+              {t('Trade log')}
+            </a>
             <a className="btn" href={href({ page: 'settings' })} data-testid="open-settings" title={t('AI connections, backups and version')}>
               {t('Settings')}
             </a>
@@ -68,7 +83,7 @@ export function ProjectsPage() {
         </div>
         {error && <div className="msg err">{tm(error)}</div>}
         {creating && <NewProjectForm templates={templates} providers={providers} onDone={() => setCreating(false)} />}
-        {projects && visible.length === 0 && !creating && (
+        {dash && visible.length === 0 && !creating && (
           <div className="empty">
             {t('No companies yet.')}{' '}
             <a onClick={() => setCreating(true)} style={{ cursor: 'pointer' }}>
@@ -77,30 +92,24 @@ export function ProjectsPage() {
             {t('from the Standard Equity Research Template.')}
           </div>
         )}
-        <div className="proj-grid" style={{ marginTop: 14 }}>
-          {visible.map((p) => (
-            <div key={p.id} className="proj-card" onClick={() => navigate({ page: 'project', projectId: p.id, tab: 'model' })} data-testid="project-card">
-              <div className="row">
-                <b style={{ fontSize: 15 }}>{p.name}</b>
-                {p.archivedAt && <span className="badge">{t('archived')}</span>}
-                {p.draftDirty && <span className="badge warn">{t('draft changes')}</span>}
-              </div>
-              <div className="small sub">
-                {p.security ? `${p.security.ticker} · ${p.security.exchange || '—'} · ${p.security.apiSymbol} · ${p.security.currency}` : ''}
-              </div>
-              <div className="row small">
-                <span className="sub">{t('Base target')}</span>
-                <b className="num">{p.targetPrice?.base != null ? p.targetPrice.base.toFixed(1) : '—'}</b>
-                <span className="sub">{t('price')}</span>
-                <b className="num">{p.lastPrice ? p.lastPrice.price.toFixed(2) : '—'}</b>
-                {p.lastPrice?.provider === 'demo' && <span className="badge synthetic">{t('SYNTHETIC')}</span>}
-              </div>
-              <div className="tiny sub">
-                {p.head ? t('Update #{seq} · {title}', { seq: p.head.seq, title: p.head.title }) : ''} · {t('edited {ago}', { ago: timeAgo(p.updatedAt) })}
-              </div>
+        {rows.length > 0 && (
+          <>
+            <div className="dash-tools">
+              <input className="dash-search" placeholder={t('Filter by name or code')} value={query} onChange={(e) => setQuery(e.target.value)} data-testid="dash-search" />
+              <span className="small sub">
+                <span className="kbd">Ctrl+K</span> {t('switch company')}
+              </span>
+              <label className="small sub row" style={{ gap: 4 }}>
+                <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> {t('show archived')}
+              </label>
+              <span className="right">
+                <RefreshAllButton refresh={refresh} />
+              </span>
             </div>
-          ))}
-        </div>
+            <RefreshStatus run={refresh.run} />
+            {visible.length > 0 && <DashboardTable rows={visible} run={refresh.run} query={query} />}
+          </>
+        )}
         <Advanced>
           {templates.some((tp) => !tp.builtIn) && (
             <div className="card" style={{ marginTop: 24 }}>
@@ -127,6 +136,7 @@ export function ProjectsPage() {
           )}
         </Advanced>
       </div>
+      {switching && <CompanySwitcher onClose={() => setSwitching(false)} />}
     </div>
   );
 }

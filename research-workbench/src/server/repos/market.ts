@@ -60,3 +60,25 @@ export function saveQuote(db: DB, securityId: string, q: MarketContext) {
 export function logFetch(db: DB, securityId: string, provider: string, kind: string, status: 'ok' | 'error', message = '') {
   db.prepare('INSERT INTO market_fetch_log (security_id, provider, kind, requested_at, status, message) VALUES (?, ?, ?, ?, ?, ?)').run(securityId, provider, kind, nowIso(), status, message);
 }
+
+/** The latest cached bar of a security from one provider. */
+export function lastBar(db: DB, securityId: string, provider: string): Bar | null {
+  const r = db.prepare('SELECT * FROM price_bars WHERE security_id = ? AND provider = ? ORDER BY date DESC LIMIT 1').get(securityId, provider) as BarRow | undefined;
+  return r ? { date: r.date, open: r.open, high: r.high, low: r.low, close: r.close, volume: r.volume, adjClose: r.adj_close } : null;
+}
+
+/** Cached bars of many securities in one query, each from its own price source only. */
+export function barsBySecurity(db: DB, securityIds: string[]): Map<string, Bar[]> {
+  const out = new Map<string, Bar[]>(securityIds.map((id) => [id, []]));
+  if (!securityIds.length) return out;
+  const rows = db
+    .prepare(
+      `SELECT b.security_id, b.date, b.open, b.high, b.low, b.close, b.volume, b.adj_close
+       FROM price_bars b JOIN securities s ON s.id = b.security_id AND s.price_source = b.provider
+       WHERE b.security_id IN (SELECT value FROM json_each(?))
+       ORDER BY b.security_id, b.date`,
+    )
+    .all(JSON.stringify(securityIds)) as (Omit<BarRow, 'fetched_at'> & { security_id: string })[];
+  for (const r of rows) out.get(r.security_id)?.push({ date: r.date, open: r.open, high: r.high, low: r.low, close: r.close, volume: r.volume, adjClose: r.adj_close });
+  return out;
+}

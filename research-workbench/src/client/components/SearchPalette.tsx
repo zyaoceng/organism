@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { formatPath } from '../../domain/formula/refs';
+import { loadCompanies, matchCompanies, peekCompanies, type CompanyEntry } from '../lib/companies';
 import { indexOf } from '../lib/derived';
+import { isComposing } from '../lib/hotkeys';
 import { t, useLang } from '../lib/i18n';
 import { navigate, type Tab } from '../lib/router';
 import { useWorkspace } from '../lib/store';
@@ -13,10 +15,19 @@ interface Hit {
   go: () => void;
 }
 
-/** Project-wide search across nodes, notes, evidence, catalysts, theses and Research Updates. */
-export function SearchPalette({ onClose }: { onClose: () => void }) {
+/**
+ * Search across companies (switch to one, on the same tab) and, inside this company, nodes, notes,
+ * evidence, catalysts, theses and Research Updates. With nothing typed it lists recent companies.
+ */
+export function SearchPalette({ tab, onClose }: { tab: Tab; onClose: () => void }) {
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
+  const [companies, setCompanies] = useState<CompanyEntry[]>(peekCompanies);
+  useEffect(() => {
+    void loadCompanies()
+      .then(setCompanies)
+      .catch(() => undefined);
+  }, []);
   const draft = useWorkspace((s) => s.draft);
   const evidence = useWorkspace((s) => s.evidence);
   const catalysts = useWorkspace((s) => s.catalysts);
@@ -28,16 +39,22 @@ export function SearchPalette({ onClose }: { onClose: () => void }) {
 
   const hits = useMemo(() => {
     const query = q.trim().toLowerCase();
-    if (!query || !draft) return [];
+    // another company opens on the tab you are on; leaving flushes pending saves (store load())
+    const out: Hit[] = matchCompanies(companies, q, { excludeId: projectId, limit: query ? 5 : 8 }).map((c) => ({
+      kind: t('Company'),
+      title: c.name,
+      detail: [c.ticker, c.exchange].filter(Boolean).join(' · '),
+      go: () => navigate({ page: 'project', projectId: c.id, tab }),
+    }));
+    if (!query || !draft) return out;
     const ix = indexOf(draft);
-    const go = (tab: Tab, param?: string) => () => navigate({ page: 'project', projectId, tab, param });
+    const go = (to: Tab, param?: string) => () => navigate({ page: 'project', projectId, tab: to, param });
     const snippet = (text: string) => {
       const i = text.toLowerCase().indexOf(query);
       if (i < 0) return text.slice(0, 90);
       return `${i > 30 ? '…' : ''}${text.slice(Math.max(0, i - 30), i + 60)}`;
     };
     const has = (...xs: (string | null | undefined)[]) => xs.some((x) => x && x.toLowerCase().includes(query));
-    const out: Hit[] = [];
     for (const n of draft.nodes) {
       if (has(n.name, n.notes)) {
         out.push({
@@ -57,7 +74,7 @@ export function SearchPalette({ onClose }: { onClose: () => void }) {
     for (const r of revisions) if (has(r.title, r.reason, r.notes)) out.push({ kind: t('Update #{seq}', { seq: r.seq }), title: r.title, detail: snippet(r.reason), go: go('history', r.id) });
     for (const n of notes) if (has(n.body)) out.push({ kind: t('Note'), title: n.body.split('\n')[0].slice(0, 80), detail: n.createdAt.slice(0, 10), go: go('overview') });
     return out.slice(0, 60);
-  }, [q, draft, evidence, catalysts, revisions, notes, projectId, select, lang]);
+  }, [q, draft, evidence, catalysts, revisions, notes, projectId, select, lang, companies, tab]);
 
   const choose = (h: Hit | undefined) => {
     if (!h) return;
@@ -70,17 +87,18 @@ export function SearchPalette({ onClose }: { onClose: () => void }) {
       <div className="box" onClick={(e) => e.stopPropagation()}>
         <input
           autoFocus
-          placeholder={t('Search nodes, notes, evidence, catalysts, theses, updates…')}
+          placeholder={t('Search companies, nodes, notes, evidence, catalysts, theses, updates…')}
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
             setActive(0);
           }}
           onKeyDown={(e) => {
+            if (isComposing(e)) return;
             if (e.key === 'Escape') onClose();
             if (e.key === 'ArrowDown') (e.preventDefault(), setActive((a) => Math.min(a + 1, hits.length - 1)));
             if (e.key === 'ArrowUp') (e.preventDefault(), setActive((a) => Math.max(a - 1, 0)));
-            if (e.key === 'Enter') choose(hits[active]);
+            if (e.key === 'Enter') choose(hits[Math.min(active, hits.length - 1)]);
           }}
           data-testid="search-input"
         />

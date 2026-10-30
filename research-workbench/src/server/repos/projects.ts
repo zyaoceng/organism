@@ -3,6 +3,7 @@ import { parseState } from '../../domain/model/schema';
 import type { ModelState } from '../../domain/model/types';
 import { diffStates, type ModelChange } from '../../domain/revision/diff';
 import type { Impact } from '../../domain/revision/impact';
+import { frozenTargets } from '../../domain/valuation/targets';
 import type { ContributorDTO, DraftDTO, MarketContext, ProjectDTO, ProjectSummaryDTO, RevisionFull, RevisionKind, RevisionMeta, SecurityDTO } from '../../shared/api';
 import { currentActor, noteAiAction } from '../actor';
 import type { DB } from '../db/connection';
@@ -244,11 +245,8 @@ export function listProjectSummaries(db: DB): ProjectSummaryDTO[] {
     if (head) {
       const state = JSON.parse(head.state_json) as ModelState;
       const computed = JSON.parse(head.computed_json) as FrozenOutputs;
-      const tp = state.nodes.find((n) => n.role === 'target_price');
-      if (tp) {
-        const pick = (s: 'bear' | 'base' | 'bull') => computed.values[s][tp.id]?._ ?? null;
-        targetPrice = { bear: pick('bear'), base: pick('base'), bull: pick('bull') };
-      }
+      // a time-series target-price node reads its basis period
+      if (state.nodes.some((n) => n.role === 'target_price')) targetPrice = frozenTargets(state, computed);
     }
     let lastPrice: ProjectSummaryDTO['lastPrice'] = null;
     if (security) {
@@ -434,15 +432,3 @@ export function insertRevision(db: DB, r: InsertRevision): string {
   );
   return id;
 }
-
-/** Headline outputs frozen in a revision (for trades and summaries). */
-export function frozenTargetPrice(row: RevisionRow): Record<'bear' | 'base' | 'bull', number | null> {
-  const state = JSON.parse(row.state_json) as ModelState;
-  const computed = JSON.parse(row.computed_json) as FrozenOutputs;
-  const tp = state.nodes.find((n) => n.role === 'target_price');
-  const out = { bear: null, base: null, bull: null } as Record<'bear' | 'base' | 'bull', number | null>;
-  if (!tp) return out;
-  for (const s of ['bear', 'base', 'bull'] as const) out[s] = computed.values[s][tp.id]?._ ?? null;
-  return out;
-}
-

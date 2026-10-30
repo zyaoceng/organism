@@ -158,6 +158,8 @@ function UnitEditor({ node, readOnly }: { node: ModelNode; readOnly: boolean }) 
       {u && (u.kind === 'count' || u.kind === 'number') && (
         <input
           style={{ width: 90 }}
+          // keyed by the value: a remote change or undo shows the new text instead of writing the old one back on blur
+          key={u.label ?? ''}
           disabled={readOnly}
           placeholder={t('label')}
           defaultValue={u.label ?? ''}
@@ -461,6 +463,7 @@ function NodeEvidence({ node, state, readOnly }: { node: ModelNode; state: Model
                   </select>
                   <input
                     className="grow"
+                    key={l.locator ?? ''}
                     placeholder={t('page / slide / time (e.g. p.13)')}
                     defaultValue={l.locator ?? ''}
                     onBlur={(ev) => ev.target.value !== (l.locator ?? '') && edit((s) => updateLink(s, l.id, { locator: ev.target.value || undefined }))}
@@ -606,7 +609,7 @@ function NodeTheses({ node, state, readOnly }: { node: ModelNode; state: ModelSt
           </div>
           <div className="row small sub">
             {t('Review by')}
-            <input type="date" disabled={readOnly} defaultValue={th.reviewBy ?? ''} onBlur={(e) => e.target.value !== (th.reviewBy ?? '') && edit((s) => updateThesis(s, th.id, { reviewBy: e.target.value || undefined }))} />
+            <input type="date" key={th.reviewBy ?? ''} disabled={readOnly} defaultValue={th.reviewBy ?? ''} onBlur={(e) => e.target.value !== (th.reviewBy ?? '') && edit((s) => updateThesis(s, th.id, { reviewBy: e.target.value || undefined }))} />
             {!readOnly && (
               <button className="btn xs ghost right" onClick={() => edit((s) => updateThesis(s, th.id, { nodeIds: th.nodeIds.filter((x) => x !== node.id) }))}>
                 {t('detach')}

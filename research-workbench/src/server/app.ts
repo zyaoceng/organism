@@ -10,13 +10,14 @@ import { defaultScaleFor, STANDARD_TEMPLATE_ID, STANDARD_TEMPLATE_NAME, standard
 import type { FrozenOutputs } from '../domain/calc/engine';
 import { describeChange } from '../domain/revision/describe';
 import { agentClientOf, isAgentActor, type Actor, type AgentClient } from '../shared/actors';
-import type { CommitPreviewDTO, DiagnosticsDTO, DraftMetaDTO, HeartbeatDTO, ProjectBundleDTO, SeriesPoint, SessionDTO } from '../shared/api';
+import type { CommitPreviewDTO, DashboardDTO, DiagnosticsDTO, DraftMetaDTO, HeartbeatDTO, ProjectBundleDTO, RefreshRunDTO, SeriesPoint, SessionDTO, TradesJournalDTO } from '../shared/api';
 import { currentActor, installActorHooks, NO_ACTOR_MESSAGE, noteAiAction, quietRequest, SESSION_COOKIE } from './actor';
 import { openDatabase, schemaVersion, type DB } from './db/connection';
 import { CsvProvider } from './market/csv';
 import { DemoProvider } from './market/demo';
 import { MarketDataError, type MarketDataProvider } from './market/provider';
-import { MarketService } from './market/service';
+import { PriceRefresher } from './market/refreshAll';
+import { MarketService, type MarketServiceOptions } from './market/service';
 import { FinMindProvider } from './market/finmind';
 import { FugleProvider } from './market/fugle';
 import { loadFinMindDirectory, loadIsinDirectory, SymbolSearch } from './market/symbols';
@@ -27,6 +28,7 @@ import { listAudit } from './repos/audit';
 import { draftPending, evidenceTitler, lastDraftOp, listDraftOps, pendingAttribution, periodLabeller, pruneDraftOps, recoverDraft } from './repos/draftOps';
 import { barsMeta } from './repos/market';
 import { dbGeneration } from './repos/meta';
+import { buildDashboard, listJournalTrades } from './repos/portfolio';
 import {
   createProject,
   getDraft,
@@ -114,6 +116,8 @@ export interface AppOptions {
   appRoot?: string;
   /** Who-is-acting tokens. Default <dataDir>/tokens.json (created when missing). */
   tokensFile?: string;
+  /** Market cache and throttle settings (tests use minIntervalMs: 0). */
+  market?: MarketServiceOptions;
 }
 
 export interface AppContext {
@@ -125,6 +129,8 @@ export interface AppContext {
   /** tokens.json: `tokens.tokens.user`, `tokens.tokens['claude-desktop']`, … */
   tokens: TokenSet;
   previews: CommitPreviewStore;
+  /** "Update all prices" background runs. */
+  refresher: PriceRefresher;
 }
 
 type Params = { id: string };
@@ -151,9 +157,11 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
       taiwanDirectory: () => loadFinMindDirectory(finmind).catch(() => loadIsinDirectory()),
       yahooSearch: (q) => yahoo.search(q),
     });
-  const market = new MarketService(db, Object.fromEntries(providers.map((p) => [p.id, p])));
+  const market = new MarketService(db, Object.fromEntries(providers.map((p) => [p.id, p])), opts.market);
+  const synthetic = market.syntheticIds();
   const app = Fastify({ logger: opts.logger ?? false, bodyLimit: 25 * 1024 * 1024 });
   const backups = new BackupService(db, backupDir, { onError: (err) => app.log.error({ err }, 'daily backup failed') });
+  const refresher = new PriceRefresher(db, market, { onError: (err) => app.log.error({ err }, 'price refresh failed') });
   await app.register(fastifyMultipart, { limits: { fileSize: opts.maxUploadBytes ?? 100 * 1024 * 1024, files: 20, fields: 50 } });
 
   if (opts.allowedHosts) {
@@ -274,6 +282,13 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
 
   // ------------------------------------------------------------ projects
   app.get('/api/projects', async () => listProjectSummaries(db));
+
+  // all companies at a glance: price, targets, upside, research, positions, catalysts, theses, AI
+  app.get('/api/dashboard', async (): Promise<DashboardDTO> => {
+    const now = new Date();
+    const today = localToday(now);
+    return { generatedAt: now.toISOString(), today, rows: buildDashboard(db, { now, today, staleAfterMs: market.staleAfterMs, synthetic }), refresh: refresher.status() };
+  });
 
   app.post('/api/projects', async (req) => {
     const b = body<{
@@ -586,6 +601,16 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
 
   // ------------------------------------------------------------ trades
   app.get<{ Params: Params }>('/api/projects/:id/trades', async (req) => listTrades(db, req.params.id));
+  // the trade log across companies
+  app.get<{ Querystring: { status?: string; projectId?: string; from?: string; to?: string } }>('/api/trades', async (req): Promise<TradesJournalDTO> => {
+    const q = req.query;
+    const status = q.status || 'all';
+    if (status !== 'all' && status !== 'open' && status !== 'closed') throw badRequest('status must be all, open or closed');
+    for (const k of ['from', 'to'] as const) if (q[k] && !isDate(q[k])) throw badRequest(`${k} must be YYYY-MM-DD`);
+    if (q.projectId) projectOf(q.projectId);
+    const trades = listJournalTrades(db, { status, projectId: q.projectId || undefined, from: q.from || undefined, to: q.to || undefined }, { synthetic });
+    return { generatedAt: nowIso(), trades };
+  });
   app.post<{ Params: Params }>('/api/projects/:id/trades', async (req) => {
     projectOf(req.params.id);
     if (isAgentActor(req.actor)) return recordAgentTrade(db, market, req.params.id, req.body);
@@ -663,6 +688,9 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
 
   // ------------------------------------------------------------ market data
   app.get('/api/market/providers', async () => market.listProviders());
+  // update all prices: starts a background run (or returns the running one); poll the GET
+  app.post('/api/market/refresh', async (): Promise<RefreshRunDTO> => refresher.start());
+  app.get('/api/market/refresh', async (): Promise<RefreshRunDTO | null> => refresher.status());
   app.get<{ Querystring: { q?: string } }>('/api/symbols/search', async (req) => symbols.search(req.query.q ?? ''));
   app.get<{ Querystring: { ticker?: string } }>('/api/securities/lookup', async (req) => findSecurities(db, req.query.ticker ?? ''));
   app.get<{ Params: Params; Querystring: { provider?: string; refresh?: string } }>('/api/securities/:id/quote', async (req) => {
@@ -690,9 +718,11 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
   }
 
   app.addHook('onClose', async () => {
+    // a refresh call still in flight after the grace fails on the closed database and is skipped
+    await refresher.stop();
     await backups.stop();
     db.close();
   });
   if (opts.startBackups) backups.start();
-  return { app, db, attachments, market, backups, tokens, previews };
+  return { app, db, attachments, market, backups, tokens, previews, refresher };
 }

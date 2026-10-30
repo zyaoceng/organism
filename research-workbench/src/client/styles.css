@@ -327,6 +327,22 @@ table.grid input.l { text-align: left; }
 .proj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
 .proj-card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
 .proj-card:hover { border-color: var(--accent); }
+/* home dashboard and trade log */
+.projects.wide { max-width: 1500px; }
+.dash-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 14px 0 8px; }
+.dash-search { width: 240px; }
+.refresh-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.refresh-status:empty { display: none; }
+.refresh-failures { margin: 4px 0 0; padding-left: 18px; }
+table.grid th.sortable { cursor: pointer; user-select: none; }
+table.grid th.sortable[aria-sort=ascending]::after { content: ' ▲'; }
+table.grid th.sortable[aria-sort=descending]::after { content: ' ▼'; }
+table.grid tr.clickable { cursor: pointer; }
+table.grid tr.clickable:hover td { background: var(--panel2); }
+table.grid.dash td { vertical-align: top; }
+.journal-summary { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.journal-summary .card { margin: 0; min-width: 190px; }
+.journal-summary .card + .card { margin-top: 0; }
 .svgchart text { font-size: 10.5px; fill: var(--sub); }
 details > summary { cursor: pointer; color: var(--sub); font-size: 12px; }
 .settings-fold { margin-top: 6px; }

@@ -3,6 +3,7 @@ import type { FrozenOutputs, Issue } from '../domain/calc/engine';
 import type { ModelState, Period, ScenarioId } from '../domain/model/types';
 import type { ModelChange } from '../domain/revision/diff';
 import type { Impact, KeyOutputs } from '../domain/revision/impact';
+import type { TradeMetrics } from '../domain/trade/metrics';
 import type { Unit } from '../domain/units';
 import type { Actor, AgentClient } from './actors';
 
@@ -550,4 +551,157 @@ export interface TradeRecordResponse {
 export interface TradeCloseResponse {
   trade: TradeDTO;
   warnings: string[];
+}
+
+// ---------------------------------------------------------------- dashboard, trade log, refresh all prices
+
+/** An open catalyst; windowEnd is the last day of its month or quarter for imprecise dates. */
+export interface CatalystBrief {
+  id: string;
+  title: string;
+  expectedDate: string;
+  datePrecision: 'day' | 'month' | 'quarter';
+  windowEnd: string;
+}
+
+/** One company on the dashboard (GET /api/dashboard). Targets come from the committed head, theses from the draft. */
+export interface DashboardRowDTO {
+  projectId: string;
+  name: string;
+  archivedAt: string | null;
+  updatedAt: string;
+  /** The primary security (`name` is the security's own name, e.g. "Lite-On Technology"). */
+  security: { id: string; name: string; ticker: string; exchange: string; apiSymbol: string; currency: string; priceSource: string } | null;
+  /** Cached quote of the primary security from its own price source; null when none was fetched. */
+  price: {
+    value: number;
+    currency: string;
+    asOf: string;
+    fetchedAt: string;
+    provider: string;
+    synthetic: boolean;
+    /** Fetched more than 24 h ago. */
+    stale: boolean;
+    marketDate: string;
+    /** Calendar days from marketDate to today. */
+    lagDays: number;
+  } | null;
+  target: {
+    /** Currency of the target-price node's unit. */
+    currency: string | null;
+    bear: number | null;
+    base: number | null;
+    bull: number | null;
+    /** Probability-weighted target (null when a weighted scenario has no target). */
+    weighted: number | null;
+    weightSum: number;
+    upsideBase: number | null;
+    upsideWeighted: number | null;
+    /** Target and price are in different currencies: the upsides are null. */
+    currencyMismatch: boolean;
+  };
+  /** Latest Research Update with a knowledge date; null when there is only the starting snapshot. */
+  research: { revisionId: string; seq: number; kind: RevisionKind; title: string; asOfDate: string; committedAt: string } | null;
+  draftDirty: boolean;
+  draftUpdatedAt: string | null;
+  positions: {
+    open: number;
+    /** Mean R of the open trades that have a stop and a quote. */
+    avgR: number | null;
+    rCount: number;
+    /** Unrealised P&L per security currency (never added across currencies). */
+    pnl: { currency: string; value: number }[];
+    items: {
+      tradeId: string;
+      side: 'long' | 'short';
+      entryDate: string;
+      entryPrice: number;
+      quantity: number;
+      rMultiple: number | null;
+      returnPct: number | null;
+      markSource: TradeMetrics['markSource'];
+    }[];
+  };
+  catalysts: { upcoming: number; undated: number; overdue: number; next: CatalystBrief | null; oldestOverdue: CatalystBrief | null };
+  /** reviewDue: active theses whose review date has come; nextReviewBy: the earliest review date still ahead. */
+  theses: { reviewDue: number; nextReviewBy: string | null };
+  /** Latest AI activity on this company (ai_sessions or the audit log); summary is the session summary's first line. */
+  ai: { client: AgentClient; at: string; summary: string | null } | null;
+}
+
+/** GET /api/dashboard */
+export interface DashboardDTO {
+  generatedAt: string;
+  /** The server's local date that the flags were computed for. */
+  today: string;
+  rows: DashboardRowDTO[];
+  refresh: RefreshRunDTO | null;
+}
+
+/** One trade in the cross-company trade log (GET /api/trades). */
+export interface JournalTradeDTO extends TradeDTO {
+  project: { id: string; name: string; archived: boolean };
+  security: { ticker: string; exchange: string; name: string; currency: string; priceSource: string; synthetic: boolean };
+  /** Marked with the exit, else the newer of the cached quote and the last cached bar. */
+  metrics: TradeMetrics;
+  /** Cached bars start on or before the entry date (otherwise MFE/MAE and the trailing stop are null). */
+  barsCoverEntry: boolean;
+  /** The research snapshot the trade was linked to. */
+  research: { revisionId: string; seq: number; title: string; asOfDate: string | null; kind: RevisionKind } | null;
+  reviews: {
+    id: string;
+    title: string;
+    thesisVerdict: ReviewDTO['thesisVerdict'];
+    executionVerdict: ReviewDTO['executionVerdict'];
+    categories: string[];
+    createdAt: string;
+  }[];
+}
+
+/** GET /api/trades?status=&projectId=&from=&to= */
+export interface TradesJournalDTO {
+  generatedAt: string;
+  trades: JournalTradeDTO[];
+}
+
+export type RefreshItemStatus = 'pending' | 'running' | 'ok' | 'failed' | 'rate_limited' | 'skipped';
+
+export interface RefreshItemDTO {
+  securityId: string;
+  projectId: string;
+  projectName: string;
+  ticker: string;
+  provider: string;
+  status: RefreshItemStatus;
+  /** Why it failed or was skipped (English; the client translates it). */
+  message: string | null;
+  /** Last cached bar after an ok refresh. */
+  lastDate: string | null;
+}
+
+export interface RefreshProviderDTO {
+  id: string;
+  label: string;
+  total: number;
+  /** unavailable: not configured on this server (e.g. Fugle without a key). */
+  state: 'running' | 'done' | 'rate_limited' | 'unreachable' | 'unavailable';
+  retryAfterSec: number | null;
+  message: string | null;
+}
+
+/** POST /api/market/refresh starts one (or returns the running one); GET returns the last one (null after a restart). */
+export interface RefreshRunDTO {
+  id: string;
+  state: 'running' | 'done' | 'cancelled';
+  startedAt: string;
+  finishedAt: string | null;
+  total: number;
+  ok: number;
+  failed: number;
+  rateLimited: number;
+  skipped: number;
+  /** Not finished yet (pending or running). */
+  pending: number;
+  providers: RefreshProviderDTO[];
+  items: RefreshItemDTO[];
 }

@@ -377,7 +377,46 @@ MarketDataProvider (server only)
 - `MarketDataService` wraps providers with: SQLite cache (`price_bars`,
   `quotes`), incremental history fetch, per-provider minimum request
   interval, typed errors (`NOT_FOUND`, `RATE_LIMITED`, `NETWORK`, `PROVIDER`)
-  and a fetch log. Staleness is computed from `fetched_at`.
+  and a fetch log. Staleness is computed from `fetched_at`: a quote fetched
+  more than 24 h ago is stale (`quoteFreshness`, `src/domain/portfolio/flags.ts`,
+  the one rule for the market service and the dashboard).
+- Throttle: one promise chain per provider. Each caller takes the next slot,
+  `interval` after the previous call started (Yahoo 1.5 s, others 1 s), so
+  concurrent callers no longer fire together. Demo and CSV make no network
+  calls and are not throttled. The throttle spaces calls into the service,
+  not HTTP requests: Yahoo's `.TW`→`.TWO` fallback can still send two
+  requests close together.
+- `refreshSecurity(security)`: one provider call per security — incremental
+  daily bars (from a week before the last cached day), then the quote derived
+  from the last bar's close (`asOf` = that date, 00:00 UTC; same shape as the
+  CSV quote). It never replaces a cached quote from a later day. CSV and
+  unknown sources are skipped, not failed.
+- "Update all prices" (`PriceRefresher`, `src/server/market/refreshAll.ts`;
+  `POST /api/market/refresh` starts a run or returns the running one,
+  `GET /api/market/refresh` returns the last run or null):
+  - Targets: the primary security of every active company, plus any security
+    with an open trade (also in an archived company). The same ticker in two
+    companies is refreshed twice (one call per security row).
+  - Each provider's securities are refreshed one after another, so the
+    throttle chain never holds more than one slot of the run and a page's own
+    price request waits at most one slot. **Deviation from the plan's
+    "背景串行" (one serial loop):** different providers run side by side, so a
+    slow or blocked source (an offline Yahoo, FinMind's hourly limit) does not
+    hold up the others. Within a provider it is still serial.
+  - Stop rules per provider: a rate limit records that security, sets the
+    provider's `retryAfterSec`, and skips the rest of that provider ("Not
+    updated: {label} rate limit reached"); 3 consecutive `NETWORK` failures
+    mark it `unreachable` and skip the rest (without this an offline Mac waits
+    out a 15–20 s timeout per security); a source this server does not have
+    (Fugle without a key) is `unavailable`. Other providers continue.
+  - The run is background work and runs as the `system` actor
+    (`runAs('system', …)`), not as whoever pressed the button.
+  - Shutdown (`onClose`): new runs get 503, the call in flight gets up to 3 s,
+    pending securities are skipped ("Not updated: the server shut down") and
+    the run ends `cancelled`. A call that outlives the grace fails on the
+    closed database and is caught.
+  - Progress lives in memory only (no migration); every provider call is
+    already in `market_fetch_log`. After a restart GET returns null.
 - Bars are keyed by `(security, provider, date)` so demo, CSV and live data
   never mix. `adj_close` is kept when the provider supplies it.
 - Security identity: company name, ticker (`2301`), exchange (`TWSE`),
@@ -396,8 +435,27 @@ MarketDataProvider (server only)
   entry date), the base target price from that frozen snapshot, stop, ATR at
   entry (ATR(14) from cached bars up to the entry date), ATR multiple, reason;
   later exit date/price/reason.
-- Derived metrics (pure): P&L, return, R multiple, holding days, MFE/MAE, and
-  the exit a 2×ATR trailing stop would have produced.
+- Derived metrics (pure, `src/domain/trade/metrics.ts`): P&L, return, R
+  multiple, holding days, MFE/MAE, and the exit a 2×ATR trailing stop would
+  have produced.
+  - Mark: a closed trade uses its exit. An open trade uses the cached quote
+    when it is not older than the last cached bar, else the last close
+    (`markSource` `quote` / `bar`). A mark dated before the entry gives no
+    P&L, return or R.
+  - Bar coverage: MFE/MAE and the trailing stop are computed only when the
+    cached history starts on or before the entry date (`entryBarIndex`);
+    otherwise they are null, never measured from a later bar
+    (`barsCoverEntry` in the trade log).
+- Trade log (`GET /api/trades?status=all|open|closed&projectId=&from=&to=`,
+  dates filter the entry date): every trade across companies, newest entry
+  first, with the company, security, metrics from that security's own cached
+  bars and quote, the linked research snapshot, the trade's reviews and who
+  recorded it. Fixed query count (`src/server/repos/portfolio.ts`).
+- Money is never converted or added across currencies: the trade summary
+  (`summarizeTrades`, `src/domain/trade/summary.ts`) reports realised and
+  unrealised P&L and win rate per currency; only R (average over closed
+  trades with a stop) is currency-free. The dashboard's open positions use
+  the cached quote only (no bars) and sum P&L per security currency.
 - Chart: entry/exit arrows, stop and target price lines.
 - This separates "was the thesis wrong?" (snapshot vs outcome) from "was
   execution poor?" (trade vs trailing-stop counterfactual, MFE/MAE).
@@ -421,15 +479,55 @@ MarketDataProvider (server only)
                                                    * advanced mode only
 ```
 
-Other pages: Overview (identity, KPIs by scenario, theses, upcoming
-catalysts, recent updates, notes journal), Evidence library, Valuation (P/E
-workspace), Catalysts timeline, Trades (price chart, quote and data source,
-and the journal; Market was merged into it and `#/market` is an alias),
-History (updates timeline, compare, estimate evolution, calibration, reviews).
+Other pages: the home dashboard and the trade log (below), Overview
+(identity, KPIs by scenario, theses, upcoming catalysts, recent updates,
+notes journal), Evidence library, Valuation (P/E workspace), Catalysts
+timeline, Trades (price chart, quote and data source, and the journal;
+Market was merged into it and `#/market` is an alias), History (updates
+timeline, compare, estimate evolution, calibration, reviews).
 
 Basic / advanced mode: the UI starts in basic mode (Model, Valuation,
 Trades, History, and the everyday tools); advanced mode adds the More group
 and every other tool. See §23.
+
+Home dashboard (`#/`, `src/client/pages/ProjectsPage.tsx` with
+`components/DashboardTable.tsx`): one row per company from `GET
+/api/dashboard`, a fixed number of queries however many companies there are.
+- Columns: last price with its market date (a `stale` badge when fetched more
+  than 24 h ago; "no new prices for N days" when a fresh fetch still has an
+  old date, a hint of a suspension or wrong symbol), the base target (Bear /
+  Base / Bull in advanced mode), the probability-weighted target and its
+  upside (advanced), upside to the base target (blank when target and price
+  are in different currencies), last research date, `uncommitted` when the
+  draft differs from the head, open positions with average R and unrealised
+  P&L per currency, overdue / next catalysts (month and quarter dates count
+  to the end of their window), theses due for review, the latest AI activity.
+- Targets come from the committed head (`frozenTargets`,
+  `probabilityWeightedTarget`, `upside` in `src/domain/valuation/targets.ts`,
+  the same rule the Valuation page uses); theses from the draft, as on the
+  Overview page.
+- Headers sort (first click in the column's natural direction, second
+  reverses, third restores the server order; remembered in the browser);
+  the filter box and `Ctrl+K` match name, code or provider symbol, full-width
+  digits included (`src/client/lib/companies.ts`). A row opens the model.
+- "Update all prices" starts the server's background run (§17) and polls its
+  progress once a second; rows show `…` while waiting and `!` when their
+  security failed, and the table reloads when the run ends. A run started in
+  another window is picked up from the dashboard's `refresh` field. The page
+  also reloads when the window becomes visible again.
+
+Trade log (`#/journal`, `src/client/pages/JournalPage.tsx`): every trade
+from `GET /api/trades` (§18), filtered on the client (open / closed,
+company, entry dates, not reviewed, text) so the summary always describes
+exactly the rows shown. Per currency: realised P&L, win rate, unrealised
+P&L; currency-free: average R and the error categories of the reviews. There
+is no total across currencies. A row opens that trade on the company's
+Trades page (`#/p/<id>/trades/<tradeId>` selects it); trades recorded by an
+AI client carry a "recorded by …" badge.
+
+`Ctrl+K`: on the home page and the trade log it opens a company switcher; in
+a company the search palette lists matching companies first (they open on
+the same tab) and, with nothing typed, the most recent ones.
 
 ## 20. Development plan
 

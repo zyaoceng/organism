@@ -4,6 +4,7 @@ import type {
   AuditEntryDTO,
   BarsResponse,
   CatalystDTO,
+  DashboardDTO,
   DiagnosticsDTO,
   DraftDTO,
   DraftMetaDTO,
@@ -16,6 +17,7 @@ import type {
   ProjectSummaryDTO,
   ProviderDTO,
   QuoteResponse,
+  RefreshRunDTO,
   ReviewDTO,
   RevisionAnnotationDTO,
   RevisionFull,
@@ -27,6 +29,7 @@ import type {
   SymbolSearchDTO,
   TemplateDTO,
   TradeDTO,
+  TradesJournalDTO,
 } from '../../shared/api';
 import type { ModelState } from '../../domain/model/types';
 import { t } from './i18n';
@@ -113,8 +116,17 @@ export interface CommitRequest {
   kind?: RevisionKind;
 }
 
+/** Filters of the cross-company trade log; from/to apply to the entry date. */
+export interface TradeLogFilter {
+  status?: 'all' | 'open' | 'closed';
+  projectId?: string;
+  from?: string;
+  to?: string;
+}
+
 export const api = {
   projects: () => get<ProjectSummaryDTO[]>('/api/projects'),
+  dashboard: () => get<DashboardDTO>('/api/dashboard'),
   createProject: (b: { name: string; description?: string; templateId?: string; lang?: string; year?: number; security: Partial<SecurityDTO> & { ticker: string } }) => post<{ id: string }>('/api/projects', b),
   project: (id: string) => get<ProjectBundleDTO>(`/api/projects/${id}`),
   updateProject: (id: string, b: { name?: string; description?: string; archived?: boolean }) => patch<ProjectDTO>(`/api/projects/${id}`, b),
@@ -155,6 +167,7 @@ export const api = {
   createTrade: (id: string, b: Partial<TradeDTO>) => post<TradeDTO>(`/api/projects/${id}/trades`, b),
   updateTrade: (tid: string, b: Partial<TradeDTO>) => patch<TradeDTO>(`/api/trades/${tid}`, b),
   deleteTrade: (tid: string) => del<{ ok: true }>(`/api/trades/${tid}`),
+  allTrades: (f: TradeLogFilter = {}) => get<TradesJournalDTO>(`/api/trades?${new URLSearchParams(Object.entries(f).filter(([, v]) => v) as [string, string][])}`),
 
   notes: (id: string) => get<NoteDTO[]>(`/api/projects/${id}/notes`),
   createNote: (id: string, body: string) => post<NoteDTO>(`/api/projects/${id}/notes`, { body }),
@@ -174,5 +187,8 @@ export const api = {
   searchSymbols: (q: string) => get<SymbolSearchDTO>(`/api/symbols/search?q=${encodeURIComponent(q)}`),
   quote: (sid: string, provider?: string, refresh = false) => get<QuoteResponse>(`/api/securities/${sid}/quote?${new URLSearchParams({ ...(provider ? { provider } : {}), ...(refresh ? { refresh: '1' } : {}) })}`),
   bars: (sid: string, provider?: string, refresh = false) => get<BarsResponse>(`/api/securities/${sid}/bars?${new URLSearchParams({ ...(provider ? { provider } : {}), ...(refresh ? { refresh: '1' } : {}) })}`),
+  /** Update all prices: starts a background run, or returns the one already running. */
+  startRefresh: () => post<RefreshRunDTO>('/api/market/refresh'),
+  refreshStatus: () => get<RefreshRunDTO | null>('/api/market/refresh'),
   importBars: (sid: string, fd: FormData) => post<{ imported: number; skipped: number; first: string; last: string }>(`/api/securities/${sid}/bars/import`, fd),
 };

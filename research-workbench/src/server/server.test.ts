@@ -3,12 +3,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { setValue } from '../domain/model/ops';
+import { addThesis, setValue, updateValuation } from '../domain/model/ops';
 import { SCALAR_KEY, type ModelState } from '../domain/model/types';
 import { fill, idByName } from '../domain/testing/sample';
 import type { Bar } from '../domain/market/indicators';
-import type { BarsResponse, EvidenceDTO, ProjectBundleDTO, QuoteResponse, RevisionFull, RevisionMeta, SeriesPoint, TradeDTO } from '../shared/api';
+import type { BarsResponse, DashboardDTO, EvidenceDTO, ProjectBundleDTO, QuoteResponse, RefreshRunDTO, RevisionFull, RevisionMeta, SeriesPoint, TradeDTO, TradesJournalDTO } from '../shared/api';
 import type { TokenName } from '../shared/actors';
+import { currentActor } from './actor';
 import { buildApp, type AppContext } from './app';
 import { openDatabase } from './db/connection';
 import { MIGRATIONS, SCHEMA_VERSION } from './db/migrations';
@@ -35,11 +36,54 @@ class FailingProvider implements MarketDataProvider {
   }
 }
 
+/** History is rate-limited (after a short wait, so a refresh run is still going when polled); counts calls. */
+class LimitedProvider implements MarketDataProvider {
+  id = 'limited';
+  label = 'Limited';
+  description = 'Rate-limited history';
+  synthetic = false;
+  fetches = true;
+  calls = 0;
+  /** Who the server thinks is acting during the call. */
+  actor: string | null = null;
+  async getQuote(): Promise<never> {
+    throw new MarketDataError('RATE_LIMITED', 'Too many requests', 60);
+  }
+  async getHistoricalPrices(): Promise<Bar[]> {
+    this.calls++;
+    this.actor = currentActor();
+    await new Promise((r) => setTimeout(r, 30));
+    throw new MarketDataError('RATE_LIMITED', 'Too many requests', 60);
+  }
+}
+
+class OfflineProvider implements MarketDataProvider {
+  id = 'offline';
+  label = 'Offline';
+  description = 'No network';
+  synthetic = false;
+  fetches = true;
+  calls = 0;
+  async getQuote(): Promise<never> {
+    throw new MarketDataError('NETWORK', 'Could not reach Offline: getaddrinfo ENOTFOUND');
+  }
+  async getHistoricalPrices(): Promise<Bar[]> {
+    this.calls++;
+    throw new MarketDataError('NETWORK', 'Could not reach Offline: getaddrinfo ENOTFOUND');
+  }
+}
+
+let limited: LimitedProvider;
+let offline: OfflineProvider;
+
 beforeEach(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-test-'));
+  limited = new LimitedProvider();
+  offline = new OfflineProvider();
   ctx = await buildApp({
     dataDir: dir,
-    providers: [new DemoProvider(() => '2026-09-25'), new CsvProvider(), new FailingProvider()],
+    providers: [new DemoProvider(() => '2026-09-25'), new CsvProvider(), new FailingProvider(), limited, offline],
+    market: { minIntervalMs: 0 },
     symbolSearch: new SymbolSearch({ taiwanDirectory: async () => [{ code: '7899', name: '景美', board: 'emerging' }] }),
   });
 });
@@ -502,6 +546,200 @@ describe('catalysts, notes, reviews, templates, export, migrations', () => {
       ]),
     );
     b.close();
+  });
+});
+
+describe('dashboard, journal and price refresh', () => {
+  async function company(name: string, ticker: string, currency: string, priceSource: string): Promise<ProjectBundleDTO> {
+    const { id } = await api<{ id: string }>('POST', '/api/projects', { name, year: 2026, security: { ticker, exchange: 'TEST', apiSymbol: ticker, currency, priceSource } });
+    return api<ProjectBundleDTO>('GET', `/api/projects/${id}`);
+  }
+
+  it('shows every company with price, targets, upside, research, positions, catalysts, theses and AI', async () => {
+    const a = await newProject();
+    const pid = a.project.id;
+    const sec = a.securities[0];
+    let s = updateValuation(populate(a.draft.state), { probabilities: { bear: 0.25, base: 0.5, bull: 0.25 } });
+    s = addThesis(s, { statement: 'Hyperscaler share gains', reviewBy: '2020-01-01' }).state;
+    s = addThesis(s, { statement: 'Margin recovery', reviewBy: '2099-06-30' }).state;
+    s = addThesis(s, { statement: 'Retired idea', reviewBy: '2020-01-01', status: 'retired' }).state;
+    const d = await saveDraft(pid, s, a.draft.version);
+    const r2 = await commit(pid, d.version, { asOfDate: '2026-09-20' });
+    const q = (await api<QuoteResponse>('GET', `/api/securities/${sec.id}/quote`)).quote!;
+    const t = await api<TradeDTO>('POST', `/api/projects/${pid}/trades`, { entryDate: '2026-09-21', entryPrice: 100, quantity: 10, stopAtEntry: 90, fees: 5 });
+    await api('POST', `/api/projects/${pid}/catalysts`, { title: 'Old earnings', type: 'earnings', expectedDate: '2020-01-01', datePrecision: 'day' });
+    await api('POST', `/api/projects/${pid}/catalysts`, { title: 'Far launch', type: 'product_launch', expectedDate: '2099-01-01', datePrecision: 'quarter' });
+    await api('POST', `/api/projects/${pid}/catalysts`, { title: 'Undated', type: 'other' });
+    await api('POST', `/api/projects/${pid}/catalysts`, { title: 'Done', type: 'other', expectedDate: '2020-02-01', status: 'occurred', actualDate: '2020-02-01' });
+    const b = await company('Fresh Co', 'FRSH', 'USD', 'demo');
+    const c = await company('Old Co', 'OLD', 'TWD', 'demo');
+    await api('PATCH', `/api/projects/${c.project.id}`, { archived: true });
+    // an AI writes a note on B and saves a summary
+    await apiAs('claude-desktop', 'POST', `/api/projects/${b.project.id}/notes`, { body: 'Checked the 10-Q' });
+    await apiAs('claude-desktop', 'POST', '/api/ai/sessions/summary', { summary: '\nReviewed Fresh Co\nsecond line', projectIds: [b.project.id] });
+
+    const dash = await api<DashboardDTO>('GET', '/api/dashboard');
+    expect(dash.refresh).toBeNull();
+    expect(dash.rows.map((r) => r.name)).toEqual(['Fresh Co', 'Lite-On Technology', 'Old Co']);
+    const ra = dash.rows.find((r) => r.projectId === pid)!;
+    const tp = s.nodes.find((n) => n.role === 'target_price')!.id;
+    const tps = { bear: r2.computed.values.bear[tp][SCALAR_KEY]!, base: r2.computed.values.base[tp][SCALAR_KEY]!, bull: r2.computed.values.bull[tp][SCALAR_KEY]! };
+    expect(ra.target).toMatchObject({ currency: 'TWD', ...tps, weightSum: 1, currencyMismatch: false });
+    expect(ra.target.weighted).toBeCloseTo(0.25 * tps.bear + 0.5 * tps.base + 0.25 * tps.bull);
+    expect(ra.target.upsideBase).toBeCloseTo(tps.base / q.price - 1);
+    expect(ra.target.upsideWeighted).toBeCloseTo(ra.target.weighted! / q.price - 1);
+    expect(ra.price).toMatchObject({ value: q.price, currency: 'TWD', provider: 'demo', synthetic: true, stale: false, marketDate: '2026-09-25' });
+    expect(ra.security).toMatchObject({ id: sec.id, name: sec.name, ticker: '2301', priceSource: 'demo' });
+    expect(ra.research).toMatchObject({ revisionId: r2.id, seq: 2, kind: 'update', asOfDate: '2026-09-20' });
+    expect(ra.draftDirty).toBe(false);
+    expect(ra.positions).toMatchObject({ open: 1, rCount: 1 });
+    expect(ra.positions.avgR).toBeCloseTo((q.price - 100) / 10);
+    expect(ra.positions.pnl).toEqual([{ currency: 'TWD', value: expect.closeTo((q.price - 100) * 10 - 5) }]);
+    expect(ra.positions.items[0]).toMatchObject({ tradeId: t.id, side: 'long', markSource: 'quote' });
+    expect(ra.catalysts).toMatchObject({ overdue: 1, upcoming: 1, undated: 1 });
+    expect(ra.catalysts.oldestOverdue).toMatchObject({ title: 'Old earnings', windowEnd: '2020-01-01' });
+    expect(ra.catalysts.next).toMatchObject({ title: 'Far launch', windowEnd: '2099-03-31' });
+    expect(ra.theses).toEqual({ reviewDue: 1, nextReviewBy: '2099-06-30' });
+    expect(ra.ai).toBeNull();
+
+    const rb = dash.rows.find((r) => r.projectId === b.project.id)!;
+    expect(rb.research).toBeNull();
+    expect(rb.price).toBeNull();
+    expect(rb.target).toMatchObject({ base: null, weighted: null, upsideBase: null });
+    expect(rb.ai).toMatchObject({ client: 'claude-desktop', summary: 'Reviewed Fresh Co' });
+    expect(dash.rows.find((r) => r.projectId === c.project.id)!.archivedAt).not.toBeNull();
+
+    // uncommitted draft edit, and a quote fetched two days ago
+    const bundle = await api<ProjectBundleDTO>('GET', `/api/projects/${pid}`);
+    await saveDraft(pid, setValue(bundle.draft.state, idByName(s, 'Target P/E'), SCALAR_KEY, 'base', 40), bundle.draft.version);
+    ctx.db.prepare('UPDATE quotes SET fetched_at = ?').run(new Date(Date.now() - 2 * 86_400_000).toISOString());
+    const dash2 = await api<DashboardDTO>('GET', '/api/dashboard');
+    const ra2 = dash2.rows.find((r) => r.projectId === pid)!;
+    expect(ra2.draftDirty).toBe(true);
+    expect(ra2.target.base).toBe(tps.base); // still the committed head
+    expect(ra2.price!.stale).toBe(true);
+  });
+
+  it('flags a target in another currency than the price', async () => {
+    const a = await newProject();
+    const sec = a.securities[0];
+    const d = await saveDraft(a.project.id, populate(a.draft.state), a.draft.version);
+    await commit(a.project.id, d.version);
+    await api('GET', `/api/securities/${sec.id}/quote`);
+    ctx.db.prepare("UPDATE quotes SET currency = 'USD'").run();
+    const row = (await api<DashboardDTO>('GET', '/api/dashboard')).rows[0];
+    expect(row.target.base).not.toBeNull();
+    expect(row.target).toMatchObject({ currencyMismatch: true, upsideBase: null, upsideWeighted: null });
+  });
+
+  it('lists trades across companies with metrics, research snapshot, reviews and filters', async () => {
+    const a = await newProject();
+    const pid = a.project.id;
+    const sec = a.securities[0];
+    const d = await saveDraft(pid, populate(a.draft.state), a.draft.version);
+    const r2 = await commit(pid, d.version, { asOfDate: '2026-08-20' });
+    const u = await company('Credo Technology', 'CRDO', 'USD', 'demo');
+    await api('GET', `/api/securities/${sec.id}/bars`);
+    await api('GET', `/api/securities/${u.securities[0].id}/bars`);
+    await api('GET', `/api/securities/${u.securities[0].id}/quote`);
+    const closed = await api<TradeDTO>('POST', `/api/projects/${pid}/trades`, { entryDate: '2026-09-01', entryPrice: 100, quantity: 1000, exitDate: '2026-09-15', exitPrice: 110, fees: 50 });
+    const open = await api<TradeDTO>('POST', `/api/projects/${u.project.id}/trades`, { entryDate: '2026-09-10', entryPrice: 50, quantity: 10, stopAtEntry: 45 });
+    const old = await api<TradeDTO>('POST', `/api/projects/${pid}/trades`, { entryDate: '2022-06-01', entryPrice: 80, quantity: 1, exitDate: '2022-07-01', exitPrice: 85 });
+    await api('POST', `/api/projects/${pid}/reviews`, { title: 'Sold too early', subjectType: 'trade', subjectId: closed.id, categories: [{ category: 'trading_execution', notes: '' }], executionVerdict: 'poor' });
+
+    const all = await api<TradesJournalDTO>('GET', '/api/trades');
+    expect(all.trades.map((t) => t.id)).toEqual([open.id, closed.id, old.id]);
+    const c = all.trades[1];
+    expect(c.metrics).toMatchObject({ open: false, markSource: 'exit' });
+    expect(c.metrics.pnl).toBeCloseTo(10 * 1000 - 50);
+    expect(c.project).toEqual({ id: pid, name: 'Lite-On Technology', archived: false });
+    expect(c.security).toMatchObject({ ticker: '2301', currency: 'TWD', priceSource: 'demo', synthetic: true });
+    expect(c.research).toMatchObject({ revisionId: r2.id, seq: 2, asOfDate: '2026-08-20', kind: 'update' });
+    expect(c.reviews).toMatchObject([{ title: 'Sold too early', executionVerdict: 'poor', categories: ['trading_execution'] }]);
+    expect(c.barsCoverEntry).toBe(true);
+    expect(c.createdBy).toBe('user');
+    const o = all.trades[0];
+    expect(o.metrics.markSource).toBe('quote');
+    expect(o.metrics.rMultiple).not.toBeNull();
+    expect(o.security.currency).toBe('USD');
+    expect(o.research).toBeNull();
+    const before = all.trades[2];
+    expect(before.barsCoverEntry).toBe(false);
+    expect(before.metrics.trailingExit).toBeNull();
+    expect(before.metrics.mfe).toBeNull();
+
+    expect((await api<TradesJournalDTO>('GET', '/api/trades?status=open')).trades.map((t) => t.id)).toEqual([open.id]);
+    expect((await api<TradesJournalDTO>('GET', '/api/trades?status=closed')).trades).toHaveLength(2);
+    expect((await api<TradesJournalDTO>('GET', '/api/trades?from=2026-09-05')).trades.map((t) => t.id)).toEqual([open.id]);
+    expect((await api<TradesJournalDTO>('GET', '/api/trades?from=2026-01-01&to=2026-09-05')).trades.map((t) => t.id)).toEqual([closed.id]);
+    expect((await api<TradesJournalDTO>(`GET`, `/api/trades?projectId=${pid}`)).trades).toHaveLength(2);
+    await api('GET', '/api/trades?from=bad', undefined, 400);
+    await api('GET', '/api/trades?status=mine', undefined, 400);
+    await api('GET', '/api/trades?projectId=prj_nope', undefined, 404);
+  });
+
+  it('updates all prices in the background, per provider, with rate-limit and shutdown rules', async () => {
+    expect(await api<RefreshRunDTO | null>('GET', '/api/market/refresh')).toBeNull();
+    const demo = await newProject();
+    const csv = await company('CSV Co', 'CSV1', 'TWD', 'csv');
+    const flaky = await company('Flaky Co', 'FLK', 'TWD', 'flaky');
+    const l1 = await company('Limited One', 'LIM1', 'USD', 'limited');
+    const l2 = await company('Limited Two', 'LIM2', 'USD', 'limited');
+    const archived = await company('Archived Co', 'ARC', 'TWD', 'demo');
+    await api('PATCH', `/api/projects/${archived.project.id}`, { archived: true });
+    const held = await company('Held Co', 'HLD', 'TWD', 'demo');
+    await api('POST', `/api/projects/${held.project.id}/trades`, { entryDate: '2026-09-01', entryPrice: 10, quantity: 1 });
+    await api('PATCH', `/api/projects/${held.project.id}`, { archived: true });
+
+    const run = await api<RefreshRunDTO>('POST', '/api/market/refresh');
+    expect(run.state).toBe('running');
+    expect((await api<RefreshRunDTO>('POST', '/api/market/refresh')).id).toBe(run.id);
+    await ctx.refresher.idle();
+    const done = (await api<RefreshRunDTO>('GET', '/api/market/refresh'))!;
+    expect(done.id).toBe(run.id);
+    expect(done.state).toBe('done');
+    expect(done.finishedAt).not.toBeNull();
+    const item = (b: ProjectBundleDTO) => done.items.find((i) => i.projectId === b.project.id);
+    expect(item(archived)).toBeUndefined();
+    expect(item(held)).toMatchObject({ status: 'ok', lastDate: '2026-09-25' });
+    expect(item(demo)).toMatchObject({ status: 'ok', lastDate: '2026-09-25' });
+    expect(item(csv)).toMatchObject({ status: 'skipped', message: 'Imported prices only (CSV)' });
+    expect(item(flaky)).toMatchObject({ status: 'failed', message: 'Unknown symbol' });
+    expect([item(l1)!.status, item(l2)!.status].sort()).toEqual(['rate_limited', 'skipped']);
+    expect([item(l1)!.message, item(l2)!.message]).toContain('Not updated: Limited rate limit reached');
+    expect(limited.calls).toBe(1);
+    // background work runs as the system, not as whoever pressed the button
+    expect(limited.actor).toBe('system');
+    expect(done.providers.find((p) => p.id === 'limited')).toMatchObject({ state: 'rate_limited', retryAfterSec: 60, total: 2 });
+    expect(done.providers.find((p) => p.id === 'demo')).toMatchObject({ state: 'done', total: 2 });
+    expect(done).toMatchObject({ total: 6, ok: 2, failed: 1, rateLimited: 1, skipped: 2, pending: 0 });
+    const quote = ctx.db.prepare('SELECT as_of FROM quotes WHERE security_id = ? AND provider = ?').get(demo.securities[0].id, 'demo') as { as_of: string };
+    expect(quote.as_of).toBe('2026-09-25T00:00:00.000Z');
+    expect((await api<DashboardDTO>('GET', '/api/dashboard')).refresh?.id).toBe(run.id);
+
+    // shutting down: no new runs
+    await ctx.refresher.stop();
+    await api('POST', '/api/market/refresh', undefined, 503);
+  });
+
+  it('gives up on a provider that cannot be reached', async () => {
+    for (const n of [1, 2, 3, 4]) await company(`Offline ${n}`, `OFF${n}`, 'USD', 'offline');
+    await api('POST', '/api/market/refresh');
+    await ctx.refresher.idle();
+    const run = (await api<RefreshRunDTO>('GET', '/api/market/refresh'))!;
+    expect(run.items.map((i) => i.status)).toEqual(['failed', 'failed', 'failed', 'skipped']);
+    expect(run.items[3].message).toBe('Not updated: Offline could not be reached');
+    expect(run.providers[0]).toMatchObject({ id: 'offline', state: 'unreachable' });
+    expect(offline.calls).toBe(3);
+  });
+
+  it('marks a source this server does not have as unavailable', async () => {
+    const b = await company('Fugle Co', '2330', 'TWD', 'fugle');
+    await api('POST', '/api/market/refresh');
+    await ctx.refresher.idle();
+    const run = (await api<RefreshRunDTO>('GET', '/api/market/refresh'))!;
+    expect(run.items).toMatchObject([{ projectId: b.project.id, status: 'skipped', message: 'Unknown price source "fugle"' }]);
+    expect(run.providers[0]).toMatchObject({ id: 'fugle', state: 'unavailable' });
   });
 });
 

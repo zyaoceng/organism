@@ -17,7 +17,7 @@ import { buildApp, type AppContext } from '../server/app';
 import { CsvProvider } from '../server/market/csv';
 import { DemoProvider } from '../server/market/demo';
 import { SymbolSearch } from '../server/market/symbols';
-import type { AiSessionDTO, BarsResponse, DiagnosticsDTO, DraftOpRowDTO, EvidenceDTO, ProjectBundleDTO, ProjectSummaryDTO, RevisionMeta, TradeDTO } from '../shared/api';
+import type { AiSessionDTO, BarsResponse, DiagnosticsDTO, DraftOpRowDTO, EvidenceDTO, ProjectBundleDTO, ProjectSummaryDTO, RefreshRunDTO, RevisionMeta, TradeDTO, TradesJournalDTO } from '../shared/api';
 import { buildMcp } from './build';
 import { TOOL_NAMES } from './tools';
 
@@ -145,12 +145,31 @@ describe('MCP adapter over stdio', () => {
       const names = tools.map((t) => t.name);
       expect([...names].sort()).toEqual([...TOOL_NAMES].sort());
       expect(names).toEqual(
-        expect.arrayContaining(['list_companies', 'get_company', 'get_model', 'edit_draft', 'add_evidence', 'preview_commit', 'commit_research_update', 'record_trade', 'close_trade', 'save_session_summary']),
+        expect.arrayContaining([
+          'list_companies',
+          'get_company',
+          'get_model',
+          'edit_draft',
+          'add_evidence',
+          'preview_commit',
+          'commit_research_update',
+          'record_trade',
+          'close_trade',
+          'save_session_summary',
+          'list_trades',
+          'refresh_prices',
+          'get_refresh_status',
+        ]),
       );
       const byName = Object.fromEntries(tools.map((t) => [t.name, t]));
       expect(byName.commit_research_update.annotations).toMatchObject({ destructiveHint: true, readOnlyHint: false });
       expect(byName.get_model.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false });
       expect(byName.close_trade.annotations?.idempotentHint).toBe(true);
+      expect(byName.list_trades.annotations).toMatchObject({ readOnlyHint: true });
+      expect(byName.get_refresh_status.annotations).toMatchObject({ readOnlyHint: true });
+      // it calls the price sources on the internet, and starting it twice returns the same run
+      expect(byName.refresh_prices.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true });
+      expect(Object.keys(byName.list_companies.inputSchema.properties ?? {})).toEqual(expect.arrayContaining(['include_archived', 'query']));
       const trade = byName.record_trade.inputSchema.properties as Record<string, unknown>;
       expect(trade.quantity_shares).toBeDefined();
       expect(trade.quantity).toBeUndefined();
@@ -373,6 +392,85 @@ describe('MCP adapter over stdio', () => {
       expect(text).toMatch(/^已記錄出場：/);
       const after = (await user<TradeDTO[]>('GET', `/api/projects/${pid}/trades`)).find((t) => t.id === open.id)!;
       expect(after).toMatchObject({ exitDate: exit.date, exitPrice: exit.close, exitReason: '到達目標' });
+    },
+    T,
+  );
+
+  it(
+    'lists trades across companies, with money kept per currency',
+    async () => {
+      // the user also trades a US stock
+      const { id: usd } = await user<{ id: string }>('POST', '/api/projects', {
+        name: 'Credo',
+        lang: 'zh-TW',
+        year: 2026,
+        security: { name: 'Credo Technology', ticker: 'CRDO', exchange: 'NASDAQ', apiSymbol: 'CRDO', currency: 'USD', priceSource: 'demo' },
+      });
+      const sec = (await user<ProjectBundleDTO>('GET', `/api/projects/${usd}`)).securities[0];
+      const ub = (await user<BarsResponse>('GET', `/api/securities/${sec.id}/bars`)).bars;
+      await user('POST', `/api/projects/${usd}/trades`, { side: 'long', entryDate: ub.at(-10)!.date, entryPrice: ub.at(-10)!.close, quantity: 10, exitDate: ub.at(-3)!.date, exitPrice: ub.at(-3)!.close });
+      const journal = (await user<TradesJournalDTO>('GET', '/api/trades')).trades;
+
+      const all = await ok('list_trades', {});
+      expect(all.split('\n')[0]).toBe(`交易紀錄（全部｜全部公司）：共 ${journal.length} 筆，未平倉 ${journal.filter((t) => !t.exitDate).length}、已平倉 ${journal.filter((t) => t.exitDate).length}。`);
+      expect(all).toContain('不換算，也不跨幣別加總');
+      expect(all).toMatch(/^- TWD：已平倉 1 筆.*；未平倉 2 筆/m);
+      expect(all).toMatch(/^- USD：已平倉 1 筆，獲利 \d 筆.*已實現損益 [+-]?[\d,]+ USD；沒有未平倉$/m);
+      expect(all).toContain('Credo（CRDO · NASDAQ，USD）');
+      expect(all).toMatch(/從舊日誌匯入｜由 Claude 桌面版 記錄/);
+      expect(all).toContain(`#/p/${pid}/trades/`);
+      expect(all).toContain(`交易日誌：http://127.0.0.1:${port}/#/journal`);
+
+      const open = await ok('list_trades', { company: '2301', status: 'open' });
+      const openHere = journal.filter((t) => t.projectId === pid && !t.exitDate);
+      expect(open.split('\n')[0]).toBe(`交易紀錄（未平倉｜光寶科（2301，id: ${pid}））：共 ${openHere.length} 筆，未平倉 ${openHere.length}、已平倉 0。`);
+      for (const t of openHere) expect(open).toContain(`‹${t.id}›`);
+      expect(open).not.toContain('CRDO');
+      expect(await ok('list_trades', { from: '2099-01-01' })).toContain('沒有符合的交易（全部｜全部公司｜進場日 2099-01-01 到 最新）');
+      expect(await refused('list_trades', { from: '2026-10-01', to: '2026-09-01' })).toContain('不能晚於');
+      expect(await refused('list_trades', { company: '鴻海' })).toContain('找不到公司「鴻海」');
+      expect(await refused('list_trades', { status: 'pending' })).toMatch(/Input validation error|Invalid/);
+    },
+    T,
+  );
+
+  it(
+    'updates all prices in the background; the AI polls, then reads the overview',
+    async () => {
+      expect(await ok('get_refresh_status', {})).toContain('還沒有「更新全部股價」的紀錄');
+      const started = await ok('refresh_prices', {});
+      const runId = /已開始更新全部股價（(rfr_\w+)）/.exec(started)![1];
+      expect(started).toContain('get_refresh_status');
+
+      let status = '';
+      for (let i = 0; i < 100 && !status.startsWith(`更新全部股價 ${runId}：完成`); i++) {
+        if (i) await new Promise((r) => setTimeout(r, 100));
+        status = await ok('get_refresh_status', {});
+      }
+      const run = (await user<RefreshRunDTO | null>('GET', '/api/market/refresh'))!;
+      expect(run).toMatchObject({ id: runId, state: 'done', pending: 0 });
+      // 光寶科 and Credo use the demo source; 景美's FinMind is not configured on this server
+      const demo = run.items.filter((i) => i.provider === 'demo');
+      expect(demo.map((i) => i.ticker).sort()).toEqual(['2301', 'CRDO']);
+      expect(run).toMatchObject({ ok: demo.length, failed: 0, skipped: run.total - demo.length });
+      expect(status).toContain(`共 ${run.total} 檔：成功 ${run.ok}、失敗 0、達到請求上限 0、略過 ${run.skipped}。`);
+      expect(status).toContain('- finmind（finmind）1 檔：這台伺服器沒有設定這個股價來源');
+      expect(status).toMatch(/⟦使用者資料開始：股價來源的訊息⟧\n- 景美（7899，finmind）略過：Unknown price source "finmind"\n⟦使用者資料結束⟧/);
+      expect(status).toContain('已完成：用 list_companies 讀新的股價。');
+      const [session] = await user<AiSessionDTO[]>('GET', '/api/ai/sessions?limit=1');
+      expect(session.actions.map((a) => a.tool)).toContain('refresh_prices');
+
+      const list = await ok('list_companies', {});
+      const block = list.slice(list.indexOf(`光寶科（2301 · TWSE）id: ${pid}`));
+      expect(block).toMatch(/^光寶科（2301 · TWSE）id: \S+\n {3}股價 [\d,.]+ TWD（2026-09-25，demo，模擬資料，不是真實股價/);
+      expect(block).toMatch(/\n {3}目標價 空頭\/基準\/多頭 .* TWD｜上檔空間 基準 [+-]\d+\.\d%/);
+      expect(block).toMatch(/\n {3}最近研究更新 #3「同業重新評價」知情日 \d{4}-\d{2}-\d{2}｜草稿有未提交修改\n/);
+      expect(block).toMatch(/\n {3}未平倉 1 筆，未實現損益 [+-]?[\d,]+ TWD｜.*最近 AI 活動：Claude 桌面版/);
+      const crdo = await ok('list_companies', { query: 'crdo' });
+      expect(crdo).toContain('共 1 家公司');
+      expect(crdo).toMatch(/Credo（CRDO · NASDAQ）id: \S+\n {3}股價 [\d,.]+ USD（2026-09-25，demo/);
+      // the query also matches the security's own name (M3 behaviour)
+      expect(await ok('list_companies', { query: 'Technology' })).toMatch(/共 1 家公司[\s\S]*Credo（CRDO · NASDAQ）/);
     },
     T,
   );

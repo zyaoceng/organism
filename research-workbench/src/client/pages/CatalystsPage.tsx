@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { catalystTiming } from '../../domain/portfolio/flags';
 import { CATALYST_TYPES, type CatalystDTO } from '../../shared/api';
 import { Field } from '../components/ui';
 import { api } from '../lib/api';
@@ -28,7 +29,7 @@ export function CatalystsPage() {
       <h2 style={{ margin: '16px 0 8px' }}>{t('Upcoming ({n})', { n: upcoming.length })}</h2>
       {upcoming.length === 0 && <div className="empty">{t('No upcoming catalysts.')}</div>}
       {upcoming.map((c) => (
-        <CatalystCard key={c.id} c={c} overdue={!!c.expectedDate && c.expectedDate < now} />
+        <CatalystCard key={c.id} c={c} overdue={catalystTiming(c, now) === 'overdue'} />
       ))}
       <h2 style={{ margin: '16px 0 8px' }}>{t('Past ({n})', { n: past.length })}</h2>
       {past.map((c) => (
@@ -57,7 +58,7 @@ function TimelineStrip({ catalysts, now }: { catalysts: CatalystDTO[]; now: stri
         ))}
         {dated.map((c, i) => (
           <div key={c.id} title={`${c.expectedDate} ${c.title}\n${t('Expected: {outcome}', { outcome: c.expectedOutcome })}`} style={{ position: 'absolute', left: x(c.expectedDate!), top: i % 2 ? 26 : 8, transform: 'translateX(-4px)' }}>
-            <div style={{ width: 9, height: 9, borderRadius: 5, background: c.expectedDate! < now ? 'var(--warn)' : 'var(--accent)', margin: '0 0 2px' }} />
+            <div style={{ width: 9, height: 9, borderRadius: 5, background: catalystTiming(c, now) === 'overdue' ? 'var(--warn)' : 'var(--accent)', margin: '0 0 2px' }} />
             <div className="tiny nowrap" style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {c.title}
             </div>

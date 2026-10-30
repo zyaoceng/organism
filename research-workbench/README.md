@@ -56,7 +56,7 @@ Checks
 ```bash
 npm run typecheck    # TypeScript
 npm test             # 189 unit + API tests (domain engine, revisions, server, backups, data import, installer helpers, client store, preferences, translations)
-npm run e2e          # builds, starts a throwaway server, drives the UI through acceptance tests 1-18, the language switch and basic mode (21 checks)
+npm run e2e          # builds, starts a throwaway server, drives the UI through acceptance tests 1-18, the language switch, basic mode, an AI edit, the dashboard and the trade log (24 checks)
 ```
 
 `npm run e2e` uses the pre-installed Chromium at `/opt/pw-browsers/chromium`
@@ -93,6 +93,15 @@ Everyday workflow
    and target lines, the quote and the price source; the trade journal links
    each entry to the research snapshot valid on its entry date and shows the
    2×ATR trailing-stop counterfactual. (`#/p/<id>/market` still opens it.)
+8. **Home and trade log**: the company list is one table of every company —
+   last price and its date (stale and "no new prices" flags), Bear/Base/Bull
+   target from the latest committed update, upside, last research date,
+   uncommitted draft, open positions with R, overdue catalysts, theses due for
+   review and the latest AI activity. Sort by any column, filter by name or
+   code, **Update all prices** in the background, and press `Ctrl+K` anywhere
+   to switch company. The **Trade log** (`#/journal`) lists every trade across
+   companies with R, P&L in each security's own currency (never converted or
+   added across currencies), the research snapshot, reviews and who recorded it.
 
 Basic and advanced mode
 -----------------------

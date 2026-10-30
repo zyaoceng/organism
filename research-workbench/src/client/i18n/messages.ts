@@ -195,6 +195,15 @@ const P: [RegExp, string][] = [
   [/^(FinMind|Fugle): (.+)$/, '$1：$2'],
   [/^Unknown symbol$/, '找不到這個代號'],
 
+  // Update all prices, trade log (src/server/market/refreshAll.ts, GET /api/trades)
+  [/^Imported prices only \(CSV\)$/, '只有匯入的股價（CSV），不會自動更新'],
+  [/^Unknown price source "(.+)"$/, '未知的股價來源「$1」'],
+  [/^Not updated: the server shut down$/, '未更新：伺服器已關閉'],
+  [/^Not updated: (.+) rate limit reached$/, '未更新：$1 達到請求上限'],
+  [/^Not updated: (.+) could not be reached$/, '未更新：無法連線到 $1'],
+  [/^The server is shutting down$/, '伺服器正在關閉'],
+  [/^status must be all, open or closed$/, '狀態必須是 all、open 或 closed'],
+
   // A period label or node path in front of another message, e.g. "2028E: Division by zero: …"
   [/^(\S+): (.+)$/, '$1：%2'],
 ];

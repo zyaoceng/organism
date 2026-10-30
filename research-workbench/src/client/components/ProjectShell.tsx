@@ -4,6 +4,7 @@ import { findByRole } from '../../domain/model/tree';
 import { SCALAR_KEY } from '../../domain/model/types';
 import { basisPeriodId } from '../../domain/revision/impact';
 import { api } from '../lib/api';
+import { isModK } from '../lib/hotkeys';
 import { t, tm, useLang } from '../lib/i18n';
 import { calcOf, diffOf } from '../lib/derived';
 import { href, navigate, TABS, type Tab } from '../lib/router';
@@ -40,7 +41,7 @@ export function ProjectShell({ projectId, tab, param }: { projectId: string; tab
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
-      if (mod && e.key.toLowerCase() === 'k') {
+      if (isModK(e)) {
         e.preventDefault();
         setSearchOpen(true);
         return;
@@ -85,7 +86,7 @@ export function ProjectShell({ projectId, tab, param }: { projectId: string; tab
               {tab === 'evidence' && <EvidencePage param={param} />}
               {tab === 'valuation' && <ValuationPage />}
               {tab === 'catalysts' && <CatalystsPage />}
-              {tab === 'trades' && <TradesPage />}
+              {tab === 'trades' && <TradesPage param={param} />}
               {tab === 'history' && <HistoryPage param={param} />}
             </div>
           </>
@@ -93,7 +94,7 @@ export function ProjectShell({ projectId, tab, param }: { projectId: string; tab
           <div className="page sub">{t('Loading…')}</div>
         )}
       </div>
-      {searchOpen && ready && <SearchPalette onClose={() => setSearchOpen(false)} />}
+      {searchOpen && ready && <SearchPalette tab={tab} onClose={() => setSearchOpen(false)} />}
     </div>
   );
 }
@@ -152,6 +153,11 @@ function Sidebar({ projectId, tab }: { projectId: string; tab: Tab }) {
       </nav>
       <div className="foot">
         <a href="#/">{t('← All companies')}</a>
+        <div style={{ marginTop: 6 }}>
+          <a href={href({ page: 'journal' })} data-testid="nav-journal">
+            {t('Trade log')}
+          </a>
+        </div>
         <div style={{ marginTop: 6 }}>
           <a href={href({ page: 'settings' })} data-testid="sidebar-settings">
             {t('Settings')}

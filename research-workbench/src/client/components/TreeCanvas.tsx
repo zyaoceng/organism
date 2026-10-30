@@ -491,6 +491,8 @@ export function TreeCanvas() {
               <span className="name" title={n.notes ? n.notes.slice(0, 400) : n.name}>
                 {renamingId === n.id ? (
                   <input
+                    // keyed by the name: a rename arriving meanwhile (AI client, undo) replaces the old text instead of being renamed back on blur
+                    key={n.name}
                     autoFocus
                     defaultValue={n.name}
                     onClick={(e) => e.stopPropagation()}

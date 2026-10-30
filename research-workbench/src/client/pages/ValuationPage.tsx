@@ -5,6 +5,7 @@ import { findByRole } from '../../domain/model/tree';
 import { SCALAR_KEY, SCENARIOS, type HistoricalPE, type ModelState, type Peer, type ScenarioId } from '../../domain/model/types';
 import { basisPeriodId } from '../../domain/revision/impact';
 import type { Unit } from '../../domain/units';
+import { probabilityWeightedTarget } from '../../domain/valuation/targets';
 import { FormulaEditor } from '../components/FormulaEditor';
 import { Advanced, Field, InlineText, NumberField, ScenarioSwitch } from '../components/ui';
 import { calcOf } from '../lib/derived';
@@ -45,8 +46,9 @@ export function ValuationPage() {
   const currentPE = (key: string | null) => (price && key && v(eps?.id, key) ? price / v(eps?.id, key)! : null);
   const hist = state.valuation.historicalPE;
   const probs = state.valuation.probabilities;
-  const probSum = SCENARIOS.reduce((s, x) => s + (probs[x.id] ?? 0), 0);
-  const weighted = probSum > 0 ? SCENARIOS.reduce((s, x) => s + (probs[x.id] ?? 0) * (v(tp?.id, tpKey, x.id) ?? 0), 0) / probSum : null;
+  // a weighted scenario without a target gives no weighted target (it no longer counts as 0)
+  const w = probabilityWeightedTarget({ bear: v(tp?.id, tpKey, 'bear'), base: v(tp?.id, tpKey, 'base'), bull: v(tp?.id, tpKey, 'bull') }, probs);
+  const weighted = w.value;
   const peers = state.valuation.peers;
   const median = (xs: (number | undefined)[]) => {
     const a = xs.filter((x): x is number => typeof x === 'number').sort((p, q) => p - q);
@@ -112,7 +114,7 @@ export function ValuationPage() {
       {weighted !== null && (
         <div className="msg info" style={{ marginBottom: 14 }}>
           {t('Probability-weighted target price:')} <b>{formatValue(weighted, tp?.unit)}</b>
-          {Math.abs(probSum - 1) > 1e-6 && t(' (weights sum to {pct}%; normalized)', { pct: (probSum * 100).toFixed(0) })}
+          {w.normalized && t(' (weights sum to {pct}%; normalized)', { pct: (w.weightSum * 100).toFixed(0) })}
         </div>
       )}
 

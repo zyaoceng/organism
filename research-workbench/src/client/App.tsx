@@ -5,6 +5,7 @@ import { useLang } from './lib/i18n';
 import { useRoute, type Route } from './lib/router';
 import { unsavedWork, useWorkspace } from './lib/store';
 import { cls } from './lib/util';
+import { JournalPage } from './pages/JournalPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
@@ -35,6 +36,8 @@ function Page({ route }: { route: Route }) {
       return <ProjectsPage />;
     case 'settings':
       return <SettingsPage />;
+    case 'journal':
+      return <JournalPage />;
     case 'project':
       return <ProjectShell projectId={route.projectId} tab={route.tab} param={route.param} />;
   }

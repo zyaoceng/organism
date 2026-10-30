@@ -1,6 +1,8 @@
 /** Evidence, catalysts, trades, notes, reviews and templates: records with their own lifecycle. */
+import type { FrozenOutputs } from '../../domain/calc/engine';
 import { atrAsOf } from '../../domain/market/indicators';
 import type { ModelState } from '../../domain/model/types';
+import { frozenTargets } from '../../domain/valuation/targets';
 import {
   SOURCE_TYPES,
   type CatalystDTO,
@@ -18,7 +20,7 @@ import type { DB } from '../db/connection';
 import { toAttachmentDTO, type AttachmentRow } from '../storage/attachments';
 import { badRequest, conflict, isDate, localToday, newId, notFound, nowIso, parseJson } from '../util';
 import { audit } from './audit';
-import { frozenTargetPrice, getDraftRow, getSecurity, revisionAsOf } from './projects';
+import { getDraftRow, getSecurity, revisionAsOf } from './projects';
 import { getBars } from './market';
 
 // ---------------------------------------------------------------- evidence
@@ -348,7 +350,7 @@ export function deleteCatalyst(db: DB, id: string) {
 
 // ---------------------------------------------------------------- trades
 
-interface TradeRow {
+export interface TradeRow {
   id: string;
   project_id: string;
   security_id: string;
@@ -375,7 +377,7 @@ interface TradeRow {
   updated_at: string;
 }
 
-const toTrade = (r: TradeRow): TradeDTO => ({
+export const toTrade = (r: TradeRow): TradeDTO => ({
   id: r.id,
   projectId: r.project_id,
   securityId: r.security_id,
@@ -465,8 +467,8 @@ export function createTrade(db: DB, projectId: string, input: TradeInput, opts: 
   const defaults = !opts.noDefaults;
   let targetPrice = numOrNull(input.targetPriceAtEntry);
   if (targetPrice === null && rev && defaults) {
-    const row = db.prepare('SELECT * FROM revisions WHERE id = ?').get(rev.id) as Parameters<typeof frozenTargetPrice>[0];
-    targetPrice = frozenTargetPrice(row).base;
+    const row = db.prepare('SELECT state_json, computed_json FROM revisions WHERE id = ?').get(rev.id) as { state_json: string; computed_json: string };
+    targetPrice = frozenTargets(JSON.parse(row.state_json) as ModelState, JSON.parse(row.computed_json) as FrozenOutputs).base;
   }
   let atrValue = numOrNull(input.atrAtEntry);
   if (atrValue === null && defaults) {
@@ -626,7 +628,7 @@ export function deleteNote(db: DB, id: string) {
 
 // ---------------------------------------------------------------- reviews
 
-interface ReviewRow {
+export interface ReviewRow {
   id: string;
   project_id: string;
   subject_type: string;
@@ -642,7 +644,7 @@ interface ReviewRow {
   updated_at: string;
 }
 
-const toReview = (r: ReviewRow): ReviewDTO => ({
+export const toReview = (r: ReviewRow): ReviewDTO => ({
   id: r.id,
   projectId: r.project_id,
   subjectType: r.subject_type as ReviewDTO['subjectType'],

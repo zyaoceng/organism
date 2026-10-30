@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { atr, atrAsOf, indexAtOrBefore, trailingStop, type Bar } from '../../domain/market/indicators';
 import { findByRole } from '../../domain/model/tree';
-import { tradeMetrics } from '../../domain/trade/metrics';
+import { entryBarIndex, tradeMetrics } from '../../domain/trade/metrics';
 import { actorLabel, isAgentActor } from '../../shared/actors';
 import type { ProviderDTO, TradeDTO } from '../../shared/api';
 import { QuoteCard, RANGES, SecurityCard } from '../components/MarketCards';
@@ -18,14 +18,18 @@ import { cls, pctText, today } from '../lib/util';
 /** Basic mode draws a fixed chart: MA 20/50 (a module constant, so the chart keeps its zoom), ATR 14, one year. */
 const BASIC_MA = [20, 50];
 
-/** Prices and the trade journal on one page: one chart with trades, catalysts and target lines; the quote and data source; entries and exits. */
-export function TradesPage() {
+/**
+ * Prices and the trade journal on one page: one chart with trades, catalysts and target lines; the quote and data source; entries and exits.
+ * `param` selects a trade (links from the cross-company trade log).
+ */
+export function TradesPage({ param }: { param?: string } = {}) {
   const trades = useWorkspace((s) => s.trades);
   const revisions = useWorkspace((s) => s.revisions);
   const projectId = useWorkspace((s) => s.projectId)!;
   const catalysts = useWorkspace((s) => s.catalysts);
   const head = useWorkspace((s) => s.head);
   const sec = useWorkspace((s) => s.securities[0]);
+  const quote = useWorkspace((s) => s.quote);
   const { toast, refresh } = useWorkspace.getState();
   const { bars, res, loading, reload } = useBars();
   const [providers, setProviders] = useState<ProviderDTO[]>([]);
@@ -35,13 +39,19 @@ export function TradesPage() {
   const [showTrades, setShowTrades] = useState(true);
   const [showCatalysts, setShowCatalysts] = useState(true);
   const [showTargets, setShowTargets] = useState(true);
-  const [sel, setSel] = useState<string | null>(trades[0]?.id ?? null);
+  const [sel, setSel] = useState<string | null>(trades.find((x) => x.id === param)?.id ?? trades[0]?.id ?? null);
   const [creating, setCreating] = useState(trades.length === 0);
   const lang = useLang();
   const adv = useAdvanced();
   useEffect(() => {
     void api.providers().then(setProviders);
   }, []);
+  // another trade of this company opened from the trade log
+  useEffect(() => {
+    if (param && trades.some((x) => x.id === param)) setSel(param);
+  }, [param]);
+  // the cached quote marks open trades on the primary security when it is newer than the last bar
+  const markQuote = (tr: TradeDTO) => (tr.securityId === sec?.id ? (quote?.quote ?? null) : null);
 
   const selected = trades.find((x) => x.id === sel) ?? null;
   const selectedEntry = selected?.entryDate ?? null;
@@ -96,7 +106,8 @@ export function TradesPage() {
     }
     const overlays: Overlay[] = [];
     if (adv && selected) {
-      const i = bars.findIndex((b) => b.date >= selected.entryDate);
+      // no overlay when the cached bars start after the entry
+      const i = entryBarIndex(bars, selected.entryDate);
       if (i >= 0) {
         const ts = trailingStop(bars, atr(bars, 14), i, selected.atrMultiple ?? 2, selected.side, selected.stopAtEntry ?? undefined);
         const end = ts.exit ? ts.exit.index : bars.length - 1;
@@ -223,7 +234,7 @@ export function TradesPage() {
               </tr>
             )}
             {trades.map((tr) => {
-              const m = tradeMetrics(tr, bars);
+              const m = tradeMetrics(tr, bars, { quote: markQuote(tr) });
               const rev = revSeq(tr.revisionId);
               return (
                 <tr key={tr.id} className={cls(sel === tr.id && 'sel')} onClick={() => setSel(tr.id)} style={{ cursor: 'pointer' }}>
@@ -262,7 +273,7 @@ export function TradesPage() {
           </tbody>
         </table>
       </div>
-      {selected ? <TradeDetail key={selected.id} t={selected} bars={bars} /> : trades.length > 0 && <div className="empty">{t('Select a trade.')}</div>}
+      {selected ? <TradeDetail key={selected.id} t={selected} bars={bars} quote={markQuote(selected)} /> : trades.length > 0 && <div className="empty">{t('Select a trade.')}</div>}
     </div>
   );
 }
@@ -356,7 +367,7 @@ function NewTrade({ bars, onDone }: { bars: Bar[]; onDone: (t: TradeDTO | null) 
   );
 }
 
-function TradeDetail({ t: tr, bars }: { t: TradeDTO; bars: Bar[] }) {
+function TradeDetail({ t: tr, bars, quote }: { t: TradeDTO; bars: Bar[]; quote: { price: number; asOf: string } | null }) {
   const projectId = useWorkspace((s) => s.projectId)!;
   const { refresh, toast } = useWorkspace.getState();
   const last = bars.at(-1);
@@ -366,7 +377,7 @@ function TradeDetail({ t: tr, bars }: { t: TradeDTO; bars: Bar[] }) {
   useEffect(() => {
     if (!exitPriceTouched && exitBar) setExit((x) => ({ ...x, exitPrice: String(exitBar.close) }));
   }, [exitBar, exitPriceTouched]);
-  const m = tradeMetrics(tr, bars);
+  const m = tradeMetrics(tr, bars, { quote });
   const save = async (patch: Partial<TradeDTO>) => {
     try {
       await api.updateTrade(tr.id, patch);

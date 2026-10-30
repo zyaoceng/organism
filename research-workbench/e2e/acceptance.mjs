@@ -7,6 +7,7 @@
  * Uses the synthetic "demo" price provider so it runs offline. Screenshots: e2e/output/.
  * T1–T20 run in advanced mode (set below, only when nothing is saved); T21 switches to basic mode.
  * T22 writes as an AI client with a token from tokens.json, so it runs only when this script started the server.
+ * T23 (dashboard) and T24 (trade log) add two companies with trades; one of them is recorded by an AI client when tokens are at hand.
  * CHROME=/path/to/chrome overrides the browser executable.
  */
 import { spawn, execSync } from 'node:child_process';
@@ -649,6 +650,108 @@ await test(22, 'An AI client edits the draft through its checked route; the open
   assert.match(await page.getByTestId('ai-client-claude-desktop').innerText(), /Claude Desktop/);
   assert.match(await page.getByTestId('ai-instructions').locator('textarea').inputValue(), /research-workbench/);
   await snap('settings');
+});
+
+let tradesBefore = 0;
+let delta;
+let credo;
+await test(23, 'Dashboard: every company with price, target, upside; sort, filter, update all prices, Ctrl+K', async () => {
+  const rowsBefore = (await api('/api/dashboard')).rows.filter((r) => !r.archivedAt).length;
+  tradesBefore = (await api('/api/trades')).trades.length;
+  const create = async (name, ticker, exchange, currency) =>
+    (await userWrite('POST', '/api/projects', { name, lang: 'en', security: { name, ticker, exchange, apiSymbol: ticker, currency, priceSource: 'demo' } })).id;
+  delta = await create('Delta Electronics', '2308', 'TWSE', 'TWD');
+  credo = await create('Credo Technology', 'CRDO', 'NASDAQ', 'USD');
+  const closes = async (pid) => {
+    const sec = (await api(`/api/projects/${pid}`)).securities[0];
+    const bars = (await api(`/api/securities/${sec.id}/bars`)).bars;
+    return (d) => bars.find((b) => b.date === d).close;
+  };
+  // Delta: an open long with a stop 10% below the entry
+  const deltaClose = await closes(delta);
+  const entry = deltaClose('2026-09-22');
+  await userWrite('POST', `/api/projects/${delta}/trades`, { side: 'long', entryDate: '2026-09-22', entryPrice: entry, quantity: 1000, stopAtEntry: Math.round(entry * 90) / 100, entryReason: 'e2e open position' });
+  // Credo: a closed trade, recorded by an AI client when the tokens are at hand
+  const credoClose = await closes(credo);
+  const credoTrade = { side: 'long', entryDate: '2026-09-01', entryPrice: credoClose('2026-09-01'), exitDate: '2026-09-15', exitPrice: credoClose('2026-09-15'), entryReason: 'e2e closed trade' };
+  if (dataDir) await tokenWrite('claude-code')('POST', `/api/projects/${credo}/trades`, { ...credoTrade, quantityShares: 100 });
+  else await userWrite('POST', `/api/projects/${credo}/trades`, { ...credoTrade, quantity: 100 });
+
+  await page.goto(`${BASE}/#/`);
+  await page.getByTestId('dash-table').waitFor();
+  const cards = page.getByTestId('project-card');
+  await page.waitForFunction((n) => document.querySelectorAll('[data-testid=project-card]').length === n, rowsBefore + 2);
+  const dash = await api('/api/dashboard');
+  const lite = dash.rows.find((r) => r.projectId === projectId);
+  assert.equal(lite.research.asOfDate, '2026-10-01', 'last research is the basic-mode commit (T21)');
+  const liteText = await page.locator(`[data-testid=project-card][data-project-id="${projectId}"]`).innerText();
+  assert.ok(liteText.includes(lite.research.asOfDate), liteText);
+  assert.match(liteText, /uncommitted/, 'T22 left an AI edit in the draft');
+  assert.ok(lite.target.base > 0 && liteText.includes(lite.target.base.toFixed(1)), 'base target shown');
+  if (dataDir) assert.match(liteText, /Claude Desktop/, 'latest AI activity');
+  assert.equal(dash.rows.find((r) => r.projectId === delta).positions.open, 1);
+  // sort by name: A→Z, then Z→A, then back to the server order
+  await page.getByTestId('dash-sort-name').click();
+  assert.match(await cards.first().innerText(), /Credo Technology/);
+  await page.getByTestId('dash-sort-name').click();
+  assert.match(await cards.first().innerText(), /Lite-On Technology/);
+  assert.equal(await page.getByTestId('dash-sort-name').getAttribute('aria-sort'), 'descending');
+  await page.getByTestId('dash-sort-name').click();
+  assert.equal(await page.getByTestId('dash-sort-name').getAttribute('aria-sort'), 'none');
+  // filter by code
+  await page.getByTestId('dash-search').fill('2308');
+  assert.equal(await cards.count(), 1);
+  assert.match(await cards.first().innerText(), /Delta Electronics/);
+  await page.getByTestId('dash-search').fill('');
+  assert.equal(await cards.count(), rowsBefore + 2);
+  // update all prices in the background, with progress
+  await page.getByTestId('refresh-all').click();
+  await page.locator('[data-testid=refresh-status][data-state=done]').waitFor({ timeout: 30000 });
+  const run = await api('/api/market/refresh');
+  assert.ok(run.total >= rowsBefore + 2, `every company is refreshed (${run.total})`);
+  assert.equal(run.ok, run.total, JSON.stringify(run.items.filter((i) => i.status !== 'ok')));
+  // the table reloads when the run ends: Delta now has a price
+  await page.locator(`[data-testid=project-card][data-project-id="${delta}"]`).getByText('no price').waitFor({ state: 'detached' });
+  await snap('dashboard');
+  // Ctrl+K on the home page switches company
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('company-switcher-input').fill('2308');
+  await page.getByTestId('company-hit').filter({ hasText: 'Delta Electronics' }).waitFor();
+  await page.keyboard.press('Enter');
+  await page.waitForURL(new RegExp(`/p/${delta}/model$`));
+  await page.getByTestId('tree').waitFor();
+  // and inside a company, the search palette lists companies first (same tab)
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('search-input').fill('Lite-On');
+  await page.locator('.search-pop .res > div').first().filter({ hasText: 'Lite-On Technology' }).waitFor();
+  await page.keyboard.press('Enter');
+  await page.waitForURL(new RegExp(`/p/${projectId}/model$`));
+  await page.getByTestId('tree').waitFor();
+});
+
+await test(24, 'Trade log across companies: R, P&L per currency, research snapshot, filters', async () => {
+  await page.goto(`${BASE}/#/`);
+  await page.getByTestId('nav-journal').click();
+  await page.getByTestId('journal-table').waitFor();
+  const rows = page.getByTestId('journal-row');
+  await page.waitForFunction((n) => document.querySelectorAll('[data-testid=journal-row]').length === n, tradesBefore + 2);
+  const lite = rows.filter({ hasText: 'Lite-On Technology' });
+  assert.match(await lite.first().innerText(), /#2 \(2026-09-20\)/, 'the snapshot known on the entry date');
+  await page.getByTestId('journal-summary-TWD').waitFor();
+  await page.getByTestId('journal-summary-USD').waitFor();
+  assert.doesNotMatch(await page.getByTestId('journal-summary').innerText(), /total/i, 'no cross-currency total');
+  if (dataDir) assert.match(await rows.filter({ hasText: 'Credo Technology' }).innerText(), /recorded by Claude Code/);
+  const open = (await api('/api/trades?status=open')).trades;
+  const deltaTrade = open.find((x) => x.project.id === delta);
+  assert.equal(deltaTrade.metrics.markSource, 'quote', 'marked with the refreshed quote');
+  assert.notEqual(deltaTrade.metrics.rMultiple, null);
+  await page.getByTestId('journal-status').getByRole('button', { name: 'Open', exact: true }).click();
+  assert.equal(await rows.count(), open.length);
+  await snap('journal');
+  // a row opens that trade on the company's Trades page
+  await rows.filter({ hasText: 'Delta Electronics' }).click();
+  await page.waitForURL(new RegExp(`/p/${delta}/trades/${deltaTrade.id}$`));
+  await page.getByTestId('trade-table').locator('tr.sel').filter({ hasText: '2026-09-22' }).waitFor();
 });
 
 await browser.close();

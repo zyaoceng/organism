@@ -12,11 +12,18 @@ export interface TradeLike {
   fees: number;
 }
 
+export interface MetricsOptions {
+  /** Latest cached quote; marks an open trade when it is not older than the last bar. */
+  quote?: { price: number; asOf: string } | null;
+}
+
 export interface TradeMetrics {
   open: boolean;
-  /** Exit price, or the last close for open trades. */
+  /** Exit price; for open trades the quote or the last close, whichever is newer. */
   markPrice: number | null;
   markDate: string | null;
+  /** Where markPrice came from (null when there is no mark). */
+  markSource: 'exit' | 'quote' | 'bar' | null;
   pnl: number | null;
   returnPct: number | null;
   /** Result in units of initial risk (entry − stop). */
@@ -31,21 +38,54 @@ export interface TradeMetrics {
 
 const days = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);
 
-export function tradeMetrics(t: TradeLike, bars: Bar[]): TradeMetrics {
+/** First bar on/after the entry, or -1 when cached history starts after the entry date (or is empty). */
+export function entryBarIndex(bars: Bar[], entryDate: string): number {
+  if (!bars.length || bars[0].date > entryDate) return -1;
+  return bars.findIndex((b) => b.date >= entryDate);
+}
+
+export function tradeMetrics(t: TradeLike, bars: Bar[], opts: MetricsOptions = {}): TradeMetrics {
   const dir = t.side === 'long' ? 1 : -1;
   const open = !t.exitDate || t.exitPrice === null;
   const last = bars.at(-1);
-  const markPrice = open ? last?.close ?? null : t.exitPrice;
-  const markDate = open ? last?.date ?? null : t.exitDate;
+
+  let markPrice: number | null = null;
+  let markDate: string | null = null;
+  let markSource: TradeMetrics['markSource'] = null;
+  if (!open) {
+    markPrice = t.exitPrice;
+    markDate = t.exitDate;
+    markSource = 'exit';
+  } else {
+    const q = opts.quote && Number.isFinite(opts.quote.price) && opts.quote.price > 0 ? opts.quote : null;
+    const qDate = q ? q.asOf.slice(0, 10) : null;
+    if (q && qDate && (!last || qDate >= last.date)) {
+      markPrice = q.price;
+      markDate = qDate;
+      markSource = 'quote';
+    } else if (last) {
+      markPrice = last.close;
+      markDate = last.date;
+      markSource = 'bar';
+    }
+    // a price from before the entry says nothing about this trade
+    if (markDate !== null && markDate < t.entryDate) {
+      markPrice = null;
+      markDate = null;
+      markSource = null;
+    }
+  }
   const pnl = markPrice === null ? null : (markPrice - t.entryPrice) * t.quantity * dir - (t.fees || 0);
   const returnPct = markPrice === null ? null : ((markPrice - t.entryPrice) / t.entryPrice) * dir;
   const risk = t.stopAtEntry === null ? null : Math.abs(t.entryPrice - t.stopAtEntry);
   const rMultiple = risk && markPrice !== null ? ((markPrice - t.entryPrice) * dir) / risk : null;
-  const holdingDays = markDate ? days(t.entryDate, markDate) : null;
+  const holdingDays = markDate ? Math.max(0, days(t.entryDate, markDate)) : null;
 
+  // Excursions and the trailing stop need bars from the entry on; history that starts later
+  // would measure from the wrong day.
   let mfe: number | null = null;
   let mae: number | null = null;
-  const start = bars.findIndex((b) => b.date >= t.entryDate);
+  const start = entryBarIndex(bars, t.entryDate);
   const end = markDate ? indexAtOrBefore(bars, markDate) : bars.length - 1;
   if (start >= 0 && end >= start) {
     let hi = -Infinity;
@@ -68,5 +108,5 @@ export function tradeMetrics(t: TradeLike, bars: Bar[]): TradeMetrics {
       trailingExit = { date: res.exit.date, price: res.exit.price, returnPct: ((res.exit.price - t.entryPrice) / t.entryPrice) * dir };
     }
   }
-  return { open, markPrice, markDate, pnl, returnPct, rMultiple, holdingDays, mfe, mae, trailingExit };
+  return { open, markPrice, markDate, markSource, pnl, returnPct, rMultiple, holdingDays, mfe, mae, trailingExit };
 }

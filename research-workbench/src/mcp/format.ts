@@ -11,19 +11,26 @@ import { toDisplay } from '../domain/formula/refs';
 import { cellStatus, descendants, findByRole, indexModel, isHeading, nodePeriodKeys, visibleRows } from '../domain/model/tree';
 import { SCALAR_KEY, SCENARIO_IDS, type ModelState, type ScenarioId } from '../domain/model/types';
 import { basisPeriodId, keyOutputs } from '../domain/revision/impact';
+import { summarizeTrades } from '../domain/trade/summary';
 import type { Unit } from '../domain/units';
-import { actorLabel } from '../shared/actors';
+import { actorLabel, isAgentActor } from '../shared/actors';
 import { UNTRUSTED_BEGIN, UNTRUSTED_END } from '../shared/aiInstructions';
 import type {
   AiSessionDTO,
+  CatalystBrief,
   CatalystDTO,
   CommitPreviewDTO,
+  DashboardRowDTO,
   DraftOpsResponse,
   DraftPendingDTO,
   EvidenceDTO,
+  JournalTradeDTO,
   KeyOutputsDiffDTO,
   ProjectBundleDTO,
   ProjectSummaryDTO,
+  RefreshItemDTO,
+  RefreshProviderDTO,
+  RefreshRunDTO,
   RevisionFull,
   RevisionMeta,
   TradeDTO,
@@ -66,6 +73,9 @@ export function siteUrl(port: number, projectId?: string, tab = 'model', param?:
   return `${base}#/p/${encodeURIComponent(projectId)}/${tab}${param ? `/${encodeURIComponent(param)}` : ''}`;
 }
 
+/** The cross-company trade log page. */
+export const journalUrl = (port: number) => `${siteUrl(port)}#/journal`;
+
 /** Local date and time of an ISO timestamp (the adapter runs on the same Mac as the server). */
 export function localTime(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -76,6 +86,14 @@ export function localTime(iso: string | null | undefined): string {
 }
 
 const num = (v: number | null | undefined, digits = 4) => (v === null || v === undefined ? '—' : v.toLocaleString('en-US', { maximumFractionDigits: digits }));
+/** A fraction as a signed percentage: 0.083 → "+8.3%". */
+const pct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${(v * 100).toFixed(1)}%`);
+const rText = (r: number | null | undefined) => (r === null || r === undefined ? '—' : `${r > 0 ? '+' : ''}${r.toFixed(2)}R`);
+/** Money in one currency, whole units (as the trade log shows it); never added across currencies. */
+const money = (v: number, currency: string) => {
+  const r = Math.round(v) || 0; // no "-0" for a loss under half a unit
+  return `${r > 0 ? '+' : ''}${num(r, 0)} ${currency}`;
+};
 
 export const SCENARIO_ZH: Record<ScenarioId, string> = { bear: '空頭', base: '基準', bull: '多頭' };
 const ROLE_ZH: Record<string, string> = {
@@ -97,6 +115,19 @@ const SEVERITY_ZH: Record<string, string> = { error: '錯誤', warning: '警告'
 const REVISION_KIND_ZH: Record<string, string> = { initial: '初始模型', update: '研究更新', checkpoint: '檢查點（數字不變）', restore: '還原' };
 const CATALYST_STATUS_ZH: Record<string, string> = { upcoming: '即將發生', occurred: '已發生', delayed: '延後', cancelled: '已取消' };
 const SIDE_ZH: Record<string, string> = { long: '買進（做多）', short: '放空（做空）' };
+/** The same words as the website (src/client/i18n/zh). */
+const ERROR_CATEGORY_ZH: Record<string, string> = {
+  evidence_quality: '證據品質',
+  evidence_interpretation: '證據解讀',
+  assumption_magnitude: '假設幅度',
+  model_formula: '財務模型／公式',
+  timing_catalyst: '時點／催化劑',
+  valuation_multiple: '估值倍數',
+  trading_execution: '交易執行',
+  risk_management: '風險管理',
+};
+const VERDICT_ZH: Record<string, string> = { right: '正確', wrong: '錯誤', mixed: '好壞參半', unclear: '不明確', good: '良好', poor: '不佳', 'n/a': '不適用' };
+const MARK_ZH: Record<string, string> = { quote: '報價', bar: '收盤價' };
 
 // ---------------------------------------------------------------- key outputs
 
@@ -146,17 +177,71 @@ export function keyOutputsBetween(before: ModelState, rb: CalcResult, after: Mod
 
 const priceText = (p: ProjectSummaryDTO['lastPrice']) => (p ? `${num(p.price)}${p.currency ? ` ${p.currency}` : ''}（${p.asOf.slice(0, 10)}，${p.provider}）` : '尚未抓取');
 
-export function formatCompanyList(list: readonly ProjectSummaryDTO[], port: number): string {
-  if (!list.length) return '研究工作台裡還沒有符合的公司。';
-  const lines = [`共 ${list.length} 家公司：`];
-  list.forEach((p, i) => {
-    const s = p.security;
-    const perShare: Unit = { kind: 'per_share', scale: 1, currency: s?.currency || 'TWD' };
-    const tp = p.targetPrice ? SCENARIO_IDS.map((sc) => formatValue(p.targetPrice![sc], perShare)).join(' / ') : '—';
-    const head = p.head ? `#${p.head.seq}「${p.head.title}」知情日 ${p.head.asOfDate ?? '—'}` : '—';
-    lines.push(`${i + 1}. ${p.name}（${s ? `${s.ticker}${s.exchange ? ` · ${s.exchange}` : ''}` : '無代號'}）id: ${p.id}${p.archivedAt ? '（已封存）' : ''}`);
-    lines.push(`   股價 ${priceText(p.lastPrice)}｜目標價 空頭/基準/多頭 ${tp}｜最近研究更新 ${head}${p.draftDirty ? '｜草稿有未提交修改' : ''}`);
-    lines.push(`   網站：${siteUrl(port, p.id)}`);
+const PER_SHARE: Unit = { kind: 'per_share', scale: 1 };
+
+/** A cached dashboard quote with its market date and the website's two warnings. */
+function dashPriceText(p: DashboardRowDTO['price']): string {
+  if (!p) return '尚未抓取（可用 refresh_prices 更新）';
+  const notes = [p.marketDate, p.provider];
+  if (p.synthetic) notes.push('模擬資料，不是真實股價');
+  if (p.stale) notes.push(`已過期，${localTime(p.fetchedAt)} 抓取`);
+  // the website's rule: a fresh fetch that brings no new prices for a week (suspended, wrong symbol)
+  else if (p.lagDays > 7) notes.push(`已 ${p.lagDays} 天沒有新股價`);
+  return `${num(p.value)} ${p.currency}（${notes.join('，')}）`;
+}
+
+function dashTargetText(t: DashboardRowDTO['target']): string {
+  if (t.bear === null && t.base === null && t.bull === null) return '目標價 —（最近一次研究更新沒有目標價）';
+  const parts = [`目標價 空頭/基準/多頭 ${SCENARIO_IDS.map((s) => formatValue(t[s], PER_SHARE)).join(' / ')}${t.currency ? ` ${t.currency}` : ''}`];
+  if (t.weighted !== null) parts.push(`機率加權 ${formatValue(t.weighted, PER_SHARE)}${t.currency ? ` ${t.currency}` : ''}${Math.abs(t.weightSum - 1) > 1e-6 ? `（權重合計 ${num(t.weightSum * 100, 1)}%，已按比例換算）` : ''}`);
+  if (t.currencyMismatch) parts.push('上檔空間 —（目標價和股價的幣別不同，不換算）');
+  else if (t.upsideBase !== null || t.upsideWeighted !== null) {
+    parts.push(`上檔空間 基準 ${pct(t.upsideBase)}${t.upsideWeighted !== null ? `、加權 ${pct(t.upsideWeighted)}` : ''}`);
+  }
+  return parts.join('｜');
+}
+
+/** When a catalyst is expected: the day, or its month or calendar quarter. */
+function catalystWhen(c: CatalystBrief): string {
+  if (c.datePrecision === 'day') return c.expectedDate;
+  if (c.datePrecision === 'month') return `${c.expectedDate.slice(0, 7)}（整月）`;
+  return `${c.expectedDate.slice(0, 4)} Q${Math.ceil(Number(c.expectedDate.slice(5, 7)) / 3)}`;
+}
+
+/** Positions, catalysts, theses and AI activity of one dashboard row. */
+function dashFlags(r: DashboardRowDTO): string[] {
+  const out: string[] = [];
+  const p = r.positions;
+  if (p.open) {
+    const avg = p.avgR !== null ? `，平均 ${rText(p.avgR)}（${p.rCount} 筆有停損）` : '';
+    const pnl = p.pnl.length ? `，未實現損益 ${p.pnl.map((x) => money(x.value, x.currency)).join('、')}` : '';
+    out.push(`未平倉 ${p.open} 筆${avg}${pnl}`);
+  }
+  const c = r.catalysts;
+  if (c.overdue) out.push(`催化劑過期 ${c.overdue} 個${c.oldestOverdue ? `（最舊「${c.oldestOverdue.title}」${catalystWhen(c.oldestOverdue)}）` : ''}`);
+  if (c.next) out.push(`下一個催化劑「${c.next.title}」${catalystWhen(c.next)}${c.upcoming > 1 ? `（共 ${c.upcoming} 個）` : ''}`);
+  if (c.undated) out.push(`日期未定的催化劑 ${c.undated} 個`);
+  if (r.theses.reviewDue) out.push(`論點到了檢查日 ${r.theses.reviewDue} 個`);
+  else if (r.theses.nextReviewBy) out.push(`下次論點檢查 ${r.theses.nextReviewBy}`);
+  if (r.ai) out.push(`最近 AI 活動：${actorLabel(`agent:${r.ai.client}`, 'zh-TW')} ${localTime(r.ai.at)}`);
+  return out;
+}
+
+/** The cross-company overview (list_companies), one block per company in the dashboard's order. */
+export function formatCompanyList(rows: readonly DashboardRowDTO[], port: number, o: { today?: string; refreshing?: boolean } = {}): string {
+  if (!rows.length) return '研究工作台裡還沒有符合的公司。';
+  const lines = [`共 ${rows.length} 家公司${o.today ? `（今天 ${o.today}）` : ''}。股價是快取的最新報價；目標價和上檔空間來自最近一次研究更新，不是草稿：`];
+  if (o.refreshing) lines.push('股價正在更新中：用 get_refresh_status 查進度，完成後再讀一次。');
+  rows.forEach((r, i) => {
+    const s = r.security;
+    lines.push(`${i + 1}. ${r.name}（${s ? `${s.ticker}${s.exchange ? ` · ${s.exchange}` : ''}` : '無代號'}）id: ${r.projectId}${r.archivedAt ? '（已封存）' : ''}`);
+    lines.push(`   股價 ${s ? dashPriceText(r.price) : '—（沒有股票代號）'}`);
+    lines.push(`   ${dashTargetText(r.target)}`);
+    const res = r.research;
+    lines.push(`   最近研究更新 ${res ? `#${res.seq}「${res.title}」知情日 ${res.asOfDate}` : '還沒有（只有初始模型）'}${r.draftDirty ? '｜草稿有未提交修改' : ''}`);
+    const flags = dashFlags(r);
+    if (flags.length) lines.push(`   ${flags.join('｜')}`);
+    lines.push(`   網站：${siteUrl(port, r.projectId)}`);
   });
   return lines.join('\n');
 }
@@ -489,6 +574,145 @@ export function formatSession(s: AiSessionDTO, port: number): string {
   const lines = [`已存對話摘要（${s.id}，${localTime(s.startedAt)} 到 ${localTime(s.lastAt)}，${s.actions.length} 個動作）。`];
   if (s.projectIds.length) lines.push(`相關公司：${s.projectIds.join('、')}`);
   lines.push('使用者可以在網站的歷史頁「AI 活動」看到它。', `網站：${siteUrl(port)}`);
+  return lines.join('\n');
+}
+
+// ---------------------------------------------------------------- trade log
+
+/** The mark, result and execution numbers of one trade, in its security's currency. */
+function tradeResultLine(t: JournalTradeDTO): string {
+  const m = t.metrics;
+  const ccy = t.security.currency;
+  const parts: string[] = [];
+  if (m.open) {
+    parts.push(m.markPrice === null ? '未平倉，沒有可用的股價' : `未平倉，以${MARK_ZH[m.markSource ?? ''] ?? '股價'} ${num(m.markPrice)}（${m.markDate}）計`);
+  }
+  if (m.returnPct !== null) parts.push(`報酬 ${pct(m.returnPct)}`);
+  if (m.pnl !== null) parts.push(`${m.open ? '未實現' : '已實現'}損益 ${money(m.pnl, ccy)}（含手續費）`);
+  if (m.rMultiple !== null) parts.push(rText(m.rMultiple));
+  if (m.holdingDays !== null) parts.push(`持有 ${m.holdingDays} 天`);
+  if (!t.barsCoverEntry) parts.push('K 線沒有涵蓋進場日，沒有 MFE/MAE');
+  else if (m.mfe !== null && m.mae !== null) parts.push(`MFE ${pct(m.mfe)}／MAE ${pct(m.mae)}`);
+  if (m.trailingExit) parts.push(`${t.atrMultiple ?? 2}×ATR 追蹤停損會在 ${m.trailingExit.date} 以 ${num(m.trailingExit.price, 2)} 出場（${pct(m.trailingExit.returnPct)}）`);
+  if (t.security.synthetic) parts.push('模擬股價');
+  return parts.join('｜');
+}
+
+/** Research snapshot, reviews and who recorded it. */
+function tradeContextLine(t: JournalTradeDTO): string {
+  const parts: string[] = [];
+  const r = t.research;
+  parts.push(r ? `連結的研究更新 #${r.seq}「${r.title}」（知情日 ${r.asOfDate ?? '—'}）` : '沒有連結研究更新');
+  if (t.reviews.length) {
+    const one = (v: JournalTradeDTO['reviews'][number]) =>
+      [
+        v.thesisVerdict && `論點${VERDICT_ZH[v.thesisVerdict] ?? v.thesisVerdict}`,
+        v.executionVerdict && `執行${VERDICT_ZH[v.executionVerdict] ?? v.executionVerdict}`,
+        v.categories.length && `錯誤類型：${v.categories.map((c) => ERROR_CATEGORY_ZH[c] ?? c).join('、')}`,
+      ]
+        .filter(Boolean)
+        .join('，') || '已檢討';
+    parts.push(`檢討：${t.reviews.map(one).join('；')}`);
+  } else if (!t.metrics.open) parts.push('還沒檢討');
+  if (t.source === 'import') parts.push('從舊日誌匯入');
+  if (isAgentActor(t.createdBy)) parts.push(`由 ${zh(t.createdBy)} 記錄`);
+  return parts.join('｜');
+}
+
+export interface TradeLogOptions {
+  /** What was asked, e.g. '未平倉｜光寶科（2301，id: …）'. */
+  scope: string;
+  /** Trades listed one by one (default 50, newest entry first); the summary covers all of them. */
+  maxRows?: number;
+}
+
+/**
+ * The trade log across companies (list_trades): a summary first, then the trades. Money stays in
+ * each security's currency; the summary is summarizeTrades, which never adds across currencies.
+ */
+export function formatTradeLog(trades: readonly JournalTradeDTO[], port: number, o: TradeLogOptions): string {
+  if (!trades.length) return `沒有符合的交易（${o.scope}）。\n網站：${journalUrl(port)}`;
+  const s = summarizeTrades(trades.map((t) => ({ currency: t.security.currency, metrics: t.metrics, reviewCategories: t.reviews.flatMap((r) => r.categories) })));
+  const open = trades.length - s.closed;
+  const lines = [`交易紀錄（${o.scope}）：共 ${trades.length} 筆，未平倉 ${open}、已平倉 ${s.closed}。`];
+
+  lines.push('', '摘要（金額依股票的幣別分開列，不換算，也不跨幣別加總）：');
+  for (const c of s.byCurrency) {
+    const closed = c.closed ? `已平倉 ${c.closed} 筆，獲利 ${c.wins} 筆${c.winRate !== null ? `（勝率 ${num(c.winRate * 100, 1)}%）` : ''}，已實現損益 ${money(c.realizedPnl, c.currency)}` : '沒有已平倉';
+    const opened = c.open ? `未平倉 ${c.open} 筆${c.unrealizedPnl !== null ? `，未實現損益 ${money(c.unrealizedPnl, c.currency)}` : '，沒有股價'}` : '沒有未平倉';
+    lines.push(`- ${c.currency}：${closed}；${opened}`);
+  }
+  // counts and R multiples carry no currency, so these may cover every trade
+  if (s.byCurrency.length > 1 && s.winRate !== null) lines.push(`- 全部已平倉的勝率（筆數比例）：${num(s.winRate * 100, 1)}%`);
+  if (s.rCount) lines.push(`- 平均 R（已平倉且有停損的 ${s.rCount} 筆）：${rText(s.avgR)}`);
+  const unreviewed = trades.filter((t) => !t.metrics.open && !t.reviews.length).length;
+  if (unreviewed) lines.push(`- 還沒檢討的已平倉交易：${unreviewed} 筆`);
+  if (s.categories.length) lines.push(`- 檢討裡的錯誤類型：${s.categories.map((c) => `${ERROR_CATEGORY_ZH[c.category] ?? c.category} ${c.count}`).join('、')}`);
+
+  const max = o.maxRows ?? 50;
+  lines.push('', `明細（進場日新的在前${trades.length > max ? `，列出前 ${max} 筆` : ''}）：`);
+  trades.slice(0, max).forEach((t, i) => {
+    const sec = `${t.security.ticker}${t.security.exchange ? ` · ${t.security.exchange}` : ''}，${t.security.currency}`;
+    lines.push(`${i + 1}. ${t.project.name}（${sec}${t.project.archived ? '，已封存' : ''}）${tradeLine(t)}`);
+    const result = tradeResultLine(t);
+    if (result) lines.push(`   ${result}`);
+    lines.push(`   ${tradeContextLine(t)}`);
+    lines.push(`   網站：${siteUrl(port, t.projectId, 'trades', t.id)}`);
+  });
+  if (trades.length > max) lines.push(`…還有 ${trades.length - max} 筆沒有列出（摘要已包含）。可用 company、status、from、to 縮小範圍。`);
+  lines.push('', `交易日誌：${journalUrl(port)}`);
+  return lines.join('\n');
+}
+
+// ---------------------------------------------------------------- update all prices
+
+const RUN_STATE_ZH: Record<RefreshRunDTO['state'], string> = { running: '進行中', done: '完成', cancelled: '中斷（伺服器關閉）' };
+const PROVIDER_STATE_ZH: Record<RefreshProviderDTO['state'], string> = {
+  running: '進行中',
+  done: '完成',
+  rate_limited: '達到請求上限，其餘的這次不更新',
+  unreachable: '連不上（可能沒有網路），其餘的這次不更新',
+  unavailable: '這台伺服器沒有設定這個股價來源',
+};
+const ITEM_STATUS_ZH: Record<RefreshItemDTO['status'], string> = { pending: '等待中', running: '更新中', ok: '成功', failed: '失敗', rate_limited: '達到請求上限', skipped: '略過' };
+
+const runCounts = (r: RefreshRunDTO) =>
+  `共 ${r.total} 檔：成功 ${r.ok}、失敗 ${r.failed}、達到請求上限 ${r.rateLimited}、略過 ${r.skipped}${r.pending ? `、還沒完成 ${r.pending}` : ''}`;
+
+/** The answer of refresh_prices: the run was started (or one was already running); poll the status. */
+export function formatRefreshStarted(run: RefreshRunDTO, alreadyRunning: boolean): string {
+  if (!run.total) return '沒有要更新的股價：還沒有公司，或公司都沒有股票代號。';
+  const lines = [
+    alreadyRunning
+      ? `已經有一次「更新全部股價」在進行中（${run.id}，${localTime(run.startedAt)} 開始），沒有重複啟動。${runCounts(run)}。`
+      : `已開始更新全部股價（${run.id}）：共 ${run.total} 檔。`,
+  ];
+  lines.push(`股價來源：${run.providers.map((p) => `${p.label} ${p.total} 檔`).join('、')}。同一個來源一檔一檔抓（避免被限流），不同來源同時進行，可能要幾分鐘。`);
+  lines.push('下一步：過幾秒呼叫 get_refresh_status 查進度，直到狀態是「完成」；不要再呼叫 refresh_prices。完成後用 list_companies 讀新的股價。');
+  return lines.join('\n');
+}
+
+/** The answer of get_refresh_status. Failure messages come from the price sources, so they are marked as data. */
+export function formatRefreshStatus(run: RefreshRunDTO | null, port: number): string {
+  if (!run) return '還沒有「更新全部股價」的紀錄（研究工作台重新啟動後會清空）。要更新就呼叫 refresh_prices。';
+  const lines = [`更新全部股價 ${run.id}：${RUN_STATE_ZH[run.state]}（${localTime(run.startedAt)} 開始${run.finishedAt ? `，${localTime(run.finishedAt)} 結束` : ''}）`];
+  lines.push(`${runCounts(run)}。`);
+  if (run.providers.length) {
+    lines.push('股價來源：');
+    for (const p of run.providers) {
+      lines.push(`- ${p.label}（${p.id}）${p.total} 檔：${PROVIDER_STATE_ZH[p.state] ?? p.state}${p.retryAfterSec ? `；約 ${p.retryAfterSec} 秒後可以再試` : ''}`);
+    }
+  }
+  const missed = run.items.filter((i) => i.status === 'failed' || i.status === 'rate_limited' || i.status === 'skipped');
+  if (missed.length) {
+    const shown = missed.slice(0, 30).map((i) => `- ${i.projectName}（${i.ticker}，${i.provider}）${ITEM_STATUS_ZH[i.status]}${i.message ? `：${i.message}` : ''}`);
+    if (missed.length > 30) shown.push(`…還有 ${missed.length - 30} 檔`);
+    lines.push(`沒有更新的股票（${missed.length} 檔）：`, untrusted('股價來源的訊息', shown.join('\n')));
+  }
+  if (run.state === 'running') lines.push('', '還在進行中：過幾秒再呼叫 get_refresh_status。');
+  else if (run.state === 'cancelled') lines.push('', '研究工作台在更新途中關閉了；重新打開後可以再呼叫 refresh_prices。');
+  else lines.push('', `已完成：用 list_companies 讀新的股價。${run.rateLimited ? '達到請求上限的來源要等一段時間再更新。' : ''}`);
+  lines.push(`網站：${siteUrl(port)}`);
   return lines.join('\n');
 }
 
