@@ -7,6 +7,7 @@ import type { ModelNode, ModelState } from '../../domain/model/types';
 import { indexOf } from '../lib/derived';
 import { t, tm, useLang } from '../lib/i18n';
 import { useWorkspace } from '../lib/store';
+import { Advanced } from './ui';
 
 interface Suggestion {
   id: string;
@@ -165,20 +166,22 @@ export function FormulaEditor({ node, state, readOnly }: { node: ModelNode; stat
           )}
         </div>
       )}
-      <details>
-        <summary>{t('Functions and syntax')}</summary>
-        <div className="small" style={{ marginTop: 6, lineHeight: 1.6 }}>
-          <div>
-            {t('Names in')} <code>[brackets]</code> {t('(bare single words also work). Paths disambiguate:')} <code>[Business A/Growth]</code>{t('. A specific period:')} <code>[EPS]@FY2028</code>{t('. Percent literal:')}{' '}
-            <code>15%</code> {t('= 0.15. Operators')} <code>+ - * / ^</code>{t(', comparisons for IF.')}
-          </div>
-          {FUNCTIONS.map((f) => (
-            <div key={f.name}>
-              <code>{f.signature}</code> <span className="sub">— {t(f.help)}</span>
+      <Advanced>
+        <details>
+          <summary>{t('Functions and syntax')}</summary>
+          <div className="small" style={{ marginTop: 6, lineHeight: 1.6 }}>
+            <div>
+              {t('Names in')} <code>[brackets]</code> {t('(bare single words also work). Paths disambiguate:')} <code>[Business A/Growth]</code>{t('. A specific period:')} <code>[EPS]@FY2028</code>{t('. Percent literal:')}{' '}
+              <code>15%</code> {t('= 0.15. Operators')} <code>+ - * / ^</code>{t(', comparisons for IF.')}
             </div>
-          ))}
-        </div>
-      </details>
+            {FUNCTIONS.map((f) => (
+              <div key={f.name}>
+                <code>{f.signature}</code> <span className="sub">— {t(f.help)}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      </Advanced>
     </div>
   );
 }

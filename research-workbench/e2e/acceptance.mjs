@@ -5,6 +5,7 @@
  *   BASE_URL=http://127.0.0.1:5173 npm run e2e    runs against an already running app (dev mode)
  *
  * Uses the synthetic "demo" price provider so it runs offline. Screenshots: e2e/output/.
+ * T1–T20 run in advanced mode (set below, only when nothing is saved); T21 switches to basic mode.
  * CHROME=/path/to/chrome overrides the browser executable.
  */
 import { spawn, execSync } from 'node:child_process';
@@ -53,6 +54,14 @@ await page.addInitScript(() => {
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('dialog', (d) => d.accept());
+// Advanced mode shows every page and tool. Only when missing, so T21's switch to basic survives reloads.
+await page.addInitScript(() => {
+  try {
+    if (!localStorage.getItem('workbench.advanced')) localStorage.setItem('workbench.advanced', '1');
+  } catch {
+    /* about:blank has no storage */
+  }
+});
 
 const results = [];
 let shot = 0;
@@ -367,7 +376,7 @@ await test(14, 'Tree stays readable with cross-branch formulas (dependency highl
 await test(15, 'Historical estimates do not change when current data updates', async () => {
   const revs = await api(`/api/projects/${projectId}/revisions`);
   const before = await api(`/api/projects/${projectId}/revisions/${revs[1].id}`);
-  await page.getByTestId('nav-market').click();
+  await page.getByTestId('nav-trades').click();
   await page.getByTestId('refresh-market').click();
   await page.waitForTimeout(800);
   const after = await api(`/api/projects/${projectId}/revisions/${revs[1].id}`);
@@ -490,6 +499,91 @@ await test(20, 'Interface switches to Chinese and back; user data stays as typed
   await page.getByTestId('nav-model').getByText('模型').waitFor();
   await page.getByTestId('lang-toggle').getByRole('button', { name: 'English' }).click();
   await page.getByTestId('nav-model').getByText('Model').waitFor();
+});
+
+await test(21, 'Basic mode: four daily pages, Market inside Trades, simpler inspector and commit', async () => {
+  await page.getByTestId('nav-model').click();
+  await page.getByTestId('advanced-toggle').uncheck();
+  const nav = await page.locator('.sidebar nav a').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
+  assert.deepEqual(nav, ['nav-model', 'nav-valuation', 'nav-trades', 'nav-history']);
+  assert.equal(await page.getByTestId('lang-toggle').count(), 0, 'language switch is advanced-only');
+  // backup from the sidebar
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('sidebar-export').click()]);
+  assert.match(download.suggestedFilename(), /\.json$/);
+  // the old Market route opens Trades: one chart, no MFE/MAE, only real price sources plus the current one
+  await page.goto(`${BASE}/#/p/${projectId}/market`);
+  await page.getByTestId('trades-page').waitFor();
+  await page.getByTestId('price-chart').waitFor();
+  assert.match(page.url(), /\/trades$/);
+  assert.equal(await page.getByTestId('price-chart').count(), 1);
+  assert.doesNotMatch(await page.getByTestId('trade-table').innerText(), /MFE/);
+  await page.locator('[data-testid=price-source] option[value=demo]').waitFor({ state: 'attached' });
+  assert.equal(await page.locator('[data-testid=price-source] option[value=csv]').count(), 0);
+  assert.equal(await page.locator('[data-testid=price-source] option[value=yahoo]').count(), 1);
+  await page.waitForTimeout(300);
+  await snap('basic-trades');
+  // a deep link into a hidden page still works and shows where you are
+  await page.goto(`${BASE}/#/p/${projectId}/evidence`);
+  await page.getByTestId('nav-evidence').waitFor();
+  assert.match(await page.getByTestId('nav-evidence').getAttribute('class'), /\bon\b/);
+  // valuation keeps the peer table, drops the growth table
+  await page.getByTestId('nav-valuation').click();
+  await page.getByTestId('peer-table').waitFor();
+  assert.equal(await page.getByText('Growth and returns').count(), 0);
+  await snap('basic-valuation');
+  // inspector: units in a closed Settings fold, no change history
+  await page.getByTestId('nav-model').click();
+  await selectRow('AI Market Share');
+  const insp = page.getByTestId('inspector');
+  assert.equal(await page.getByLabel('Unit kind').isVisible(), false);
+  await insp.getByText('Settings', { exact: true }).click();
+  assert.equal(await page.getByLabel('Unit kind').isVisible(), true);
+  assert.doesNotMatch(await insp.innerText(), /Change history/);
+  // commit: title prefilled, the new link cited without a checklist, headline impact only
+  await setCell('Gross Margin', 4, 24);
+  await selectRow('Gross Margin');
+  await page.waitForFunction(() => document.querySelector('[data-testid=inspector] input.title')?.value === 'Gross Margin');
+  const links = await page.locator('[data-testid=ev-link]').count();
+  await insp.getByPlaceholder('Paste a URL and press Enter').fill('https://example.com/basic-mode');
+  await insp.getByPlaceholder('Paste a URL and press Enter').press('Enter');
+  await page.waitForFunction((n) => document.querySelectorAll('[data-testid=ev-link]').length > n, links);
+  await snap('basic-model');
+  await waitSaved();
+  await page.getByTestId('toggle-draft').click();
+  assert.match(await page.getByTestId('commit-title').inputValue(), /Gross Margin/);
+  assert.equal(await page.getByPlaceholder('Filter evidence…').count(), 0);
+  assert.doesNotMatch(await page.getByTestId('impact').innerText(), /Causal chain/);
+  await page.getByTestId('commit-asof').fill('2026-10-01');
+  await page.getByTestId('commit-reason').fill('Mix shift lifts FY28 gross margin by 1pp.');
+  await page.getByTestId('commit-submit').click();
+  await page.getByTestId('committed-summary').waitFor({ timeout: 15000 });
+  await snap('basic-commit');
+  const revs = await api(`/api/projects/${projectId}/revisions`);
+  const last = revs.at(-1);
+  assert.equal(last.seq, 4);
+  assert.match(last.title, /Gross Margin/);
+  assert.equal(last.citedEvidenceIds.length, 1, 'exactly the newly linked evidence is cited');
+  await page.getByTestId('toggle-draft').click();
+  // company list: no demo source in basic mode; a card opens the model
+  await page.goto(`${BASE}/`);
+  await page.getByTestId('new-project').click();
+  await page.locator('[data-testid=np-source] option[value=finmind]').waitFor({ state: 'attached' });
+  assert.equal(await page.locator('[data-testid=np-source] option[value=demo]').count(), 0);
+  await page.getByTestId('new-project-form').getByRole('button', { name: 'Cancel' }).click();
+  await page.getByTestId('project-card').first().click();
+  await page.getByTestId('tree').waitFor();
+  assert.match(page.url(), /\/model$/);
+  // first visit (fresh browser context, nothing saved): basic mode, no language switch
+  const p2 = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  p2.on('pageerror', (e) => errors.push(e.message));
+  try {
+    await p2.goto(`${BASE}/`);
+    await p2.getByTestId('new-project').waitFor();
+    assert.equal(await p2.getByTestId('advanced-toggle').isChecked(), false);
+    assert.equal(await p2.getByTestId('lang-toggle').count(), 0);
+  } finally {
+    await p2.close();
+  }
 });
 
 await browser.close();

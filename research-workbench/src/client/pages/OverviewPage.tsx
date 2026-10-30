@@ -7,10 +7,10 @@ import { basisPeriodId } from '../../domain/revision/impact';
 import { Delta, InlineText } from '../components/ui';
 import { api } from '../lib/api';
 import { calcOf } from '../lib/derived';
-import { t } from '../lib/i18n';
+import { t, tm } from '../lib/i18n';
 import { navigate } from '../lib/router';
 import { useActiveState, useWorkspace } from '../lib/store';
-import { cls, download, fmtDateTime, periodLabelFn, today } from '../lib/util';
+import { cls, exportProjectJson, fmtDateTime, periodLabelFn, today } from '../lib/util';
 
 export function OverviewPage() {
   const { state, readOnly } = useActiveState();
@@ -46,10 +46,7 @@ export function OverviewPage() {
         </div>
         <button
           className="btn"
-          onClick={async () => {
-            const res = await fetch(`/api/projects/${projectId}/export`);
-            download(`${project.name.replace(/\s+/g, '_')}-${today()}.json`, await res.text());
-          }}
+          onClick={() => exportProjectJson(projectId, project.name).catch((e) => toast(tm((e as Error).message), 'error'))}
           data-testid="export-json"
         >
           {t('Export JSON')}

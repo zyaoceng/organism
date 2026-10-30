@@ -8,7 +8,7 @@ import { diffStates } from '../../domain/revision/diff';
 import { ERROR_CATEGORIES, type ReviewDTO, type RevisionFull, type SeriesPoint } from '../../shared/api';
 import { ImpactView } from '../components/ImpactView';
 import { LineChart } from '../components/LineChart';
-import { Delta, Field } from '../components/ui';
+import { Advanced, Delta, Field } from '../components/ui';
 import { api } from '../lib/api';
 import { getLang, t, tm, tn } from '../lib/i18n';
 import { navigate } from '../lib/router';
@@ -67,7 +67,7 @@ function Updates({ selectedId }: { selectedId?: string }) {
                 <div className="row">
                   <b>#{r.seq}</b>
                   <span className="ellipsis grow">{r.title}</span>
-                  {r.kind !== 'update' && <span className="badge">{t(r.kind)}</span>}
+                  <Advanced>{r.kind !== 'update' && <span className="badge">{t(r.kind)}</span>}</Advanced>
                 </div>
                 <div className="tiny sub">
                   {r.asOfDate ? t('as of {date}', { date: r.asOfDate }) : t('no knowledge date')} · {tn(r.changes.length, '{n} change', '{n} changes')}
@@ -118,7 +118,9 @@ function RevisionDetail({ projectId, revisionId }: { projectId: string; revision
           <h2>
             #{rev.seq} {rev.title}
           </h2>
-          <span className="badge">{t(rev.kind)}</span>
+          <Advanced>
+            <span className="badge">{t(rev.kind)}</span>
+          </Advanced>
           <span className="right row">
             <button
               className="btn sm"
@@ -144,7 +146,8 @@ function RevisionDetail({ projectId, revisionId }: { projectId: string; revision
           </span>
         </div>
         <div className="small sub" style={{ margin: '4px 0 8px' }}>
-          {t('Knowledge date')} <b>{rev.asOfDate ?? '—'}</b> · {t('committed {time}', { time: fmtDateTime(rev.committedAt) })} · {t('engine {version}', { version: rev.engineVersion })}
+          {t('Knowledge date')} <b>{rev.asOfDate ?? '—'}</b> · {t('committed {time}', { time: fmtDateTime(rev.committedAt) })}
+          <Advanced> · {t('engine {version}', { version: rev.engineVersion })}</Advanced>
           {rev.market && (
             <>
               {' '}
@@ -188,39 +191,41 @@ function RevisionDetail({ projectId, revisionId }: { projectId: string; revision
           ))}
         </ul>
       </div>
-      <div className="card">
-        <div className="row">
-          <h2>{t('Compare with another snapshot')}</h2>
-          <select value={compareTo} onChange={(e) => setCompareTo(e.target.value)} data-testid="compare-select">
-            <option value="">{t('choose…')}</option>
-            {revisions
-              .filter((r) => r.id !== rev.id)
-              .map((r) => (
-                <option key={r.id} value={r.id}>
-                  #{r.seq} {r.title}
-                </option>
-              ))}
-          </select>
-        </div>
-        {comparison && (
-          <div className="col" style={{ gap: 10, marginTop: 10 }}>
-            <div className="small sub">
-              {tn(comparison.changes.length, 'From #{a} ({aDate}) to #{b} ({bDate}): {n} change', 'From #{a} ({aDate}) to #{b} ({bDate}): {n} changes', { a: comparison.a.seq, aDate: comparison.a.asOfDate ?? '—', b: comparison.b.seq, bDate: comparison.b.asOfDate ?? '—' })}
-            </div>
-            <ImpactView impact={comparison.impact} state={comparison.b.state} compact />
-            <details>
-              <summary>{t('All changes')}</summary>
-              <ul style={{ paddingLeft: 18 }}>
-                {comparison.changes.map((c, i) => (
-                  <li key={i} className="small">
-                    {describeChange(c, { periodLabel: periodLabelFn(comparison.b.state), evidenceTitle: evTitle, lang: getLang() })}
-                  </li>
+      <Advanced>
+        <div className="card">
+          <div className="row">
+            <h2>{t('Compare with another snapshot')}</h2>
+            <select value={compareTo} onChange={(e) => setCompareTo(e.target.value)} data-testid="compare-select">
+              <option value="">{t('choose…')}</option>
+              {revisions
+                .filter((r) => r.id !== rev.id)
+                .map((r) => (
+                  <option key={r.id} value={r.id}>
+                    #{r.seq} {r.title}
+                  </option>
                 ))}
-              </ul>
-            </details>
+            </select>
           </div>
-        )}
-      </div>
+          {comparison && (
+            <div className="col" style={{ gap: 10, marginTop: 10 }}>
+              <div className="small sub">
+                {tn(comparison.changes.length, 'From #{a} ({aDate}) to #{b} ({bDate}): {n} change', 'From #{a} ({aDate}) to #{b} ({bDate}): {n} changes', { a: comparison.a.seq, aDate: comparison.a.asOfDate ?? '—', b: comparison.b.seq, bDate: comparison.b.asOfDate ?? '—' })}
+              </div>
+              <ImpactView impact={comparison.impact} state={comparison.b.state} compact />
+              <details>
+                <summary>{t('All changes')}</summary>
+                <ul style={{ paddingLeft: 18 }}>
+                  {comparison.changes.map((c, i) => (
+                    <li key={i} className="small">
+                      {describeChange(c, { periodLabel: periodLabelFn(comparison.b.state), evidenceTitle: evTitle, lang: getLang() })}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            </div>
+          )}
+        </div>
+      </Advanced>
     </div>
   );
 }
@@ -284,26 +289,30 @@ function Evolution() {
               </select>
             </Field>
           )}
-          <div className="row wrap" style={{ alignSelf: 'flex-end' }}>
-            {shortcuts.map((n) => (
-              <button key={n!.id} className={cls('btn sm', n!.id === nodeId && 'primary')} onClick={() => setNodeId(n!.id)}>
-                {n!.name}
-              </button>
-            ))}
+          <Advanced>
+            <div className="row wrap" style={{ alignSelf: 'flex-end' }}>
+              {shortcuts.map((n) => (
+                <button key={n!.id} className={cls('btn sm', n!.id === nodeId && 'primary')} onClick={() => setNodeId(n!.id)}>
+                  {n!.name}
+                </button>
+              ))}
+            </div>
+          </Advanced>
+        </div>
+        <Advanced>
+          <div className="small sub" style={{ marginTop: 8 }}>
+            {t('Each point is the frozen value in a Research Update, plotted on its knowledge date. The line steps when you changed your view. Later market data never changes these values.')}
           </div>
-        </div>
-        <div className="small sub" style={{ marginTop: 8 }}>
-          {t('Each point is the frozen value in a Research Update, plotted on its knowledge date. The line steps when you changed your view. Later market data never changes these values.')}
-        </div>
-        <div style={{ marginTop: 10 }}>
-          {points && (
-            <LineChart
-              series={series}
-              yFormat={(v) => formatValue(v, node?.unit)}
-              hLines={actual !== null ? [{ y: actual, label: t('Actual {value}', { value: formatValue(actual, node?.unit) }), color: '#111' }] : []}
-            />
-          )}
-        </div>
+          <div style={{ marginTop: 10 }}>
+            {points && (
+              <LineChart
+                series={series}
+                yFormat={(v) => formatValue(v, node?.unit)}
+                hLines={actual !== null ? [{ y: actual, label: t('Actual {value}', { value: formatValue(actual, node?.unit) }), color: '#111' }] : []}
+              />
+            )}
+          </div>
+        </Advanced>
       </div>
       <div className="card">
         <h2>

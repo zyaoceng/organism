@@ -8,17 +8,17 @@ import { t, tm, useLang } from '../lib/i18n';
 import { calcOf, diffOf } from '../lib/derived';
 import { href, navigate, TABS, type Tab } from '../lib/router';
 import { useActiveState, useWorkspace } from '../lib/store';
-import { cls, isTypingTarget, periodLabelFn, timeAgo } from '../lib/util';
+import { useAdvanced } from '../lib/prefs';
+import { cls, exportProjectJson, isTypingTarget, periodLabelFn, timeAgo } from '../lib/util';
 import { CatalystsPage } from '../pages/CatalystsPage';
 import { EvidencePage } from '../pages/EvidencePage';
 import { HistoryPage } from '../pages/HistoryPage';
-import { MarketPage } from '../pages/MarketPage';
 import { ModelPage } from '../pages/ModelPage';
 import { OverviewPage } from '../pages/OverviewPage';
 import { TradesPage } from '../pages/TradesPage';
 import { ValuationPage } from '../pages/ValuationPage';
 import { SearchPalette } from './SearchPalette';
-import { LangToggle, ScenarioSwitch } from './ui';
+import { Advanced, AdvancedToggle, LangToggle, ScenarioSwitch } from './ui';
 
 export function ProjectShell({ projectId, tab, param }: { projectId: string; tab: Tab; param?: string }) {
   const load = useWorkspace((s) => s.load);
@@ -81,7 +81,6 @@ export function ProjectShell({ projectId, tab, param }: { projectId: string; tab
               {tab === 'evidence' && <EvidencePage param={param} />}
               {tab === 'valuation' && <ValuationPage />}
               {tab === 'catalysts' && <CatalystsPage />}
-              {tab === 'market' && <MarketPage />}
               {tab === 'trades' && <TradesPage />}
               {tab === 'history' && <HistoryPage param={param} />}
             </div>
@@ -96,6 +95,7 @@ export function ProjectShell({ projectId, tab, param }: { projectId: string; tab
 }
 
 function Sidebar({ projectId, tab }: { projectId: string; tab: Tab }) {
+  const adv = useAdvanced();
   const project = useWorkspace((s) => s.project);
   const securities = useWorkspace((s) => s.securities);
   const evidence = useWorkspace((s) => s.evidence);
@@ -113,6 +113,14 @@ function Sidebar({ projectId, tab }: { projectId: string; tab: Tab }) {
     trades: String(trades.length || ''),
     history: String(revisions.length || ''),
   };
+  // Basic mode lists the four daily pages; a deep link into a "More" page shows it there while it is open.
+  const more = TABS.filter((x) => x.more && (adv || x.id === tab));
+  const link = (tb: (typeof TABS)[number]) => (
+    <a key={tb.id} href={href({ page: 'project', projectId, tab: tb.id })} className={cls(tab === tb.id && 'on')} data-testid={`nav-${tb.id}`}>
+      {t(tb.label)}
+      {counts[tb.id] && <span className="count">{counts[tb.id]}</span>}
+    </a>
+  );
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -130,21 +138,39 @@ function Sidebar({ projectId, tab }: { projectId: string; tab: Tab }) {
         )}
       </div>
       <nav>
-        {TABS.map((tb) => (
-          <a key={tb.id} href={href({ page: 'project', projectId, tab: tb.id })} className={cls(tab === tb.id && 'on')} data-testid={`nav-${tb.id}`}>
-            {t(tb.label)}
-            {counts[tb.id] && <span className="count">{counts[tb.id]}</span>}
-          </a>
-        ))}
+        {TABS.filter((x) => !x.more).map(link)}
+        {more.length > 0 && (
+          <>
+            <div className="nav-group">{t('More')}</div>
+            {more.map(link)}
+          </>
+        )}
       </nav>
       <div className="foot">
         <a href="#/">{t('← All companies')}</a>
         <div style={{ marginTop: 6 }}>
-          <span className="kbd">Ctrl+K</span> {t('search')}
+          <a
+            style={{ cursor: 'pointer' }}
+            onClick={() => project && void exportProjectJson(projectId, project.name).catch((e) => useWorkspace.getState().toast(tm((e as Error).message), 'error'))}
+            title={t('Download this company as one JSON file (backup)')}
+            data-testid="sidebar-export"
+          >
+            {t('Export JSON')}
+          </a>
         </div>
+        <Advanced>
+          <div style={{ marginTop: 6 }}>
+            <span className="kbd">Ctrl+K</span> {t('search')}
+          </div>
+        </Advanced>
         <div style={{ marginTop: 8 }}>
-          <LangToggle dark />
+          <AdvancedToggle dark />
         </div>
+        <Advanced>
+          <div style={{ marginTop: 8 }}>
+            <LangToggle dark />
+          </div>
+        </Advanced>
       </div>
     </aside>
   );
@@ -229,9 +255,11 @@ function TopBar({ onSearch }: { onSearch: () => void }) {
         >
           ↻
         </button>
-        <button className="btn sm ghost" onClick={onSearch}>
-          {t('Search')} <span className="kbd">Ctrl+K</span>
-        </button>
+        <Advanced>
+          <button className="btn sm ghost" onClick={onSearch}>
+            {t('Search')} <span className="kbd">Ctrl+K</span>
+          </button>
+        </Advanced>
       </div>
     </div>
   );

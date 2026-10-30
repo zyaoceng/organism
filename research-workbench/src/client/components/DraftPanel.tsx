@@ -7,10 +7,11 @@ import type { RevisionFull } from '../../shared/api';
 import { diffOf, impactOf } from '../lib/derived';
 import { KIND_ICON } from '../lib/evidence';
 import { getLang, t, tm, tn, useLang } from '../lib/i18n';
+import { useAdvanced } from '../lib/prefs';
 import { useWorkspace } from '../lib/store';
 import { cls, periodLabelFn, today } from '../lib/util';
 import { ImpactView } from './ImpactView';
-import { Delta, Field } from './ui';
+import { Advanced, Delta, Field } from './ui';
 
 /** Bottom panel: pending draft changes, live downstream impact and the Commit Research Update form. */
 export function DraftPanel() {
@@ -153,12 +154,16 @@ export function ChangeList({ changes }: { changes: ModelChange[] }) {
 }
 
 function CommitForm({ changes, onCommitted }: { changes: ModelChange[]; onCommitted: (r: RevisionFull) => void }) {
+  const adv = useAdvanced();
+  const lang = useLang();
+  const draft = useWorkspace((s) => s.draft);
   const evidence = useWorkspace((s) => s.evidence);
   const head = useWorkspace((s) => s.head);
   const revisions = useWorkspace((s) => s.revisions);
   const restoredFrom = useWorkspace((s) => s.restoredFrom);
   const { commit, toast, setDraftPanelOpen } = useWorkspace.getState();
   const [title, setTitle] = useState('');
+  const [titleTouched, setTitleTouched] = useState(false);
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
   const [asOf, setAsOf] = useState(today());
@@ -170,18 +175,29 @@ function CommitForm({ changes, onCommitted }: { changes: ModelChange[]; onCommit
   useEffect(() => {
     setCited((prev) => new Set([...prev, ...newlyLinked]));
   }, [newlyLinked]);
+  // Prefilled title from the first real change ("{first} etc. ({n} changes)"); typing replaces it.
+  const autoTitle = useMemo(() => {
+    if (!changes.length) return '';
+    const main = changes.find((c) => !c.type.startsWith('link_') && c.type !== 'notes_changed') ?? changes[0];
+    const first = describeChange(main, { periodLabel: periodLabelFn(draft), evidenceTitle: (id) => evidence.find((e) => e.id === id)?.title ?? t('evidence'), lang: getLang() }).slice(0, 100);
+    return changes.length > 1 ? t('{first} etc. ({n} changes)', { first, n: changes.length }) : first;
+  }, [changes, draft, evidence, lang]);
+  const effectiveTitle = titleTouched ? title : autoTitle;
   const lastAsOf = [...revisions].reverse().find((r) => r.asOfDate)?.asOfDate ?? null;
   const checkpoint = changes.length === 0;
   const list = evidence.filter((e) => !filter || `${e.title} ${e.sourceName}`.toLowerCase().includes(filter.toLowerCase())).slice(0, 60);
-  const lookAhead = evidence.filter((e) => cited.has(e.id) && e.publishedAt && e.publishedAt > asOf);
+  const citedIds = adv ? [...cited] : newlyLinked;
+  const lookAhead = evidence.filter((e) => citedIds.includes(e.id) && e.publishedAt && e.publishedAt > asOf);
 
   const submit = async () => {
     setError(null);
     setBusy(true);
     try {
-      const rev = await commit({ title, reason, notes, asOfDate: asOf, evidenceIds: [...cited], kind: restoredFrom ? 'restore' : undefined });
+      // Basic mode has no checklist: cite exactly the evidence linked in this draft.
+      const rev = await commit({ title: effectiveTitle, reason, notes, asOfDate: asOf, evidenceIds: citedIds, kind: restoredFrom ? 'restore' : undefined });
       toast(t('Research Update #{seq} committed', { seq: rev.seq }), 'success');
       setTitle('');
+      setTitleTouched(false);
       setReason('');
       setNotes('');
       setCited(new Set());
@@ -201,7 +217,12 @@ function CommitForm({ changes, onCommitted }: { changes: ModelChange[]; onCommit
         {restoredFrom && t(' This draft was restored from an earlier snapshot.')}
       </div>
       <Field label={t('Title')}>
-        <input value={title} placeholder={checkpoint ? t('e.g. Q3 results reviewed — thesis intact') : t('e.g. Customer qualification confirmed; capacity guidance raised')} onChange={(e) => setTitle(e.target.value)} data-testid="commit-title" />
+        <input
+          value={effectiveTitle}
+          placeholder={checkpoint ? t('e.g. Q3 results reviewed — thesis intact') : t('e.g. Customer qualification confirmed; capacity guidance raised')}
+          onChange={(e) => (setTitle(e.target.value), setTitleTouched(true))}
+          data-testid="commit-title"
+        />
       </Field>
       <div className="row" style={{ alignItems: 'flex-end' }}>
         <Field label={t('Knowledge date (what you knew as of)')}>
@@ -212,38 +233,42 @@ function CommitForm({ changes, onCommitted }: { changes: ModelChange[]; onCommit
       <Field label={t('Reason / interpretation — why the view changed')}>
         <textarea rows={4} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('Evidence → interpretation → which assumptions and why this magnitude')} data-testid="commit-reason" />
       </Field>
-      <div className="field">
-        <span className="small sub">{t('Evidence behind this update ({n} selected)', { n: cited.size })}</span>
-        <input type="search" placeholder={t('Filter evidence…')} value={filter} onChange={(e) => setFilter(e.target.value)} />
-        <div style={{ maxHeight: 150, overflow: 'auto', border: '1px solid var(--line)', borderRadius: 6, background: '#fff' }}>
-          {list.length === 0 && <div className="small sub" style={{ padding: 8 }}>{t('No evidence yet. Attach sources to nodes in the inspector.')}</div>}
-          {list.map((e) => (
-            <label key={e.id} className="row small" style={{ padding: '4px 8px', gap: 6, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={cited.has(e.id)}
-                onChange={(ev) => {
-                  const next = new Set(cited);
-                  if (ev.target.checked) next.add(e.id);
-                  else next.delete(e.id);
-                  setCited(next);
-                }}
-              />
-              <span>{KIND_ICON[e.kind]}</span>
-              <span className="grow ellipsis">{e.title}</span>
-              {newlyLinked.includes(e.id) && <span className="badge accent">{t('linked now')}</span>}
-              <span className="faint tiny nowrap">{e.publishedAt ?? ''}</span>
-            </label>
-          ))}
+      <Advanced>
+        <div className="field">
+          <span className="small sub">{t('Evidence behind this update ({n} selected)', { n: cited.size })}</span>
+          <input type="search" placeholder={t('Filter evidence…')} value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <div style={{ maxHeight: 150, overflow: 'auto', border: '1px solid var(--line)', borderRadius: 6, background: '#fff' }}>
+            {list.length === 0 && <div className="small sub" style={{ padding: 8 }}>{t('No evidence yet. Attach sources to nodes in the inspector.')}</div>}
+            {list.map((e) => (
+              <label key={e.id} className="row small" style={{ padding: '4px 8px', gap: 6, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={cited.has(e.id)}
+                  onChange={(ev) => {
+                    const next = new Set(cited);
+                    if (ev.target.checked) next.add(e.id);
+                    else next.delete(e.id);
+                    setCited(next);
+                  }}
+                />
+                <span>{KIND_ICON[e.kind]}</span>
+                <span className="grow ellipsis">{e.title}</span>
+                {newlyLinked.includes(e.id) && <span className="badge accent">{t('linked now')}</span>}
+                <span className="faint tiny nowrap">{e.publishedAt ?? ''}</span>
+              </label>
+            ))}
+          </div>
         </div>
-      </div>
+      </Advanced>
       {lookAhead.length > 0 && <div className="msg warn">{t('Published after the knowledge date: {titles}. Move the date or deselect it.', { titles: lookAhead.map((e) => e.title).join(', ') })}</div>}
-      <Field label={t('Notes (optional)')}>
-        <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
-      </Field>
+      <Advanced>
+        <Field label={t('Notes (optional)')}>
+          <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </Field>
+      </Advanced>
       {error && <div className="msg err">{error}</div>}
       <div className="row">
-        <button className="btn primary" disabled={busy || !title.trim() || !reason.trim()} onClick={() => void submit()} data-testid="commit-submit">
+        <button className="btn primary" disabled={busy || !effectiveTitle.trim() || !reason.trim()} onClick={() => void submit()} data-testid="commit-submit">
           {busy ? t('Committing…') : checkpoint ? t('Record checkpoint') : t('Commit Research Update')}
         </button>
         <button className="btn ghost" onClick={() => setDraftPanelOpen(false)}>

@@ -77,6 +77,7 @@ export const model: Record<string, string> = {
 
   // Inspector: header / unit
   'Top level': '最上層',
+  Settings: '設定',
   'Node name': '節點名稱',
   'Value by scenario': '各情境數值',
   Values: '數值',

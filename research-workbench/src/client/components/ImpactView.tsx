@@ -5,12 +5,15 @@ import { SCALAR_KEY, SCENARIOS } from '../../domain/model/types';
 import type { Impact } from '../../domain/revision/impact';
 import { findByRole } from '../../domain/model/tree';
 import { t, tm } from '../lib/i18n';
+import { useAdvanced } from '../lib/prefs';
 import { cls, periodLabelFn } from '../lib/util';
 import { Delta, ScenarioSwitch } from './ui';
 
 /** What changed downstream: headline EPS/target price, the causal chain, and attribution. */
 export function ImpactView({ impact, state, initialScenario = 'base', compact }: { impact: Impact; state: ModelState; initialScenario?: ScenarioId; compact?: boolean }) {
   const [scenario, setScenario] = useState<ScenarioId>(initialScenario);
+  // Basic mode keeps the headline table; the EPS path, causal chain and attribution are advanced.
+  const adv = useAdvanced();
   const pl = periodLabelFn(state);
   const eps = findByRole(state, 'eps');
   const tp = findByRole(state, 'target_price');
@@ -77,7 +80,7 @@ export function ImpactView({ impact, state, initialScenario = 'base', compact }:
         </tbody>
       </table>
 
-      {!compact && epsPeriods.length > 1 && (
+      {adv && !compact && epsPeriods.length > 1 && (
         <table className="grid">
           <thead>
             <tr>
@@ -103,44 +106,46 @@ export function ImpactView({ impact, state, initialScenario = 'base', compact }:
         </table>
       )}
 
-      <div>
-        <div className="row" style={{ marginBottom: 6 }}>
-          <h3>{t('Causal chain')}</h3>
-          <span className="small sub">{t('changed values in dependency order')}</span>
-          <span className="right">
-            <ScenarioSwitch value={scenario} onChange={setScenario} />
-          </span>
+      {adv && (
+        <div>
+          <div className="row" style={{ marginBottom: 6 }}>
+            <h3>{t('Causal chain')}</h3>
+            <span className="small sub">{t('changed values in dependency order')}</span>
+            <span className="right">
+              <ScenarioSwitch value={scenario} onChange={setScenario} />
+            </span>
+          </div>
+          {nodes.length === 0 ? (
+            <div className="small sub">{t('No calculated values changed in this scenario.')}</div>
+          ) : (
+            <ul className="impact-chain">
+              {nodes.slice(0, compact ? 12 : 200).map((n) => {
+                const unit = unitOf(n.nodeId);
+                const pick = n.cells.find((c) => c.periodKey === basis) ?? n.cells.find((c) => c.periodKey === SCALAR_KEY) ?? n.cells[n.cells.length - 1];
+                return (
+                  <li key={n.nodeId} className={cls(n.direct && 'direct')} title={n.cells.map((c) => `${pl(c.periodKey)}: ${formatValue(c.before, unit)} → ${formatValue(c.after, unit)}`).join('\n')}>
+                    <span className="nm">
+                      {n.direct ? '✎ ' : '↳ '}
+                      {n.name}
+                      {n.cells.length > 1 && <span className="faint small"> · {t('{n} cells', { n: n.cells.length })}</span>}
+                    </span>
+                    <span className="num sub">{pl(pick.periodKey)}</span>
+                    <span className="num">
+                      {formatValue(pick.before, unit)} → <b>{formatValue(pick.after, unit)}</b>
+                    </span>
+                    <span style={{ width: 64, textAlign: 'right' }}>
+                      <Delta before={pick.before} after={pick.after} unit={unit} />
+                    </span>
+                  </li>
+                );
+              })}
+              {compact && nodes.length > 12 && <li className="sub small">{t('…{n} more', { n: nodes.length - 12 })}</li>}
+            </ul>
+          )}
         </div>
-        {nodes.length === 0 ? (
-          <div className="small sub">{t('No calculated values changed in this scenario.')}</div>
-        ) : (
-          <ul className="impact-chain">
-            {nodes.slice(0, compact ? 12 : 200).map((n) => {
-              const unit = unitOf(n.nodeId);
-              const pick = n.cells.find((c) => c.periodKey === basis) ?? n.cells.find((c) => c.periodKey === SCALAR_KEY) ?? n.cells[n.cells.length - 1];
-              return (
-                <li key={n.nodeId} className={cls(n.direct && 'direct')} title={n.cells.map((c) => `${pl(c.periodKey)}: ${formatValue(c.before, unit)} → ${formatValue(c.after, unit)}`).join('\n')}>
-                  <span className="nm">
-                    {n.direct ? '✎ ' : '↳ '}
-                    {n.name}
-                    {n.cells.length > 1 && <span className="faint small"> · {t('{n} cells', { n: n.cells.length })}</span>}
-                  </span>
-                  <span className="num sub">{pl(pick.periodKey)}</span>
-                  <span className="num">
-                    {formatValue(pick.before, unit)} → <b>{formatValue(pick.after, unit)}</b>
-                  </span>
-                  <span style={{ width: 64, textAlign: 'right' }}>
-                    <Delta before={pick.before} after={pick.after} unit={unit} />
-                  </span>
-                </li>
-              );
-            })}
-            {compact && nodes.length > 12 && <li className="sub small">{t('…{n} more', { n: nodes.length - 12 })}</li>}
-          </ul>
-        )}
-      </div>
+      )}
 
-      {impact.attribution.length > 0 && (
+      {adv && impact.attribution.length > 0 && (
         <div>
           <div className="row" style={{ marginBottom: 6 }}>
             <h3>{t('Attribution')}</h3>

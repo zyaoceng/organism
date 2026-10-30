@@ -6,9 +6,10 @@ import { SCALAR_KEY, SCENARIOS, type HistoricalPE, type ModelState, type Peer, t
 import { basisPeriodId } from '../../domain/revision/impact';
 import type { Unit } from '../../domain/units';
 import { FormulaEditor } from '../components/FormulaEditor';
-import { Field, InlineText, NumberField, ScenarioSwitch } from '../components/ui';
+import { Advanced, Field, InlineText, NumberField, ScenarioSwitch } from '../components/ui';
 import { calcOf } from '../lib/derived';
 import { t } from '../lib/i18n';
+import { useAdvanced } from '../lib/prefs';
 import { navigate } from '../lib/router';
 import { useActiveState, useWorkspace } from '../lib/store';
 import { cls, periodLabelFn } from '../lib/util';
@@ -24,6 +25,7 @@ export function ValuationPage() {
   const projectId = useWorkspace((s) => s.projectId)!;
   const { edit, select } = useWorkspace.getState();
   const [peerPeriod, setPeerPeriod] = useState<string | null>(null);
+  const adv = useAdvanced();
   if (!state) return null;
   const calc = calcOf(state);
   const pl = periodLabelFn(state);
@@ -52,6 +54,15 @@ export function ValuationPage() {
     const m = Math.floor(a.length / 2);
     return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
   };
+  // Advanced shows it as the last row of "Growth and returns"; basic shows it above the P/E band.
+  const currentPERow = (
+    <tr>
+      <td>{t('P/E at current price')}</td>
+      {state.periods.map((p) => (
+        <td key={p.id}>{formatValue(currentPE(p.id), MULT)}</td>
+      ))}
+    </tr>
+  );
 
   return (
     <div className="page" style={{ maxWidth: 1500 }} data-testid="valuation-page">
@@ -108,9 +119,11 @@ export function ValuationPage() {
       <div className="two">
         <div className="col" style={{ gap: 14 }}>
           <div className="card">
-            <h2>{t('1 · Target multiple decision')}</h2>
+            <h2>{t('Target multiple decision')}</h2>
             {!tm ? (
-              <div className="msg warn">{t('No node has the role “Target multiple”. Assign it in the Model inspector.')}</div>
+              <Advanced>
+                <div className="msg warn">{t('No node has the role “Target multiple”. Assign it in the Model inspector.')}</div>
+              </Advanced>
             ) : (
               <table className="grid">
                 <thead>
@@ -167,86 +180,102 @@ export function ValuationPage() {
             )}
           </div>
 
-          <div className="card">
-            <h2>{t('2 · Target price formula')}</h2>
-            {tp ? (
-              <>
-                <div className="small sub" style={{ marginBottom: 6 }}>
-                  {t('Basis EPS period:')} <b>{basis ? pl(basis) : '—'}</b>{t('. Rolling the basis year is a formula change and is recorded in history.')}
-                </div>
-                <FormulaEditor node={tp} state={state} readOnly={readOnly} />
-              </>
-            ) : (
-              <div className="msg warn">{t('No node has the role “Target price”.')}</div>
-            )}
-          </div>
-
-          <div className="card">
-            <div className="row">
-              <h2>{t('3 · Re-rating thesis')}</h2>
-              {rerating && (
-                <button
-                  className="btn xs right"
-                  onClick={() => {
-                    select(rerating.id);
-                    navigate({ page: 'project', projectId, tab: 'model' });
-                  }}
-                >
-                  {t('evidence & theses in the model →')}
-                </button>
+          {(tp || adv) && (
+            <div className="card">
+              <h2>{t('Target price formula')}</h2>
+              {tp ? (
+                <>
+                  <div className="small sub" style={{ marginBottom: 6 }}>
+                    {t('Basis EPS period:')} <b>{basis ? pl(basis) : '—'}</b>{t('. Rolling the basis year is a formula change and is recorded in history.')}
+                  </div>
+                  <Advanced>
+                    <FormulaEditor node={tp} state={state} readOnly={readOnly} />
+                  </Advanced>
+                </>
+              ) : (
+                <div className="msg warn">{t('No node has the role “Target price”.')}</div>
               )}
             </div>
-            {rerating ? (
-              <>
-                <InlineText multiline rows={6} readOnly={readOnly} value={rerating.notes} placeholder={t('Why should the market pay a different multiple? (business mix, growth duration, returns on capital…)')} onCommit={(x) => edit((st) => setNotes(st, rerating.id, x))} />
-                <div className="tiny sub" style={{ marginTop: 4 }}>
-                  {t('{links} evidence link(s) · {theses} thesis(es)', { links: state.links.filter((l) => l.nodeId === rerating.id).length, theses: state.theses.filter((th) => th.nodeIds.includes(rerating.id)).length })}
-                </div>
-              </>
-            ) : (
-              <div className="small sub">{t('Assign the role “Re-rating thesis” to a node to write it here.')}</div>
-            )}
-          </div>
+          )}
+
+          {adv && (
+            <div className="card">
+              <div className="row">
+                <h2>{t('Re-rating thesis')}</h2>
+                {rerating && (
+                  <button
+                    className="btn xs right"
+                    onClick={() => {
+                      select(rerating.id);
+                      navigate({ page: 'project', projectId, tab: 'model' });
+                    }}
+                  >
+                    {t('evidence & theses in the model →')}
+                  </button>
+                )}
+              </div>
+              {rerating ? (
+                <>
+                  <InlineText multiline rows={6} readOnly={readOnly} value={rerating.notes} placeholder={t('Why should the market pay a different multiple? (business mix, growth duration, returns on capital…)')} onCommit={(x) => edit((st) => setNotes(st, rerating.id, x))} />
+                  <div className="tiny sub" style={{ marginTop: 4 }}>
+                    {t('{links} evidence link(s) · {theses} thesis(es)', { links: state.links.filter((l) => l.nodeId === rerating.id).length, theses: state.theses.filter((th) => th.nodeIds.includes(rerating.id)).length })}
+                  </div>
+                </>
+              ) : (
+                <div className="small sub">{t('Assign the role “Re-rating thesis” to a node to write it here.')}</div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="col" style={{ gap: 14 }}>
-          <div className="card">
-            <h2>{t('4 · Growth and returns ({scenario})', { scenario: t(SCENARIOS.find((s) => s.id === scenario)?.name ?? '') })}</h2>
-            <table className="grid">
-              <thead>
-                <tr>
-                  <th>{t('Metric')}</th>
-                  {state.periods.map((p) => (
-                    <th key={p.id}>{pl(p.id)}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {metrics.map((n) => (
-                  <tr key={n!.id}>
-                    <td>{n!.name}</td>
+          {adv && (
+            <div className="card">
+              <h2>{t('Growth and returns ({scenario})', { scenario: t(SCENARIOS.find((s) => s.id === scenario)?.name ?? '') })}</h2>
+              <table className="grid">
+                <thead>
+                  <tr>
+                    <th>{t('Metric')}</th>
                     {state.periods.map((p) => (
-                      <td key={p.id}>{formatValue(v(n!.id, p.id), n!.unit)}</td>
+                      <th key={p.id}>{pl(p.id)}</th>
                     ))}
                   </tr>
-                ))}
-                <tr>
-                  <td>{t('P/E at current price')}</td>
-                  {state.periods.map((p) => (
-                    <td key={p.id}>{formatValue(currentPE(p.id), MULT)}</td>
+                </thead>
+                <tbody>
+                  {metrics.map((n) => (
+                    <tr key={n!.id}>
+                      <td>{n!.name}</td>
+                      {state.periods.map((p) => (
+                        <td key={p.id}>{formatValue(v(n!.id, p.id), n!.unit)}</td>
+                      ))}
+                    </tr>
                   ))}
-                </tr>
-              </tbody>
-            </table>
-            <div className="tiny sub" style={{ marginTop: 4 }}>
-              {quote?.quote
-                ? t('Current P/E uses the latest quote ({provider}) and is display-only: it never enters the model or snapshots.', { provider: quote.quote.provider === 'demo' ? t('{provider}, synthetic', { provider: quote.quote.provider }) : quote.quote.provider })
-                : t('Current P/E uses the latest quote and is display-only: it never enters the model or snapshots.')}
+                  {currentPERow}
+                </tbody>
+              </table>
+              <div className="tiny sub" style={{ marginTop: 4 }}>
+                {quote?.quote
+                  ? t('Current P/E uses the latest quote ({provider}) and is display-only: it never enters the model or snapshots.', { provider: quote.quote.provider === 'demo' ? t('{provider}, synthetic', { provider: quote.quote.provider }) : quote.quote.provider })
+                  : t('Current P/E uses the latest quote and is display-only: it never enters the model or snapshots.')}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="card">
-            <h2>{t('5 · Historical P/E band')}</h2>
+            <h2>{t('Historical P/E band')}</h2>
+            {!adv && (
+              <table className="grid" style={{ marginBottom: 8 }}>
+                <thead>
+                  <tr>
+                    <th />
+                    {state.periods.map((p) => (
+                      <th key={p.id}>{pl(p.id)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>{currentPERow}</tbody>
+              </table>
+            )}
             <div className="three">
               {(['low', 'median', 'high'] as const).map((k) => (
                 <Field key={k} label={t(k[0].toUpperCase() + k.slice(1))}>
@@ -276,7 +305,7 @@ export function ValuationPage() {
 
           <div className="card">
             <div className="row">
-              <h2>{t('6 · Peer comparison')}</h2>
+              <h2>{t('Peer comparison')}</h2>
               <span className="right row small sub">
                 {t('Company at')}
                 <select value={cmpPeriod ?? ''} onChange={(e) => setPeerPeriod(e.target.value)}>

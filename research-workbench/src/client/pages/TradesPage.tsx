@@ -1,56 +1,196 @@
 import { useEffect, useMemo, useState } from 'react';
 import { atr, atrAsOf, indexAtOrBefore, trailingStop, type Bar } from '../../domain/market/indicators';
+import { findByRole } from '../../domain/model/tree';
 import { tradeMetrics } from '../../domain/trade/metrics';
-import type { TradeDTO } from '../../shared/api';
+import type { ProviderDTO, TradeDTO } from '../../shared/api';
+import { QuoteCard, RANGES, SecurityCard } from '../components/MarketCards';
 import { PriceChart, type ChartMarker, type ChartPriceLine, type Overlay } from '../components/PriceChart';
-import { Field } from '../components/ui';
+import { Advanced, Field } from '../components/ui';
 import { api } from '../lib/api';
 import { navigate } from '../lib/router';
 import { useWorkspace } from '../lib/store';
 import { t, tm, useLang } from '../lib/i18n';
+import { useAdvanced } from '../lib/prefs';
 import { useBars } from '../lib/useBars';
 import { cls, pctText, today } from '../lib/util';
 
+/** Basic mode draws a fixed chart: MA 20/50 (a module constant, so the chart keeps its zoom), ATR 14, one year. */
+const BASIC_MA = [20, 50];
+
+/** Prices and the trade journal on one page: one chart with trades, catalysts and target lines; the quote and data source; entries and exits. */
 export function TradesPage() {
   const trades = useWorkspace((s) => s.trades);
   const revisions = useWorkspace((s) => s.revisions);
   const projectId = useWorkspace((s) => s.projectId)!;
-  const { bars } = useBars();
+  const catalysts = useWorkspace((s) => s.catalysts);
+  const head = useWorkspace((s) => s.head);
+  const sec = useWorkspace((s) => s.securities[0]);
+  const { toast, refresh } = useWorkspace.getState();
+  const { bars, res, loading, reload } = useBars();
+  const [providers, setProviders] = useState<ProviderDTO[]>([]);
+  const [range, setRange] = useState('1Y');
+  const [ma, setMa] = useState('20,60');
+  const [atrN, setAtrN] = useState(14);
+  const [showTrades, setShowTrades] = useState(true);
+  const [showCatalysts, setShowCatalysts] = useState(true);
+  const [showTargets, setShowTargets] = useState(true);
   const [sel, setSel] = useState<string | null>(trades[0]?.id ?? null);
   const [creating, setCreating] = useState(trades.length === 0);
-  const selected = trades.find((x) => x.id === sel) ?? null;
-  const revSeq = (id: string | null) => revisions.find((r) => r.id === id);
   const lang = useLang();
+  const adv = useAdvanced();
+  useEffect(() => {
+    void api.providers().then(setProviders);
+  }, []);
+
+  const selected = trades.find((x) => x.id === sel) ?? null;
+  const selectedEntry = selected?.entryDate ?? null;
+  const revSeq = (id: string | null) => revisions.find((r) => r.id === id);
+
+  // Basic mode has no chart controls: fixed settings, everything drawn.
+  const parsedMa = useMemo(() => ma.split(/[ ,]+/).map(Number).filter((n) => Number.isInteger(n) && n > 1 && n < 400).slice(0, 4), [ma]);
+  const maPeriods = adv ? parsedMa : BASIC_MA;
+  const atrPeriod = adv ? atrN : 14;
+  const rangeId = adv ? range : '1Y';
+  const withTrades = !adv || showTrades;
+  const withCatalysts = !adv || showCatalysts;
+  const withTargets = !adv || showTargets;
+
+  const shown = useMemo(() => {
+    const days = RANGES.find((r) => r.id === rangeId)?.days ?? 365;
+    const last = bars.at(-1)?.date;
+    if (!last) return bars;
+    let cutoff = new Date(Date.parse(last) - days * 86400000).toISOString().slice(0, 10);
+    // Without range buttons, widen the window so an older selected trade stays on the chart.
+    if (!adv && selectedEntry && selectedEntry < cutoff) cutoff = selectedEntry;
+    return bars.filter((b) => b.date >= cutoff);
+  }, [bars, rangeId, adv, selectedEntry]);
 
   const chart = useMemo(() => {
     const markers: ChartMarker[] = [];
-    for (const tr of trades) {
-      markers.push({ time: tr.entryDate, position: tr.side === 'long' ? 'belowBar' : 'aboveBar', color: tr.id === sel ? '#0b6e63' : '#8aa9a4', shape: tr.side === 'long' ? 'arrowUp' : 'arrowDown', text: t('Buy {price}', { price: tr.entryPrice }) });
-      if (tr.exitDate && tr.exitPrice) markers.push({ time: tr.exitDate, position: tr.side === 'long' ? 'aboveBar' : 'belowBar', color: tr.id === sel ? '#c0392b' : '#d9a39d', shape: tr.side === 'long' ? 'arrowDown' : 'arrowUp', text: t('Sell {price}', { price: tr.exitPrice }) });
+    if (withTrades) {
+      for (const tr of trades) {
+        markers.push({ time: tr.entryDate, position: tr.side === 'long' ? 'belowBar' : 'aboveBar', color: tr.id === sel ? '#0b6e63' : '#8aa9a4', shape: tr.side === 'long' ? 'arrowUp' : 'arrowDown', text: t('Buy {price}', { price: tr.entryPrice }) });
+        if (tr.exitDate && tr.exitPrice) markers.push({ time: tr.exitDate, position: tr.side === 'long' ? 'aboveBar' : 'belowBar', color: tr.id === sel ? '#c0392b' : '#d9a39d', shape: tr.side === 'long' ? 'arrowDown' : 'arrowUp', text: t('Sell {price}', { price: tr.exitPrice }) });
+      }
+    }
+    if (withCatalysts) {
+      for (const c of catalysts) {
+        const d = c.actualDate ?? c.expectedDate;
+        if (d) markers.push({ time: d, position: 'aboveBar', color: c.status === 'occurred' ? '#6a4fc4' : '#a8a8c8', shape: 'circle', text: c.title.slice(0, 24) });
+      }
     }
     const lines: ChartPriceLine[] = [];
+    if (withTargets) {
+      const tp = head ? findByRole(head.state, 'target_price') : undefined;
+      if (head && tp) {
+        const colors = { bear: '#b5473a', base: '#35598f', bull: '#2f7d4f' } as const;
+        for (const s of ['bear', 'base', 'bull'] as const) {
+          const v = head.computed.values[s][tp.id]?._;
+          if (v) lines.push({ price: v, color: colors[s], title: t(`${s} TP #{seq}`, { seq: head.seq }), dashed: true });
+        }
+      }
+      for (const tr of trades.filter((x) => !x.exitDate && x.stopAtEntry && x.id !== sel)) lines.push({ price: tr.stopAtEntry!, color: '#c0392b', title: t('stop {date}', { date: tr.entryDate }) });
+      if (selected?.stopAtEntry) lines.push({ price: selected.stopAtEntry, color: '#c0392b', title: t('stop at entry') });
+      if (selected?.targetPriceAtEntry) lines.push({ price: selected.targetPriceAtEntry, color: '#35598f', title: t('target at entry'), dashed: true });
+    }
     const overlays: Overlay[] = [];
-    if (selected) {
-      if (selected.stopAtEntry) lines.push({ price: selected.stopAtEntry, color: '#c0392b', title: t('stop at entry') });
-      if (selected.targetPriceAtEntry) lines.push({ price: selected.targetPriceAtEntry, color: '#35598f', title: t('target at entry'), dashed: true });
+    if (adv && selected) {
       const i = bars.findIndex((b) => b.date >= selected.entryDate);
       if (i >= 0) {
         const ts = trailingStop(bars, atr(bars, 14), i, selected.atrMultiple ?? 2, selected.side, selected.stopAtEntry ?? undefined);
         const end = ts.exit ? ts.exit.index : bars.length - 1;
-        overlays.push({ name: t('{k}×ATR trail', { k: selected.atrMultiple ?? 2 }), color: '#c0392b', dashed: true, values: ts.stops.map((v, k) => (k <= end ? v : null)) });
+        // Overlay values are index-aligned to the bars the chart gets; `shown` is a suffix of `bars`.
+        const values = ts.stops.map((v, k) => (k <= end ? v : null)).slice(bars.length - shown.length);
+        overlays.push({ name: t('{k}×ATR trail', { k: selected.atrMultiple ?? 2 }), color: '#c0392b', dashed: true, values });
       }
     }
     return { markers, lines, overlays };
-  }, [trades, sel, selected, bars, lang]);
+  }, [trades, catalysts, head, sel, selected, bars, shown, withTrades, withCatalysts, withTargets, adv, lang]);
+
+  const provider = providers.find((p) => p.id === (res?.provider ?? sec?.priceSource));
+  const setSource = async (priceSource: string) => {
+    if (!sec) return;
+    try {
+      await api.updateSecurity(sec.id, { priceSource });
+      await refresh('project');
+      await refresh('quote');
+    } catch (e) {
+      toast(tm((e as Error).message), 'error');
+    }
+  };
+  const cols = adv ? 14 : 12;
 
   return (
     <div className="page" style={{ maxWidth: 1500 }} data-testid="trades-page">
       <div className="page-head">
-        <h1>{t('Trade journal')}</h1>
-        <span className="sub">{t('Trading is separate from valuation: each trade points to the research snapshot that was valid on its entry date.')}</span>
-        <button className="btn primary right" onClick={() => setCreating(!creating)} data-testid="new-trade">
-          {t('+ Record entry')}
-        </button>
+        <h1>{t('Trades')}</h1>
+        {provider?.synthetic && <span className="badge synthetic">{t('SYNTHETIC DEMO DATA — not real prices')}</span>}
+        <Advanced>
+          <span className="sub">{t('Trading is separate from valuation: each trade points to the research snapshot that was valid on its entry date.')}</span>
+        </Advanced>
+        <span className="right row">
+          <button
+            className="btn"
+            disabled={loading}
+            onClick={async () => {
+              await reload(true);
+              if (sec) useWorkspace.setState({ quote: await api.quote(sec.id, undefined, true) });
+            }}
+            data-testid="refresh-market"
+          >
+            {loading ? t('Loading…') : t('↻ Refresh prices')}
+          </button>
+          <button className="btn primary" onClick={() => setCreating(!creating)} data-testid="new-trade">
+            {t('+ Record entry')}
+          </button>
+        </span>
+      </div>
+      {res?.error && <div className="msg err" style={{ marginBottom: 10 }}>{t('Provider error: {error}', { error: tm(res.error) })}{bars.length ? t(' — showing cached data.') : t(' Use “Find by code or name” on the right to pick the correct code or another price source.')}</div>}
+      <div className="split" style={{ gridTemplateColumns: 'minmax(0, 1fr) 320px', marginBottom: 14 }}>
+        <div className="card" style={{ padding: 10 }}>
+          <Advanced>
+            <div className="row wrap" style={{ marginBottom: 8 }}>
+              <div className="seg">
+                {RANGES.map((r) => (
+                  <button key={r.id} className={cls(range === r.id && 'on plain')} onClick={() => setRange(r.id)}>
+                    {r.id === 'All' ? t('All') : r.id}
+                  </button>
+                ))}
+              </div>
+              <label className="small sub row" style={{ gap: 4 }}>
+                MA <input style={{ width: 70 }} value={ma} onChange={(e) => setMa(e.target.value)} />
+              </label>
+              <label className="small sub row" style={{ gap: 4 }}>
+                ATR <input type="number" style={{ width: 56 }} value={atrN} min={2} max={100} onChange={(e) => setAtrN(Math.max(2, Number(e.target.value) || 14))} />
+              </label>
+              <label className="small row" style={{ gap: 4 }}>
+                <input type="checkbox" checked={showTrades} onChange={(e) => setShowTrades(e.target.checked)} /> {t('trades')}
+              </label>
+              <label className="small row" style={{ gap: 4 }}>
+                <input type="checkbox" checked={showCatalysts} onChange={(e) => setShowCatalysts(e.target.checked)} /> {t('catalysts')}
+              </label>
+              <label className="small row" style={{ gap: 4 }}>
+                <input type="checkbox" checked={showTargets} onChange={(e) => setShowTargets(e.target.checked)} /> {t('target prices & stops')}
+              </label>
+            </div>
+          </Advanced>
+          {bars.length ? (
+            <PriceChart bars={shown} maPeriods={maPeriods} atrPeriod={atrPeriod} markers={chart.markers} priceLines={chart.lines} overlays={chart.overlays} height={460} />
+          ) : (
+            <div className="empty" style={{ height: 300 }}>
+              {loading ? t('Loading prices…') : t('No price data. Refresh from the provider, switch the price source, or import a CSV.')}
+            </div>
+          )}
+          <Advanced>
+            <div className="tiny sub" style={{ marginTop: 6 }}>
+              {t('Target price lines come from the latest committed Research Update (#{seq}); they do not move when you edit the draft.', { seq: head?.seq })}
+            </div>
+          </Advanced>
+        </div>
+        <div className="col" style={{ gap: 14 }}>
+          <QuoteCard bars={bars} res={res} atrN={atrPeriod} />
+          {sec && <SecurityCard providers={providers} onSource={setSource} onImported={() => void reload(false)} />}
+        </div>
       </div>
       {creating && <NewTrade bars={bars} onDone={(tr) => (setCreating(false), tr && setSel(tr.id))} />}
       <div className="card" style={{ padding: 0, marginBottom: 14, overflowX: 'auto' }}>
@@ -69,14 +209,14 @@ export function TradesPage() {
               <th>{t('Return')}</th>
               <th>R</th>
               <th>P&L</th>
-              <th>MFE / MAE</th>
-              <th className="l">{t('Trail-stop exit')}</th>
+              {adv && <th>MFE / MAE</th>}
+              {adv && <th className="l">{t('Trail-stop exit')}</th>}
             </tr>
           </thead>
           <tbody>
             {trades.length === 0 && (
               <tr>
-                <td colSpan={14} className="l sub">
+                <td colSpan={cols} className="l sub">
                   {t('No trades yet.')}
                 </td>
               </tr>
@@ -106,22 +246,19 @@ export function TradesPage() {
                   <td className={cls((m.returnPct ?? 0) >= 0 ? 'pos' : 'neg')}>{pctText(m.returnPct)}</td>
                   <td>{m.rMultiple === null ? '—' : m.rMultiple.toFixed(2)}</td>
                   <td>{m.pnl === null ? '—' : m.pnl.toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
-                  <td>
-                    {pctText(m.mfe)} / {pctText(m.mae)}
-                  </td>
-                  <td className="l small">{m.trailingExit ? `${m.trailingExit.date} @ ${m.trailingExit.price.toFixed(2)} (${pctText(m.trailingExit.returnPct)})` : m.open ? t('not hit') : '—'}</td>
+                  {adv && (
+                    <td>
+                      {pctText(m.mfe)} / {pctText(m.mae)}
+                    </td>
+                  )}
+                  {adv && <td className="l small">{m.trailingExit ? `${m.trailingExit.date} @ ${m.trailingExit.price.toFixed(2)} (${pctText(m.trailingExit.returnPct)})` : m.open ? t('not hit') : '—'}</td>}
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
-      <div className="split">
-        <div className="card" style={{ padding: 10 }}>
-          {bars.length ? <PriceChart bars={bars} maPeriods={[20]} atrPeriod={14} markers={chart.markers} priceLines={chart.lines} overlays={chart.overlays} height={460} /> : <div className="empty">{t('No price data (see Market).')}</div>}
-        </div>
-        <div>{selected ? <TradeDetail key={selected.id} t={selected} bars={bars} /> : <div className="empty">{t('Select a trade.')}</div>}</div>
-      </div>
+      {selected ? <TradeDetail key={selected.id} t={selected} bars={bars} /> : trades.length > 0 && <div className="empty">{t('Select a trade.')}</div>}
     </div>
   );
 }
@@ -235,7 +372,7 @@ function TradeDetail({ t: tr, bars }: { t: TradeDTO; bars: Bar[] }) {
     }
   };
   return (
-    <div className="col" style={{ gap: 12 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12, alignItems: 'start' }}>
       <div className="card">
         <h2>
           {t('{side} {qty} @ {price} on {date}', { side: t(tr.side), qty: tr.quantity, price: tr.entryPrice, date: tr.entryDate })}
@@ -258,59 +395,69 @@ function TradeDetail({ t: tr, bars }: { t: TradeDTO; bars: Bar[] }) {
               <td>{t('R multiple')}</td>
               <td>{m.rMultiple?.toFixed(2) ?? '—'}</td>
             </tr>
-            <tr>
-              <td>{t('Max favourable / adverse excursion')}</td>
-              <td>
-                {pctText(m.mfe)} / {pctText(m.mae)}
-              </td>
-            </tr>
-            <tr>
-              <td>{t('{k}×ATR trailing stop would have exited', { k: tr.atrMultiple ?? 2 })}</td>
-              <td>{m.trailingExit ? `${m.trailingExit.date} @ ${m.trailingExit.price.toFixed(2)} (${pctText(m.trailingExit.returnPct)})` : t('not triggered')}</td>
-            </tr>
+            <Advanced>
+              <tr>
+                <td>{t('Max favourable / adverse excursion')}</td>
+                <td>
+                  {pctText(m.mfe)} / {pctText(m.mae)}
+                </td>
+              </tr>
+              <tr>
+                <td>{t('{k}×ATR trailing stop would have exited', { k: tr.atrMultiple ?? 2 })}</td>
+                <td>{m.trailingExit ? `${m.trailingExit.date} @ ${m.trailingExit.price.toFixed(2)} (${pctText(m.trailingExit.returnPct)})` : t('not triggered')}</td>
+              </tr>
+            </Advanced>
           </tbody>
         </table>
-        <div className="tiny sub" style={{ marginTop: 6 }}>
-          {t('Compare the actual exit with the trailing-stop counterfactual and MFE to separate “thesis wrong” from “execution poor”.')}
-        </div>
+        <Advanced>
+          <div className="tiny sub" style={{ marginTop: 6 }}>
+            {t('Compare the actual exit with the trailing-stop counterfactual and MFE to separate “thesis wrong” from “execution poor”.')}
+          </div>
+        </Advanced>
       </div>
-      <div className="card" data-testid="exit-form">
-        <h2>{tr.exitDate ? t('Exit') : t('Record exit')}</h2>
-        <div className="row wrap" style={{ alignItems: 'flex-end' }}>
-          <Field label={t('Exit date')}>
-            <input type="date" value={exit.exitDate} onChange={(e) => setExit({ ...exit, exitDate: e.target.value })} data-testid="exit-date" />
+      <div className="col" style={{ gap: 12 }}>
+        <div className="card" data-testid="exit-form">
+          <h2>{tr.exitDate ? t('Exit') : t('Record exit')}</h2>
+          <div className="row wrap" style={{ alignItems: 'flex-end' }}>
+            <Field label={t('Exit date')}>
+              <input type="date" value={exit.exitDate} onChange={(e) => setExit({ ...exit, exitDate: e.target.value })} data-testid="exit-date" />
+            </Field>
+            <Field label={t('Exit price')}>
+              <input type="number" value={exit.exitPrice} onChange={(e) => (setExitPriceTouched(true), setExit({ ...exit, exitPrice: e.target.value }))} data-testid="exit-price" />
+            </Field>
+          </div>
+          <Field label={t('Exit reason')} style={{ marginTop: 6 }}>
+            <textarea rows={2} value={exit.exitReason} onChange={(e) => setExit({ ...exit, exitReason: e.target.value })} data-testid="exit-reason" />
           </Field>
-          <Field label={t('Exit price')}>
-            <input type="number" value={exit.exitPrice} onChange={(e) => (setExitPriceTouched(true), setExit({ ...exit, exitPrice: e.target.value }))} data-testid="exit-price" />
-          </Field>
-        </div>
-        <Field label={t('Exit reason')} style={{ marginTop: 6 }}>
-          <textarea rows={2} value={exit.exitReason} onChange={(e) => setExit({ ...exit, exitReason: e.target.value })} data-testid="exit-reason" />
-        </Field>
-        <div className="row" style={{ marginTop: 8 }}>
-          <button className="btn primary" disabled={!exit.exitDate || !exit.exitPrice} onClick={() => void save({ exitDate: exit.exitDate, exitPrice: Number(exit.exitPrice), exitReason: exit.exitReason })} data-testid="exit-save">
-            {t('Save exit')}
-          </button>
-          {tr.exitDate && (
-            <button className="btn ghost" onClick={() => void save({ exitDate: null, exitPrice: null })}>
-              {t('Reopen')}
+          <div className="row" style={{ marginTop: 8 }}>
+            <button className="btn primary" disabled={!exit.exitDate || !exit.exitPrice} onClick={() => void save({ exitDate: exit.exitDate, exitPrice: Number(exit.exitPrice), exitReason: exit.exitReason })} data-testid="exit-save">
+              {t('Save exit')}
             </button>
-          )}
-          <button className="btn ghost right" onClick={() => navigate({ page: 'project', projectId, tab: 'history', param: 'reviews' })}>
-            {t('Write a review →')}
-          </button>
+            {tr.exitDate && (
+              <button className="btn ghost" onClick={() => void save({ exitDate: null, exitPrice: null })}>
+                {t('Reopen')}
+              </button>
+            )}
+            <Advanced>
+              <button className="btn ghost right" onClick={() => navigate({ page: 'project', projectId, tab: 'history', param: 'reviews' })}>
+                {t('Write a review →')}
+              </button>
+            </Advanced>
+          </div>
         </div>
+        <Advanced>
+          <button
+            className="btn danger"
+            onClick={async () => {
+              if (!window.confirm(t('Delete this trade? (kept in the audit log)'))) return;
+              await api.deleteTrade(tr.id);
+              await refresh('trades');
+            }}
+          >
+            {t('Delete trade')}
+          </button>
+        </Advanced>
       </div>
-      <button
-        className="btn danger"
-        onClick={async () => {
-          if (!window.confirm(t('Delete this trade? (kept in the audit log)'))) return;
-          await api.deleteTrade(tr.id);
-          await refresh('trades');
-        }}
-      >
-        {t('Delete trade')}
-      </button>
     </div>
   );
 }

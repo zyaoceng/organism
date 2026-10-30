@@ -3,6 +3,7 @@ import { formatValue, parseValueInput, editText } from '../../domain/format';
 import type { Unit } from '../../domain/units';
 import { cls } from '../lib/util';
 import { LANGS, setLang, t, tm, useLang } from '../lib/i18n';
+import { setAdvanced, useAdvanced } from '../lib/prefs';
 
 /** Text that becomes an input on click; commits on blur/Enter, cancels on Escape. */
 export function InlineText(props: {
@@ -177,6 +178,22 @@ export function ScenarioSwitch(props: { value: string; onChange: (s: 'bear' | 'b
         );
       })}
     </div>
+  );
+}
+
+/** Renders its children only in advanced mode. The hook lives here, so wrapping JSX never changes the caller's hooks. */
+export function Advanced({ children }: { children: ReactNode }) {
+  return useAdvanced() ? <>{children}</> : null;
+}
+
+/** Basic / advanced switch. The choice is remembered in this browser. */
+export function AdvancedToggle(props: { dark?: boolean }) {
+  const adv = useAdvanced();
+  return (
+    <label className={cls('adv-toggle', props.dark && 'dark')} title={t('Show every page and tool')}>
+      <input type="checkbox" data-testid="advanced-toggle" checked={adv} onChange={(e) => setAdvanced(e.target.checked)} />
+      {t('Advanced mode')}
+    </label>
   );
 }
 

@@ -8,9 +8,7 @@ export const records: Record<string, string> = {
   long: '做多',
   short: '做空',
 
-  // ---------------------------------------------------------------- Market page
-  'Entry {price}': '進場 {price}',
-  'Exit {price}': '出場 {price}',
+  // ---------------------------------------------------------------- Trades page: prices (was the Market page)
   'bear TP #{seq}': '空頭目標價 #{seq}',
   'base TP #{seq}': '基準目標價 #{seq}',
   'bull TP #{seq}': '多頭目標價 #{seq}',
@@ -99,7 +97,6 @@ export const records: Record<string, string> = {
   'none before entry': '進場前無',
   open: '持有中',
   'not hit': '未觸及',
-  'No price data (see Market).': '沒有股價資料（請見行情）。',
   'Select a trade.': '請選擇一筆交易。',
   'Record entry': '記錄進場',
   'Entry date': '進場日期',

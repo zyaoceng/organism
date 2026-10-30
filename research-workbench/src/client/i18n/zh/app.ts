@@ -46,6 +46,8 @@ export const app: Record<string, string> = {
   'Draft restored from #{seq}. Review the changes and commit.': '已從 #{seq} 還原到草稿。請檢查變更後提交。',
   'Restore into draft': '還原到草稿',
   'Back to draft': '回到草稿',
+  More: '更多',
+  'Download this company as one JSON file (backup)': '把這家公司下載成一個 JSON 檔（備份）',
 
   // ProjectsPage
   'One consistent process: evidence → assumptions → EPS → valuation → trades → calibration.': '一致的流程：證據 → 假設 → EPS → 評價 → 交易 → 校準。',
@@ -95,6 +97,8 @@ export const app: Record<string, string> = {
 
   // ui
   'Click to edit': '點擊編輯',
+  'Advanced mode': '進階模式',
+  'Show every page and tool': '顯示所有頁面與工具',
   Scenario: '情境',
   '{name} scenario ({n})': '{name}情境（{n}）',
 
@@ -108,6 +112,7 @@ export const app: Record<string, string> = {
   'No draft changes': '草稿沒有變更',
   '{n} draft change': '{n} 項草稿變更',
   '{n} draft changes': '{n} 項草稿變更',
+  '{first} etc. ({n} changes)': '{first} 等 {n} 項',
   'Target price ({scenario}):': '目標價（{scenario}）：',
   bear: '空頭',
   base: '基準',

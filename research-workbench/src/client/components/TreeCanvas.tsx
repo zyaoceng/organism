@@ -25,6 +25,7 @@ import { toDisplay } from '../../domain/formula/refs';
 import { unitLabel } from '../../domain/units';
 import { calcOf, diffOf, indexOf } from '../lib/derived';
 import { t, tm, useLang } from '../lib/i18n';
+import { issueVisible, useAdvanced } from '../lib/prefs';
 import { useActiveState, useWorkspace } from '../lib/store';
 import { cls } from '../lib/util';
 import { NumberField } from './ui';
@@ -48,6 +49,7 @@ export function TreeCanvas() {
   const [drag, setDrag] = useState<{ id: string; target: string | null; pos: DropPos | null } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   useLang();
+  const adv = useAdvanced();
 
   const rows = useMemo(() => (state ? visibleRows(state, collapsed) : []), [state, collapsed]);
   if (!state) return null;
@@ -70,7 +72,7 @@ export function TreeCanvas() {
   const depOut = new Set<string>(sel ? [...(calc.graph.dependents.get(sel.id) ?? [])] : []);
   const issueCount = new Map<string, { err: number; warn: number; msgs: string[] }>();
   for (const i of calc.issues) {
-    if (i.severity === 'info') continue;
+    if (i.severity === 'info' || !issueVisible(i, adv)) continue;
     const e = issueCount.get(i.nodeId) ?? { err: 0, warn: 0, msgs: [] };
     if (i.severity === 'error') e.err++;
     else e.warn++;
@@ -304,7 +306,7 @@ export function TreeCanvas() {
     const isEditing = editing?.nodeId === n.id && editing.key === key;
     const heading = isHeading(n) && !c?.v;
     const style: React.CSSProperties = span ? { gridColumn: `3 / span ${span}` } : {};
-    if (c?.src === 'override') (style as Record<string, string>)['--scn'] = SCEN_COLOR[scenario];
+    if (adv && c?.src === 'override') (style as Record<string, string>)['--scn'] = SCEN_COLOR[scenario];
     return (
       <div
         key={key}
@@ -313,13 +315,14 @@ export function TreeCanvas() {
           !!span && 'scalar',
           status === 'A' && 'A',
           c?.src === 'input' && 'input',
-          c?.src === 'override' && 'override',
-          c?.src === 'input' && n.formula && status === 'E' && 'hardcode',
+          // Basic mode: overrides stay blue (typed) without the scenario dot; draft and typed-over marks are advanced.
+          c?.src === 'override' && (adv ? 'override' : 'input'),
+          adv && c?.src === 'input' && n.formula && status === 'E' && 'hardcode',
           (!c || c.v === null) && !c?.err && 'blank',
           c?.err && 'errc',
-          c?.src === 'formula' && c.est && status === 'A' && 'est-derived',
-          changed && 'chg',
-          changed && isDirect && 'direct',
+          adv && c?.src === 'formula' && c.est && status === 'A' && 'est-derived',
+          adv && changed && 'chg',
+          adv && changed && isDirect && 'direct',
           isSel && 'selc',
         )}
         style={style}
@@ -373,7 +376,7 @@ export function TreeCanvas() {
         <div>{t('Unit')}</div>
         {periods.map((p, i) => (
           <div key={p.id} className={cls('ph', p.status)} title={`${p.id} · ${p.status === 'A' ? t('Actual') : t('Estimate')}${p.endDate ? ` · ${t('ends {date}', { date: p.endDate })}` : ''}`}>
-            {!readOnly && i === 0 && (
+            {adv && !readOnly && i === 0 && (
               <button
                 className="icon-btn"
                 title={t('Add an earlier period')}
@@ -386,18 +389,22 @@ export function TreeCanvas() {
               </button>
             )}
             <span>{p.label}</span>
-            <button
-              className="icon-btn stat"
-              disabled={readOnly}
-              title={readOnly ? '' : p.status === 'A' ? t('Mark as Estimate') : t('Mark as Actual (drops Bear/Bull overrides for this period)')}
-              onClick={(e) => {
-                e.stopPropagation();
-                edit((s) => updatePeriod(s, p.id, { status: p.status === 'A' ? 'E' : 'A' }));
-              }}
-            >
-              {p.status}
-            </button>
-            {!readOnly && (
+            {adv ? (
+              <button
+                className="icon-btn stat"
+                disabled={readOnly}
+                title={readOnly ? '' : p.status === 'A' ? t('Mark as Estimate') : t('Mark as Actual (drops Bear/Bull overrides for this period)')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  edit((s) => updatePeriod(s, p.id, { status: p.status === 'A' ? 'E' : 'A' }));
+                }}
+              >
+                {p.status}
+              </button>
+            ) : (
+              <span className="stat">{p.status}</span>
+            )}
+            {adv && !readOnly && (
               <button
                 className="icon-btn"
                 title={t('Remove this period')}
@@ -409,7 +416,7 @@ export function TreeCanvas() {
                 ×
               </button>
             )}
-            {!readOnly && i === periods.length - 1 && (
+            {adv && !readOnly && i === periods.length - 1 && (
               <button
                 className="icon-btn"
                 title={t('Add the next period')}
@@ -438,8 +445,8 @@ export function TreeCanvas() {
               'tree-row',
               isSel && 'sel',
               isHeading(n) && 'heading',
-              depIn.has(n.id) && 'dep-in',
-              depOut.has(n.id) && !depIn.has(n.id) && 'dep-out',
+              adv && depIn.has(n.id) && 'dep-in',
+              adv && depOut.has(n.id) && !depIn.has(n.id) && 'dep-out',
               dropping && `drop-${dropping}`,
             )}
             style={{ gridTemplateColumns: cols }}
@@ -508,11 +515,11 @@ export function TreeCanvas() {
                 )}
               </span>
               <span className="marks">
-                {isSel && depIn.size > 0 && <span className="mark depin" title={t("Rows marked blue feed this node's formula")}>{t('inputs')}</span>}
-                {depIn.has(n.id) && <span className="mark depin" title={t('Input to {name}', { name: sel?.name })}>{t('in')}</span>}
-                {depOut.has(n.id) && <span className="mark depout" title={t('Uses {name}', { name: sel?.name })}>{t('uses')}</span>}
-                {role && <span className="mark role">{t(role.label)}</span>}
-                {n.formula && <span className="mark fx" title={toDisplay(n.formula, ix, n.id)}>ƒ</span>}
+                {adv && isSel && depIn.size > 0 && <span className="mark depin" title={t("Rows marked blue feed this node's formula")}>{t('inputs')}</span>}
+                {adv && depIn.has(n.id) && <span className="mark depin" title={t('Input to {name}', { name: sel?.name })}>{t('in')}</span>}
+                {adv && depOut.has(n.id) && <span className="mark depout" title={t('Uses {name}', { name: sel?.name })}>{t('uses')}</span>}
+                {adv && role && <span className="mark role">{t(role.label)}</span>}
+                {adv && n.formula && <span className="mark fx" title={toDisplay(n.formula, ix, n.id)}>ƒ</span>}
                 {evN > 0 && (
                   <span className="mark ev" title={state.links.filter((l) => l.nodeId === n.id).map((l) => `${t(LINK_RELATIONS.find((r) => r.value === l.relation)?.label ?? l.relation)}: ${evTitles.get(l.evidenceId) ?? t('evidence')}`).join('\n')}>
                     📎{evN}
@@ -525,9 +532,11 @@ export function TreeCanvas() {
                     <button className="icon-btn" title={t('Add child (A)')} onClick={(e) => (e.stopPropagation(), addChild(n.id))}>
                       ＋
                     </button>
-                    <button className="icon-btn" title={t('Duplicate branch (Ctrl+D)')} onClick={(e) => (e.stopPropagation(), duplicate(n.id))}>
-                      ⧉
-                    </button>
+                    {adv && (
+                      <button className="icon-btn" title={t('Duplicate branch (Ctrl+D)')} onClick={(e) => (e.stopPropagation(), duplicate(n.id))}>
+                        ⧉
+                      </button>
+                    )}
                     <button className="icon-btn" title={t('Delete (Del)')} onClick={(e) => (e.stopPropagation(), remove(n.id))}>
                       ✕
                     </button>
@@ -543,33 +552,35 @@ export function TreeCanvas() {
         );
       })}
 
-      <div className="tree-foot">
-        <span className="legend">
-          <span>
-            <i style={{ background: '#fff', borderColor: 'var(--input)' }} />
-            <span style={{ color: 'var(--input)' }}>{t('blue')}</span> {t('= typed input')}
+      {adv && (
+        <div className="tree-foot">
+          <span className="legend">
+            <span>
+              <i style={{ background: '#fff', borderColor: 'var(--input)' }} />
+              <span style={{ color: 'var(--input)' }}>{t('blue')}</span> {t('= typed input')}
+            </span>
+            <span>{t('black = formula')}</span>
+            <span>
+              <i style={{ background: '#f7f8fa' }} />
+              {t('actual period')}
+            </span>
+            <span>
+              <i style={{ background: 'var(--draft-strong)' }} />
+              {t('edited in draft')}
+            </span>
+            <span>
+              <i style={{ background: 'var(--draft)' }} />
+              {t('changed downstream')}
+            </span>
+            <span>● {t('scenario override')}</span>
+            <span style={{ color: '#e67e22' }}>◥ {t('typed over a formula')}</span>
           </span>
-          <span>{t('black = formula')}</span>
-          <span>
-            <i style={{ background: '#f7f8fa' }} />
-            {t('actual period')}
+          <span className="right">
+            <span className="kbd">A</span> {t('child')} <span className="kbd">S</span> {t('sibling')} <span className="kbd">F2</span> {t('rename')} <span className="kbd">Tab</span> {t('indent')} <span className="kbd">Alt+↑↓</span> {t('move')}{' '}
+            <span className="kbd">Ctrl+D</span> {t('duplicate')} <span className="kbd">Del</span> {t('delete')} <span className="kbd">1 2 3</span> {t('scenario')}
           </span>
-          <span>
-            <i style={{ background: 'var(--draft-strong)' }} />
-            {t('edited in draft')}
-          </span>
-          <span>
-            <i style={{ background: 'var(--draft)' }} />
-            {t('changed downstream')}
-          </span>
-          <span>● {t('scenario override')}</span>
-          <span style={{ color: '#e67e22' }}>◥ {t('typed over a formula')}</span>
-        </span>
-        <span className="right">
-          <span className="kbd">A</span> {t('child')} <span className="kbd">S</span> {t('sibling')} <span className="kbd">F2</span> {t('rename')} <span className="kbd">Tab</span> {t('indent')} <span className="kbd">Alt+↑↓</span> {t('move')}{' '}
-          <span className="kbd">Ctrl+D</span> {t('duplicate')} <span className="kbd">Del</span> {t('delete')} <span className="kbd">1 2 3</span> {t('scenario')}
-        </span>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

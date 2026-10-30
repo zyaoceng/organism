@@ -409,21 +409,27 @@ MarketDataProvider (server only)
 │ Project │  Top bar: company · price · scenario (B/B/B)  │                  │
 │ nav     │  EPS · target P/E · target price · upside     │   Inspector      │
 │         ├──────────────────────────────────────────────┤   (selected      │
-│Overview │  Research tree         FY24A FY25A FY26E ...  │    node)         │
-│Model    │  ▾ EPS                  6.1   8.6   10.2      │   values matrix  │
-│Evidence │    ▾ Revenue            ...                    │   formula        │
-│Valuation│       Business A        ...                    │   depends/used   │
-│Catalysts│  ▾ P/E                                         │   notes          │
-│Market   │  Target Price           355.0 (single value)   │   evidence       │
-│Trades   ├──────────────────────────────────────────────┤   theses         │
-│History  │  Draft changes (3) · impact · Commit update ▲  │   history        │
+│Model    │  Research tree         FY24A FY25A FY26E ...  │    node)         │
+│Valuation│  ▾ EPS                  6.1   8.6   10.2      │   values matrix  │
+│Trades   │    ▾ Revenue            ...                    │   formula        │
+│History  │       Business A        ...                    │   depends/used*  │
+│ More*   │  ▾ P/E                                         │   notes          │
+│Evidence │  Target Price           355.0 (single value)   │   evidence       │
+│Catalysts├──────────────────────────────────────────────┤   theses*        │
+│Overview │  Draft changes (3) · impact · Commit update ▲  │   history*       │
 └─────────┴──────────────────────────────────────────────┴──────────────────┘
+                                                   * advanced mode only
 ```
 
 Other pages: Overview (identity, KPIs by scenario, theses, upcoming
 catalysts, recent updates, notes journal), Evidence library, Valuation (P/E
-workspace), Catalysts timeline, Market (chart), Trades (journal), History
-(updates timeline, compare, estimate evolution, calibration, reviews).
+workspace), Catalysts timeline, Trades (price chart, quote and data source,
+and the journal; Market was merged into it and `#/market` is an alias),
+History (updates timeline, compare, estimate evolution, calibration, reviews).
+
+Basic / advanced mode: the UI starts in basic mode (Model, Valuation,
+Trades, History, and the everyday tools); advanced mode adds the More group
+and every other tool. See §23.
 
 ## 20. Development plan
 
@@ -565,10 +571,24 @@ Built as designed above; deviations are listed at the end of this section.
 | Indicators, trade metrics | `src/domain/market/`, `src/domain/trade/` | `indicators.test.ts` |
 | Persistence, commit service, evidence/attachments, trades, market cache, export, migrations | `src/server/` | `server.test.ts` (Fastify inject, temp data dir) |
 | Interface language (English / Traditional Chinese) | `src/client/i18n/`, `src/client/lib/i18n.ts` | `i18n.test.ts` (every `t('…')` literal has a Chinese entry, placeholders match, runtime message patterns), `standard.test.ts` (Chinese template computes like the English one) |
-| UI and end-to-end workflow | `src/client/` | `e2e/acceptance.mjs` — 20 checks: acceptance tests 1–18 through the real UI in English, plus the language switch, against a production build on a throwaway data directory |
+| Basic / advanced mode | `src/client/lib/prefs.ts` (`useAdvanced`, `issueVisible`, `providerVisible`), `<Advanced>` and `AdvancedToggle` in `components/ui.tsx` | `prefs.test.ts`; e2e check 21 |
+| UI and end-to-end workflow | `src/client/` | `e2e/acceptance.mjs` — 21 checks: acceptance tests 1–18 through the real UI in English and advanced mode, the language switch, and basic mode, against a production build on a throwaway data directory |
 
-Results at the time of writing: `npm run typecheck` clean, `npm test` 92/92,
-`npm run e2e` 20/20.
+Results at the time of writing: `npm run typecheck` clean, `npm test` 189 passed (1 macOS-only test skipped on Linux),
+`npm run e2e` 21/21.
+
+Basic / advanced mode is UI-only: no schema, server or domain change. The
+choice is a per-browser preference (`workbench.advanced` = `'1'`/`'0'`).
+`<Advanced>` renders its children only in advanced mode and holds the hook
+itself, so wrapping JSX never changes a component's hook order; components
+that need the flag in logic call `useAdvanced()` before any early return.
+Basic mode shows four sidebar pages (a deep link into a hidden page still
+renders it and shows it under More), hides info notes and the
+`ROLE_DUPLICATE` / `OVERRIDE_ON_ACTUAL` warnings, lists only real price
+sources (plus the current one), draws a fixed chart (MA 20/50, ATR 14, one
+year widened to the selected trade), and on commit prefills the title and
+cites exactly the evidence linked in the draft. The Market page was merged
+into Trades (one `useBars()`, one chart); `#/p/<id>/market` is an alias.
 
 Language: UI strings are keyed by their English text (`t('Model')`), so a
 missing translation falls back to English instead of a blank. Messages built

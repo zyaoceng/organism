@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { ProjectSummaryDTO, ProviderDTO, SymbolMatchDTO, TemplateDTO } from '../../shared/api';
 import { SymbolPicker } from '../components/SymbolPicker';
-import { Field, LangToggle } from '../components/ui';
+import { Advanced, AdvancedToggle, Field, LangToggle } from '../components/ui';
 import { api } from '../lib/api';
 import { getLang, t, tm, useLang } from '../lib/i18n';
+import { providerVisible, useAdvanced } from '../lib/prefs';
 import { navigate } from '../lib/router';
 import { useWorkspace } from '../lib/store';
 import { timeAgo } from '../lib/util';
@@ -50,10 +51,13 @@ export function ProjectsPage() {
             <div className="sub">{t('One consistent process: evidence → assumptions → EPS → valuation → trades → calibration.')}</div>
           </div>
           <span className="right row">
-            <LangToggle />
+            <Advanced>
+              <LangToggle />
+            </Advanced>
             <label className="small sub row" style={{ gap: 4 }}>
               <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> {t('show archived')}
             </label>
+            <AdvancedToggle />
             <button className="btn primary" onClick={() => setCreating(!creating)} data-testid="new-project">
               {t('+ New company')}
             </button>
@@ -72,7 +76,7 @@ export function ProjectsPage() {
         )}
         <div className="proj-grid" style={{ marginTop: 14 }}>
           {visible.map((p) => (
-            <div key={p.id} className="proj-card" onClick={() => navigate({ page: 'project', projectId: p.id, tab: 'overview' })} data-testid="project-card">
+            <div key={p.id} className="proj-card" onClick={() => navigate({ page: 'project', projectId: p.id, tab: 'model' })} data-testid="project-card">
               <div className="row">
                 <b style={{ fontSize: 15 }}>{p.name}</b>
                 {p.archivedAt && <span className="badge">{t('archived')}</span>}
@@ -94,35 +98,38 @@ export function ProjectsPage() {
             </div>
           ))}
         </div>
-        {templates.some((tp) => !tp.builtIn) && (
-          <div className="card" style={{ marginTop: 24 }}>
-            <h2>{t('Saved templates')}</h2>
-            {templates
-              .filter((tp) => !tp.builtIn)
-              .map((tp) => (
-                <div key={tp.id} className="row small" style={{ padding: '4px 0' }}>
-                  <b>{tp.name}</b>
-                  <span className="sub grow">{tp.description}</span>
-                  <button
-                    className="btn xs danger"
-                    onClick={async () => {
-                      if (!window.confirm(t('Delete template {name}? Projects created from it are not affected.', { name: tp.name }))) return;
-                      await api.deleteTemplate(tp.id);
-                      void reload();
-                    }}
-                  >
-                    {t('delete')}
-                  </button>
-                </div>
-              ))}
-          </div>
-        )}
+        <Advanced>
+          {templates.some((tp) => !tp.builtIn) && (
+            <div className="card" style={{ marginTop: 24 }}>
+              <h2>{t('Saved templates')}</h2>
+              {templates
+                .filter((tp) => !tp.builtIn)
+                .map((tp) => (
+                  <div key={tp.id} className="row small" style={{ padding: '4px 0' }}>
+                    <b>{tp.name}</b>
+                    <span className="sub grow">{tp.description}</span>
+                    <button
+                      className="btn xs danger"
+                      onClick={async () => {
+                        if (!window.confirm(t('Delete template {name}? Projects created from it are not affected.', { name: tp.name }))) return;
+                        await api.deleteTemplate(tp.id);
+                        void reload();
+                      }}
+                    >
+                      {t('delete')}
+                    </button>
+                  </div>
+                ))}
+            </div>
+          )}
+        </Advanced>
       </div>
     </div>
   );
 }
 
 function NewProjectForm({ templates, providers, onDone }: { templates: TemplateDTO[]; providers: ProviderDTO[]; onDone: () => void }) {
+  const adv = useAdvanced();
   const [name, setName] = useState('');
   const [ticker, setTicker] = useState('');
   const [exchange, setExchange] = useState('TWSE');
@@ -225,11 +232,13 @@ function NewProjectForm({ templates, providers, onDone }: { templates: TemplateD
         </Field>
         <Field label={t('Price source')}>
           <select value={priceSource} onChange={(e) => setPriceSource(e.target.value)} data-testid="np-source">
-            {providers.map((p) => (
-              <option key={p.id} value={p.id}>
-                {t(p.label)}
-              </option>
-            ))}
+            {providers
+              .filter((p) => providerVisible(p, adv, priceSource))
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {t(p.label)}
+                </option>
+              ))}
           </select>
         </Field>
         <Field label={t('Template')}>

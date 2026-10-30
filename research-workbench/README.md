@@ -55,8 +55,8 @@ Checks
 
 ```bash
 npm run typecheck    # TypeScript
-npm test             # 92 unit + API tests (domain engine, revisions, server, client store, translations)
-npm run e2e          # builds, starts a throwaway server, drives the UI through acceptance tests 1-18
+npm test             # 189 unit + API tests (domain engine, revisions, server, backups, data import, installer helpers, client store, preferences, translations)
+npm run e2e          # builds, starts a throwaway server, drives the UI through acceptance tests 1-18, the language switch and basic mode (21 checks)
 ```
 
 `npm run e2e` uses the pre-installed Chromium at `/opt/pw-browsers/chromium`
@@ -89,17 +89,30 @@ Everyday workflow
 6. **History**: every update is an immutable snapshot. View any snapshot
    read-only, compare two, restore one into the draft, follow how FY EPS or
    the target price evolved by knowledge date, and write post-mortems.
-7. **Market / Trades**: price chart with MA, ATR, trade markers, stops and
-   target lines; the trade journal links each entry to the research
-   snapshot valid on its entry date and shows the 2×ATR trailing-stop
-   counterfactual.
+7. **Trades**: price chart with MA, ATR, trade and catalyst markers, stops
+   and target lines, the quote and the price source; the trade journal links
+   each entry to the research snapshot valid on its entry date and shows the
+   2×ATR trailing-stop counterfactual. (`#/p/<id>/market` still opens it.)
+
+Basic and advanced mode
+-----------------------
+
+The UI starts in **basic mode**: the sidebar lists Model, Valuation, Trades and
+History, and the pages show the everyday tools. The **Advanced mode** switch
+(bottom left, and on the company list) adds a **More** group (Evidence,
+Catalysts, Overview) and every other tool: the language switch, theses, node
+change history, dependency marks, period editing, chart settings, MFE/MAE and
+the trailing stop, CSV import, the commit evidence checklist, the causal chain
+and attribution, snapshot comparison and the evolution chart. It is a UI
+preference stored in the browser (`src/client/lib/prefs.ts`); the data is the
+same in both modes, and links into hidden pages keep working.
 
 Language
 --------
 
 The interface switches between English and Traditional Chinese (中文 / English
-buttons in the sidebar and on the company list). The choice is remembered in
-the browser; the first visit opens in Chinese. New companies built
+buttons in the sidebar and on the company list, shown in advanced mode). The
+choice is remembered in the browser; the first visit opens in Chinese. New companies built
 from the standard template get Chinese node names when Chinese is on. Your own
 text (node names, notes, evidence) is never translated.
 
@@ -128,7 +141,7 @@ company name, Chinese or English. Taiwan stocks come from FinMind's stock list
 (fallback: TWSE's public ISIN lists for 上市 / 上櫃 / 興櫃); other markets come
 from Yahoo's search endpoint. Each hit carries the exchange, the provider symbol
 with the right suffix and a suggested price source. The UI uses it in the new
-company form and on the Market page. Changing a security's provider symbol drops
+company form and on the Trades page. Changing a security's provider symbol drops
 its cached prices (imported CSV bars are kept).
 
 Providers live in `src/server/market/`; add one by implementing

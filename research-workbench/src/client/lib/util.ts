@@ -57,4 +57,11 @@ export function download(filename: string, text: string, type = 'application/jso
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+/** Download the whole project (model, history, evidence metadata, trades) as one JSON file. Callers show errors. */
+export async function exportProjectJson(projectId: string, name: string) {
+  const res = await fetch(`/api/projects/${projectId}/export`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  download(`${name.replace(/\s+/g, '_')}-${today()}.json`, await res.text());
+}
+
 export const pctText = (v: number | null | undefined, digits = 1) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(digits)}%`);

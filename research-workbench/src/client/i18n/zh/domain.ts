@@ -6,7 +6,6 @@ export const domain: Record<string, string> = {
   Evidence: '證據',
   Valuation: '估值',
   Catalysts: '催化劑',
-  Market: '行情',
   Trades: '交易',
   History: '歷史',
 

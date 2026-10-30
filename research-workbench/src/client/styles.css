@@ -132,6 +132,7 @@ table.grid input.l { text-align: left; }
 .sidebar nav a.on { background: #0b6e63; color: #fff; }
 .sidebar nav a .count { margin-left: auto; font-size: 10.5px; color: #8b97a5; }
 .sidebar nav a.on .count { color: #cfe9e5; }
+.sidebar nav .nav-group { padding: 10px 10px 2px; font-size: 10.5px; color: #7c8896; letter-spacing: .04em; }
 .sidebar .foot { margin-top: auto; padding: 12px 16px; font-size: 11px; color: #7c8896; border-top: 1px solid #2c3949; }
 .sidebar .foot a { color: #9fb3c8; }
 .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -319,6 +320,9 @@ table.grid input.l { text-align: left; }
 .proj-card:hover { border-color: var(--accent); }
 .svgchart text { font-size: 10.5px; fill: var(--sub); }
 details > summary { cursor: pointer; color: var(--sub); font-size: 12px; }
+.settings-fold { margin-top: 6px; }
+.adv-toggle { display: flex; gap: 6px; align-items: center; cursor: pointer; font-size: 12px; }
+.adv-toggle.dark { color: #9fb3c8; }
 .symbol-picker { display: flex; flex-direction: column; gap: 6px; }
 .symbol-results { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); max-height: 260px; overflow: auto; }
 .symbol-hit { display: flex; align-items: baseline; gap: 8px; padding: 6px 10px; border: 0; border-bottom: 1px solid var(--line); background: #fff; text-align: left; cursor: pointer; flex-wrap: wrap; }

@@ -23,12 +23,13 @@ import { LINK_RELATIONS, NODE_ROLES, SCALAR_KEY, SCENARIOS, type LinkRelation, t
 import { CURRENCIES, SCALES, UNIT_KINDS, hasCurrency, isScaleFree, type Scale, type Unit, type UnitKind } from '../../domain/units';
 import { api } from '../lib/api';
 import { getLang, t, tm, useLang } from '../lib/i18n';
+import { issueVisible, useAdvanced } from '../lib/prefs';
 import { calcOf, indexOf } from '../lib/derived';
 import { createAndLink, KIND_ICON, namedScreenshot, uploadEvidenceFiles } from '../lib/evidence';
 import { useActiveState, useWorkspace } from '../lib/store';
 import { cls, fmtDateTime, periodLabelFn } from '../lib/util';
 import { FormulaEditor } from './FormulaEditor';
-import { InlineText, NumberField, Section } from './ui';
+import { Advanced, InlineText, NumberField, Section } from './ui';
 
 export function Inspector() {
   const { state, readOnly } = useActiveState();
@@ -41,11 +42,12 @@ export function Inspector() {
 }
 
 function NodeInspector({ node, state, readOnly }: { node: ModelNode; state: ModelState; readOnly: boolean }) {
+  const adv = useAdvanced();
   const ix = indexOf(state);
   const calc = calcOf(state);
   const { edit } = useWorkspace.getState();
   const path = formatPath(ix, node.id).split(' › ').slice(0, -1).join(' › ');
-  const issues = calc.issues.filter((i) => i.nodeId === node.id);
+  const issues = calc.issues.filter((i) => i.nodeId === node.id && issueVisible(i, adv));
   return (
     <div data-testid="inspector">
       <div className="insp-head">
@@ -62,7 +64,14 @@ function NodeInspector({ node, state, readOnly }: { node: ModelNode; state: Mode
           }}
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
         />
-        <UnitEditor node={node} readOnly={readOnly} />
+        {adv ? (
+          <UnitEditor node={node} readOnly={readOnly} />
+        ) : (
+          <details className="settings-fold">
+            <summary>{t('Settings')}</summary>
+            <UnitEditor node={node} readOnly={readOnly} />
+          </details>
+        )}
       </div>
       {issues.length > 0 && (
         <div className="section col" style={{ gap: 4 }}>
@@ -79,7 +88,9 @@ function NodeInspector({ node, state, readOnly }: { node: ModelNode; state: Mode
       <Section title={t('Formula')}>
         <FormulaEditor node={node} state={state} readOnly={readOnly} />
       </Section>
-      <Dependencies node={node} state={state} calc={calc} />
+      <Advanced>
+        <Dependencies node={node} state={state} calc={calc} />
+      </Advanced>
       <Section title={t('Notes · why this assumption')}>
         <InlineText
           multiline
@@ -91,9 +102,13 @@ function NodeInspector({ node, state, readOnly }: { node: ModelNode; state: Mode
         />
       </Section>
       <NodeEvidence node={node} state={state} readOnly={readOnly} />
-      <NodeTheses node={node} state={state} readOnly={readOnly} />
+      <Advanced>
+        <NodeTheses node={node} state={state} readOnly={readOnly} />
+      </Advanced>
       <NodeCatalysts node={node} readOnly={readOnly} />
-      <NodeHistory node={node} state={state} />
+      <Advanced>
+        <NodeHistory node={node} state={state} />
+      </Advanced>
     </div>
   );
 }
@@ -264,32 +279,36 @@ function ValuesMatrix({ node, state, calc, readOnly }: { node: ModelNode; state:
               })}
             </tr>
           )}
-          {node.timeMode === 'series' && (
-            <tr className="derived">
-              <td title={t("Actual or estimate for this node. Mark a custom segment's value in an actual year as an estimate when management does not disclose it.")}>A / E</td>
-              {keys.map((k) => {
-                const st = cellStatus(ix, node, k);
-                const periodStatus = ix.periods[ix.periodIndex.get(k)!].status;
-                return (
-                  <td key={k}>
-                    <button
-                      className={cls('btn xs', st !== periodStatus && 'primary')}
-                      disabled={readOnly}
-                      title={st !== periodStatus ? t('Overridden (period is {status})', { status: periodStatus }) : t('Follows the period')}
-                      onClick={() => edit((s) => setCellStatus(s, node.id, k, st === periodStatus ? (st === 'A' ? 'E' : 'A') : null))}
-                    >
-                      {st}
-                    </button>
-                  </td>
-                );
-              })}
-            </tr>
-          )}
+          <Advanced>
+            {node.timeMode === 'series' && (
+              <tr className="derived">
+                <td title={t("Actual or estimate for this node. Mark a custom segment's value in an actual year as an estimate when management does not disclose it.")}>A / E</td>
+                {keys.map((k) => {
+                  const st = cellStatus(ix, node, k);
+                  const periodStatus = ix.periods[ix.periodIndex.get(k)!].status;
+                  return (
+                    <td key={k}>
+                      <button
+                        className={cls('btn xs', st !== periodStatus && 'primary')}
+                        disabled={readOnly}
+                        title={st !== periodStatus ? t('Overridden (period is {status})', { status: periodStatus }) : t('Follows the period')}
+                        onClick={() => edit((s) => setCellStatus(s, node.id, k, st === periodStatus ? (st === 'A' ? 'E' : 'A') : null))}
+                      >
+                        {st}
+                      </button>
+                    </td>
+                  );
+                })}
+              </tr>
+            )}
+          </Advanced>
         </tbody>
       </table>
-      <div className="tiny sub" style={{ marginTop: 4 }}>
-        {t('Base holds shared values; Bear/Bull store only overrides (grey = inherited). Actual cells are shared. Clear a cell to inherit / fall back to the formula.')}
-      </div>
+      <Advanced>
+        <div className="tiny sub" style={{ marginTop: 4 }}>
+          {t('Base holds shared values; Bear/Bull store only overrides (grey = inherited). Actual cells are shared. Clear a cell to inherit / fall back to the formula.')}
+        </div>
+      </Advanced>
     </div>
   );
 }
@@ -361,6 +380,7 @@ function Dependencies({ node, state, calc }: { node: ModelNode; state: ModelStat
 // ------------------------------------------------------------ evidence
 
 function NodeEvidence({ node, state, readOnly }: { node: ModelNode; state: ModelState; readOnly: boolean }) {
+  const adv = useAdvanced();
   const evidence = useWorkspace((s) => s.evidence);
   const projectId = useWorkspace((s) => s.projectId)!;
   const { edit } = useWorkspace.getState();
@@ -429,39 +449,43 @@ function NodeEvidence({ node, state, readOnly }: { node: ModelNode; state: Model
             )}
             {img && <img className="thumb" src={img.url} alt={img.originalFilename} />}
             {e?.notes && <div className="small" style={{ whiteSpace: 'pre-wrap' }}>{e.notes.length > 300 ? `${e.notes.slice(0, 300)}…` : e.notes}</div>}
-            {!readOnly && (
-              <div className="row" style={{ gap: 6 }}>
-                <select value={l.relation} onChange={(ev) => edit((s) => updateLink(s, l.id, { relation: ev.target.value as LinkRelation }))} aria-label={t('Relation')}>
-                  {LINK_RELATIONS.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {t(r.label)}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className="grow"
-                  placeholder={t('page / slide / time (e.g. p.13)')}
-                  defaultValue={l.locator ?? ''}
-                  onBlur={(ev) => ev.target.value !== (l.locator ?? '') && edit((s) => updateLink(s, l.id, { locator: ev.target.value || undefined }))}
-                />
-              </div>
-            )}
+            <Advanced>
+              {!readOnly && (
+                <div className="row" style={{ gap: 6 }}>
+                  <select value={l.relation} onChange={(ev) => edit((s) => updateLink(s, l.id, { relation: ev.target.value as LinkRelation }))} aria-label={t('Relation')}>
+                    {LINK_RELATIONS.map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {t(r.label)}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="grow"
+                    placeholder={t('page / slide / time (e.g. p.13)')}
+                    defaultValue={l.locator ?? ''}
+                    onBlur={(ev) => ev.target.value !== (l.locator ?? '') && edit((s) => updateLink(s, l.id, { locator: ev.target.value || undefined }))}
+                  />
+                </div>
+              )}
+            </Advanced>
             {readOnly && l.locator && <div className="tiny sub">{t('at {locator}', { locator: l.locator })}</div>}
           </div>
         );
       })}
       {!readOnly && (
         <div className="col" style={{ marginTop: 10, gap: 6 }}>
-          <div className="row">
-            <span className="small sub">{t('Link new evidence as')}</span>
-            <select value={relation} onChange={(e) => setRelation(e.target.value as LinkRelation)} aria-label={t('New link relation')}>
-              {LINK_RELATIONS.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {t(r.label)}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Advanced>
+            <div className="row">
+              <span className="small sub">{t('Link new evidence as')}</span>
+              <select value={relation} onChange={(e) => setRelation(e.target.value as LinkRelation)} aria-label={t('New link relation')}>
+                {LINK_RELATIONS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {t(r.label)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </Advanced>
           <div className="row">
             <input
               className="grow"
@@ -479,45 +503,50 @@ function NodeEvidence({ node, state, readOnly }: { node: ModelNode; state: Model
               }}
             />
           </div>
-          <div
-            className={cls('dropzone', over && 'over')}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setOver(true);
-            }}
-            onDragLeave={() => setOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setOver(false);
-              const files = [...e.dataTransfer.files];
-              if (files.length) void addFiles(files);
-            }}
-          >
-            {busy ? t('Uploading…') : t('Drop files or screenshots here · paste an image with Ctrl+V · ')}
-            <label style={{ color: 'var(--accent)', cursor: 'pointer' }}>
-              {t('choose files')}
-              <input type="file" multiple hidden data-testid="ev-file-input" onChange={(e) => e.target.files && void addFiles([...e.target.files])} />
-            </label>
-          </div>
+          <Advanced>
+            <div
+              className={cls('dropzone', over && 'over')}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setOver(true);
+              }}
+              onDragLeave={() => setOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setOver(false);
+                const files = [...e.dataTransfer.files];
+                if (files.length) void addFiles(files);
+              }}
+            >
+              {busy ? t('Uploading…') : t('Drop files or screenshots here · paste an image with Ctrl+V · ')}
+              <label style={{ color: 'var(--accent)', cursor: 'pointer' }}>
+                {t('choose files')}
+                <input type="file" multiple hidden data-testid="ev-file-input" onChange={(e) => e.target.files && void addFiles([...e.target.files])} />
+              </label>
+            </div>
+          </Advanced>
+          {!adv && <div className="tiny sub">{t('Paste a screenshot (Ctrl+V) to attach it as evidence to the selected node.')}</div>}
           <div className="row">
             <button className="btn sm" onClick={() => setNoteOpen(!noteOpen)}>
               {t('📝 Note')}
             </button>
-            {linkable.length > 0 && (
-              <select
-                className="grow"
-                value=""
-                aria-label={t('Link existing evidence')}
-                onChange={(e) => e.target.value && edit((s) => addLink(s, { evidenceId: e.target.value, nodeId: node.id, relation }).state)}
-              >
-                <option value="">{t('Link existing evidence…')}</option>
-                {linkable.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {KIND_ICON[e.kind]} {e.title}
-                  </option>
-                ))}
-              </select>
-            )}
+            <Advanced>
+              {linkable.length > 0 && (
+                <select
+                  className="grow"
+                  value=""
+                  aria-label={t('Link existing evidence')}
+                  onChange={(e) => e.target.value && edit((s) => addLink(s, { evidenceId: e.target.value, nodeId: node.id, relation }).state)}
+                >
+                  <option value="">{t('Link existing evidence…')}</option>
+                  {linkable.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {KIND_ICON[e.kind]} {e.title}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Advanced>
           </div>
           {noteOpen && (
             <div className="col" style={{ gap: 4 }}>
@@ -706,10 +735,11 @@ function NodeHistory({ node, state }: { node: ModelNode; state: ModelState }) {
 // ------------------------------------------------------------ model checks (no selection)
 
 function ModelChecks({ state }: { state: ModelState }) {
+  const adv = useAdvanced();
   const calc = calcOf(state);
   const ix = indexOf(state);
   const { select } = useWorkspace.getState();
-  const issues = calc.issues.filter((i) => i.severity !== 'info');
+  const issues = calc.issues.filter((i) => i.severity !== 'info' && issueVisible(i, adv));
   const info = calc.issues.filter((i) => i.severity === 'info');
   const unlinked = state.nodes.filter((n) => !isHeading(n) && !n.formula && Object.keys(n.values).length > 0 && !state.links.some((l) => l.nodeId === n.id));
   return (
@@ -726,15 +756,17 @@ function ModelChecks({ state }: { state: ModelState }) {
           </div>
         ))}
       </Section>
-      {info.length > 0 && (
-        <Section title={t('Typed values over formulas ({n})', { n: info.length })}>
-          {info.slice(0, 20).map((i, k) => (
-            <div key={k} className="small" style={{ cursor: 'pointer', padding: '2px 0' }} onClick={() => select(i.nodeId)}>
-              <b>{ix.byId.get(i.nodeId)?.name}</b>: {tm(i.message)}
-            </div>
-          ))}
-        </Section>
-      )}
+      <Advanced>
+        {info.length > 0 && (
+          <Section title={t('Typed values over formulas ({n})', { n: info.length })}>
+            {info.slice(0, 20).map((i, k) => (
+              <div key={k} className="small" style={{ cursor: 'pointer', padding: '2px 0' }} onClick={() => select(i.nodeId)}>
+                <b>{ix.byId.get(i.nodeId)?.name}</b>: {tm(i.message)}
+              </div>
+            ))}
+          </Section>
+        )}
+      </Advanced>
       <Section title={t('Assumptions without evidence ({n})', { n: unlinked.length })}>
         {unlinked.length === 0 ? (
           <div className="small sub">{state.nodes.some((n) => Object.keys(n.values).length) ? t('Every typed assumption has at least one evidence link.') : t('No typed assumptions yet. Start by entering reported actuals.')}</div>
@@ -748,31 +780,33 @@ function ModelChecks({ state }: { state: ModelState }) {
           </div>
         )}
       </Section>
-      <Section title={t('Tips')}>
-        <div className="small col" style={{ gap: 4 }}>
-          <div>
-            {t('Click a row to select it;')} <span className="kbd">A</span> {t('adds a child,')} <span className="kbd">S</span> {t('a sibling,')} <span className="kbd">F2</span> {t('renames, drag rows to move them.')}
+      <Advanced>
+        <Section title={t('Tips')}>
+          <div className="small col" style={{ gap: 4 }}>
+            <div>
+              {t('Click a row to select it;')} <span className="kbd">A</span> {t('adds a child,')} <span className="kbd">S</span> {t('a sibling,')} <span className="kbd">F2</span> {t('renames, drag rows to move them.')}
+            </div>
+            <div>{t('Click a value cell and type to edit it. In Bear/Bull, edits create overrides of estimate cells.')}</div>
+            <div>{t('Paste a screenshot (Ctrl+V) to attach it as evidence to the selected node.')}</div>
+            <div>{t('All edits are autosaved as a draft. Commit them as a Research Update from the bar below.')}</div>
+            <div>
+              <span className="kbd">Ctrl+K</span> {t('search')} · <span className="kbd">Ctrl+Z</span> {t('undo')} · <span className="kbd">1 2 3</span> {t('scenario')}
+            </div>
           </div>
-          <div>{t('Click a value cell and type to edit it. In Bear/Bull, edits create overrides of estimate cells.')}</div>
-          <div>{t('Paste a screenshot (Ctrl+V) to attach it as evidence to the selected node.')}</div>
-          <div>{t('All edits are autosaved as a draft. Commit them as a Research Update from the bar below.')}</div>
-          <div>
-            <span className="kbd">Ctrl+K</span> {t('search')} · <span className="kbd">Ctrl+Z</span> {t('undo')} · <span className="kbd">1 2 3</span> {t('scenario')}
+        </Section>
+        <Section title={t('Structure')}>
+          <div className="small sub">
+            {t('{n} nodes', { n: state.nodes.length })} · {t('{n} periods', { n: state.periods.length })} · {t('{n} evidence links', { n: state.links.length })} ·{' '}
+            {t('{n} theses', { n: state.theses.length })} · {t('top level:')}{' '}
+            {childrenOf(ix, null)
+              .map((n) => n.name)
+              .join(', ')}
           </div>
-        </div>
-      </Section>
-      <Section title={t('Structure')}>
-        <div className="small sub">
-          {t('{n} nodes', { n: state.nodes.length })} · {t('{n} periods', { n: state.periods.length })} · {t('{n} evidence links', { n: state.links.length })} ·{' '}
-          {t('{n} theses', { n: state.theses.length })} · {t('top level:')}{' '}
-          {childrenOf(ix, null)
-            .map((n) => n.name)
-            .join(', ')}
-        </div>
-        <div className="small sub" style={{ marginTop: 4 }}>
-          {t('Formulas: {n}', { n: state.nodes.filter((n) => n.formula).length })}
-        </div>
-      </Section>
+          <div className="small sub" style={{ marginTop: 4 }}>
+            {t('Formulas: {n}', { n: state.nodes.filter((n) => n.formula).length })}
+          </div>
+        </Section>
+      </Advanced>
     </div>
   );
 }
