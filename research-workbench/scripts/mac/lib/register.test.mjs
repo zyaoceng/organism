@@ -254,6 +254,7 @@ describe('backups', () => {
 
 describe('registerAll and registrationStatus', () => {
   let home;
+  let realHome;
   let L;
   let calls;
   /** pgrep answers from this set; osascript "quits" the app. */
@@ -314,7 +315,10 @@ describe('registerAll and registrationStatus', () => {
   const byTarget = (results) => Object.fromEntries(results.map((r) => [r.target, r]));
 
   beforeEach(() => {
-    home = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-register-'));
+    // home reached through a symlink, like macOS's temp folder (/var → /private/var)
+    realHome = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-register-'));
+    home = `${realHome}-link`;
+    fs.symlinkSync(realHome, home);
     L = layout({ home, platform: 'darwin' });
     calls = [];
     running = new Set();
@@ -323,7 +327,10 @@ describe('registerAll and registrationStatus', () => {
     write(path.join(L.current, 'dist', 'mcp', 'research-workbench-mcp.mjs'), '// adapter\n');
     write(path.join(L.dataDir, 'tokens.json'), JSON.stringify({ version: 1, tokens: { user: 'u', 'claude-desktop': 'a', 'claude-code': 'b', chatgpt: 'c' } }));
   });
-  afterEach(() => fs.rmSync(home, { recursive: true, force: true }));
+  afterEach(() => {
+    fs.rmSync(home, { force: true });
+    fs.rmSync(realHome, { recursive: true, force: true });
+  });
 
   it('skips the apps that are not on this Mac', async () => {
     const r = byTarget(await registerAll(opts()));

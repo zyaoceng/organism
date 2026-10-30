@@ -256,6 +256,17 @@ function readOrNull(file) {
   }
 }
 
+/** `~/…` for a path under home, also one resolved through a symlink above home (macOS temp: /var → /private/var). */
+function homeTilde(p, home) {
+  const short = tilde(p, home);
+  if (short !== p) return short;
+  try {
+    return tilde(p, fs.realpathSync(home));
+  } catch {
+    return p;
+  }
+}
+
 /** The file itself when it is a symlink (dotfiles repos), so writing does not replace the link. */
 function realFile(file) {
   try {
@@ -466,7 +477,7 @@ function context(o) {
     sleep: defaultSleep,
     quitTimeoutMs: 15_000,
     log: {},
-    t: (p) => tilde(p, L.home),
+    t: (p) => homeTilde(p, L.home),
     ...Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)),
   };
 }
