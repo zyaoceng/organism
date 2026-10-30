@@ -85,7 +85,7 @@ main() {
       fi
       # Node 24 needs macOS 13.5; Node 22 still runs on 11
       if [ "$MAJOR" -gt 13 ] || { [ "$MAJOR" -eq 13 ] && [ "$MINOR" -ge 5 ]; }; then NODE_VER=24.22.2; else NODE_VER=22.23.4; fi
-      say "macOS $MACVER，晶片 $ARCH，使用 Node $NODE_VER / macOS $MACVER, $ARCH, Node $NODE_VER"
+      say "macOS ${MACVER}，晶片 ${ARCH}，使用 Node $NODE_VER / macOS $MACVER, $ARCH, Node $NODE_VER"
       ;;
     Linux)
       PLATFORM=linux
@@ -134,7 +134,7 @@ main() {
       NODE="$RUNTIME/current/bin/node"
     fi
   else
-    say "下載 Node.js $NODE_VER（$PLATFORM-$ARCH）/ downloading Node.js from nodejs.org"
+    say "下載 Node.js ${NODE_VER}（$PLATFORM-${ARCH}）/ downloading Node.js from nodejs.org"
     curl -fL --retry 3 --connect-timeout 20 --progress-bar -o "$WB_TMP/node.tar.gz" \
       "https://nodejs.org/dist/v$NODE_VER/$NODE_NAME.tar.gz" || die "Node 下載失敗，請確認網路後重試 / Node download failed"
     say "檢查 SHA-256 指紋 / verifying the SHA-256 checksum"

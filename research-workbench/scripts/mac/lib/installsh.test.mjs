@@ -20,6 +20,12 @@ describe('install.sh', () => {
     for (const f of imported) expect(listed).toContain(f);
   });
 
+  it('braces every variable that is followed by non-ASCII text', () => {
+    // macOS bash 3.2 reads the bytes of "，" or "（" as part of the variable name ("MACVER…: unbound variable").
+    const bad = sh.split('\n').filter((line) => /\$[A-Za-z_]\w*[^\x00-\x7F]/.test(line));
+    expect(bad).toEqual([]);
+  });
+
   it('embeds the same Node checksums as lib/system.mjs', () => {
     const embedded = {};
     for (const m of sh.matchAll(/^\s*([\d.]+)-(darwin|linux)-(arm64|x64)\) NODE_SHA=([0-9a-f]{64}) ;;$/gm)) {
