@@ -1,4 +1,5 @@
 {
-  "commit": "pending",
-  "note": "updated after tests pass"
+  "commit": "69dc207ac26fd2ea3706cc1075c87209bbe22ab2",
+  "date": "2026-10-30",
+  "note": "M1 (Mac install, backups, data import) + M2 (basic/advanced mode); verified by the Mac install workflow on macos-15 and macos-15-intel"
 }
