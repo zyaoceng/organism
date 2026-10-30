@@ -22,11 +22,13 @@
   "dependencies": {
     "@fastify/multipart": "^10.1.2",
     "@fastify/static": "^10.1.5",
+    "@modelcontextprotocol/sdk": "~1.32.2",
     "better-sqlite3": "^12.11.1",
     "fastify": "^5.12.5",
     "lightweight-charts": "^5.2.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "smol-toml": "^1.9.1",
     "tsx": "^4.23.15",
     "zod": "^4.6.5",
     "zustand": "^5.0.15"
@@ -38,6 +40,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
     "concurrently": "^9.2.4",
+    "esbuild": "~0.28.2",
     "playwright": "^1.56.1",
     "typescript": "~5.9",
     "vite": "^7.3.6",
