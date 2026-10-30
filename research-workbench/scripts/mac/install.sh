@@ -23,7 +23,7 @@ main() {
   SUBDIR="research-workbench"
   RAW="https://raw.githubusercontent.com/$REPO"
   # install.mjs imports these (a unit test keeps the list in sync with scripts/mac/lib)
-  LIB_FILES="args.mjs health.mjs launchd.mjs launcher.mjs layout.mjs prune.mjs release.mjs report.mjs system.mjs"
+  LIB_FILES="args.mjs health.mjs launchd.mjs launcher.mjs layout.mjs prune.mjs register.mjs release.mjs report.mjs system.mjs"
 
   say() { printf '==> %s\n' "$*"; }
   die() {
@@ -56,7 +56,7 @@ main() {
       --source-dir=*) SRC="${a#--source-dir=}" ;;
       -h | --help)
         printf '%s\n' "研究工作台 Mac 安裝程式 / Research Workbench Mac installer" \
-          "  options: --doctor --dry-run --uninstall [--purge] --import <file> --port <n> --yes --source-dir <dir> --no-launchd" \
+          "  options: --doctor --dry-run --uninstall [--purge] --import <file> --port <n> --yes --source-dir <dir> --no-launchd --no-register" \
           "  e.g. /bin/bash -c \"\$(curl -fsSL $RAW/$BRANCH/$SUBDIR/scripts/mac/install.sh)\" -- --doctor"
         exit 0
         ;;
@@ -190,9 +190,17 @@ main() {
     mkdir -p "$WB_TMP/scripts/mac/lib"
     curl -fsSL --retry 3 --connect-timeout 20 -o "$WB_TMP/scripts/mac/install.mjs" "$RAW/$COMMIT/$SUBDIR/scripts/mac/install.mjs" ||
       die "無法下載安裝程式 / cannot download install.mjs"
+    # LIB_FILES is the newest list (this script comes from the branch), but release.json may still name
+    # an older commit with fewer helpers: a file none of the downloaded scripts imports is not needed
+    MISSING=""
     for f in $LIB_FILES; do
-      curl -fsSL --retry 3 --connect-timeout 20 -o "$WB_TMP/scripts/mac/lib/$f" "$RAW/$COMMIT/$SUBDIR/scripts/mac/lib/$f" ||
+      curl -fsSL --retry 3 --connect-timeout 20 -o "$WB_TMP/scripts/mac/lib/$f" "$RAW/$COMMIT/$SUBDIR/scripts/mac/lib/$f" || MISSING="$MISSING $f"
+    done
+    for f in $MISSING; do
+      rm -f "$WB_TMP/scripts/mac/lib/$f"
+      if grep -qF "/$f'" "$WB_TMP/scripts/mac/install.mjs" "$WB_TMP"/scripts/mac/lib/*.mjs; then
         die "無法下載安裝程式 / cannot download lib/$f"
+      fi
     done
     MJS="$WB_TMP/scripts/mac/install.mjs"
     # install.mjs installs exactly this commit instead of reading release.json again

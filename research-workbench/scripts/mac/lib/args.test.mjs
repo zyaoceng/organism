@@ -4,12 +4,12 @@ import { ArgsError, HELP, parseInstallArgs } from './args.mjs';
 
 describe('parseInstallArgs', () => {
   it('defaults to a plain install', () => {
-    expect(parseInstallArgs([], {})).toEqual({ mode: 'install', dryRun: false, purge: false, importFile: null, port: null, yes: false, sourceDir: null, noLaunchd: false });
+    expect(parseInstallArgs([], {})).toEqual({ mode: 'install', dryRun: false, purge: false, importFile: null, port: null, yes: false, sourceDir: null, noLaunchd: false, noRegister: false });
   });
 
   it('reads every flag', () => {
-    const o = parseInstallArgs(['--dry-run', '-y', '--port', '4320', '--import', 'wb.tgz', '--source-dir', '/src/rw', '--no-launchd'], {});
-    expect(o).toEqual({ mode: 'install', dryRun: true, purge: false, importFile: path.resolve('wb.tgz'), port: 4320, yes: true, sourceDir: '/src/rw', noLaunchd: true });
+    const o = parseInstallArgs(['--dry-run', '-y', '--port', '4320', '--import', 'wb.tgz', '--source-dir', '/src/rw', '--no-launchd', '--no-register'], {});
+    expect(o).toEqual({ mode: 'install', dryRun: true, purge: false, importFile: path.resolve('wb.tgz'), port: 4320, yes: true, sourceDir: '/src/rw', noLaunchd: true, noRegister: true });
     expect(parseInstallArgs(['--doctor'], {}).mode).toBe('doctor');
     expect(parseInstallArgs(['--uninstall', '--purge'], {})).toMatchObject({ mode: 'uninstall', purge: true });
     expect(parseInstallArgs(['--port=5000'], {}).port).toBe(5000);
@@ -29,6 +29,6 @@ describe('parseInstallArgs', () => {
   });
 
   it('documents every flag in the help', () => {
-    for (const f of ['--doctor', '--dry-run', '--uninstall', '--purge', '--import', '--port', '--yes', '--source-dir', '--no-launchd']) expect(HELP).toContain(f);
+    for (const f of ['--doctor', '--dry-run', '--uninstall', '--purge', '--import', '--port', '--yes', '--source-dir', '--no-launchd', '--no-register']) expect(HELP).toContain(f);
   });
 });

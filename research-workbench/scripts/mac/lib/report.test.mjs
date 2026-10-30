@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { layout } from './layout.mjs';
-import { displayWidth, finalMessage, formatBytes, formatDoctorReport, formatImportSummary, lastJsonLine, padEnd, summarizeDiagnostics } from './report.mjs';
+import { displayWidth, finalMessage, formatBytes, formatDoctorReport, formatImportSummary, lastJsonLine, padEnd, registrationCheck, summarizeDiagnostics } from './report.mjs';
 
 describe('widths and sizes', () => {
   it('counts CJK as two columns', () => {
@@ -110,5 +110,44 @@ describe('finalMessage', () => {
     expect(text).toContain('-- --doctor');
     expect(text).toContain('curl -fsSL https://raw.githubusercontent.com/zyaoceng/organism/claude/vibrant-thompson-s3npyj/research-workbench/scripts/mac/install.sh');
     expect(finalMessage({ L, port: 4320, launcher: false, launchd: false })).toContain('沒有建立背景服務');
+  });
+
+  it('lists what happened with each AI app', () => {
+    const L = layout({ home: '/Users/a', platform: 'darwin' });
+    expect(finalMessage({ L, port: 4310, launcher: true, launchd: true })).not.toContain('AI 連線');
+    const text = finalMessage({
+      L,
+      port: 4310,
+      launcher: true,
+      launchd: true,
+      registration: [
+        { target: 'claude-desktop', label: 'Claude 桌面版', status: 'registered', message: '請重新打開 Claude 桌面版' },
+        { target: 'claude-code', label: 'Claude Code', status: 'skipped', message: '沒有找到 claude 指令（Claude Code 沒有安裝）' },
+        { target: 'chatgpt', label: 'ChatGPT 桌面版', status: 'unchanged', message: '沒有變更' },
+      ],
+    });
+    expect(text).toContain('AI 連線 / AI apps:');
+    expect(text).toContain('  Claude 桌面版   已登記：請重新打開 Claude 桌面版');
+    expect(text).toContain('  Claude Code     略過：沒有找到 claude 指令');
+    expect(text).toMatch(/ {2}ChatGPT 桌面版 {2}已登記\n/);
+    expect(text).toContain('「設定」頁');
+    expect(text.indexOf('AI 連線')).toBeLessThan(text.indexOf('更新 / Update'));
+    const off = finalMessage({ L, port: 4310, launcher: true, launchd: true, registration: null });
+    expect(off).toContain('--no-register');
+    expect(off).not.toContain('「設定」頁');
+  });
+});
+
+describe('registrationCheck', () => {
+  const r = (status, extra = {}) => registrationCheck({ label: 'Claude 桌面版', status, token: true, file: '/Users/a/Library/Application Support/Claude/claude_desktop_config.json', ...extra }, '/Users/a');
+  it('is OK only with our entry and the token, and a warning otherwise', () => {
+    expect(r('ok')).toMatchObject({ status: 'ok', label: 'AI：Claude 桌面版' });
+    expect(r('ok').detail).toContain('~/Library/Application Support/Claude/claude_desktop_config.json');
+    expect(r('ok', { token: false })).toMatchObject({ status: 'warn' });
+    expect(r('ok', { token: false }).detail).toContain('缺少憑證');
+    expect(r('missing').detail).toContain('沒有登記');
+    expect(r('stale-paths', { detail: '目前登記的是 / registered: /old/node x.mjs' }).lines[0]).toContain('/old/node');
+    expect(r('unreadable').status).toBe('warn');
+    expect(r('absent', { detail: '沒有找到 Claude 桌面版' })).toEqual({ status: 'skip', label: 'AI：Claude 桌面版', detail: '沒有找到 Claude 桌面版' });
   });
 });

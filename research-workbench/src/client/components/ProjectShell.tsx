@@ -9,7 +9,8 @@ import { calcOf, diffOf } from '../lib/derived';
 import { href, navigate, TABS, type Tab } from '../lib/router';
 import { useActiveState, useWorkspace } from '../lib/store';
 import { useAdvanced } from '../lib/prefs';
-import { cls, exportProjectJson, isTypingTarget, periodLabelFn, timeAgo } from '../lib/util';
+import { useDraftSync } from '../lib/useDraftSync';
+import { cls, exportProjectJson, fmtDateTime, isTypingTarget, periodLabelFn, timeAgo } from '../lib/util';
 import { CatalystsPage } from '../pages/CatalystsPage';
 import { EvidencePage } from '../pages/EvidencePage';
 import { HistoryPage } from '../pages/HistoryPage';
@@ -33,6 +34,8 @@ export function ProjectShell({ projectId, tab, param }: { projectId: string; tab
   useEffect(() => {
     void load(projectId);
   }, [projectId, load]);
+  // pick up draft edits made by an AI client or another window
+  useDraftSync(projectId);
 
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
@@ -75,6 +78,7 @@ export function ProjectShell({ projectId, tab, param }: { projectId: string; tab
           <>
             <TopBar onSearch={() => setSearchOpen(true)} />
             <ViewingBanner />
+            <MineBanner />
             <div className="content" style={tab === 'model' ? { overflow: 'hidden' } : undefined}>
               {tab === 'overview' && <OverviewPage />}
               {tab === 'model' && <ModelPage param={param} />}
@@ -148,6 +152,11 @@ function Sidebar({ projectId, tab }: { projectId: string; tab: Tab }) {
       </nav>
       <div className="foot">
         <a href="#/">{t('← All companies')}</a>
+        <div style={{ marginTop: 6 }}>
+          <a href={href({ page: 'settings' })} data-testid="sidebar-settings">
+            {t('Settings')}
+          </a>
+        </div>
         <div style={{ marginTop: 6 }}>
           <a
             style={{ cursor: 'pointer' }}
@@ -283,7 +292,12 @@ function ViewingBanner() {
           className="btn sm"
           onClick={async () => {
             if (!window.confirm(t('Replace the current draft with the state of Research Update #{seq}? History is not rewritten; commit afterwards to record the restore.', { seq: viewing.seq }))) return;
-            await restore(viewing.id);
+            try {
+              await restore(viewing.id);
+            } catch (e) {
+              toast(tm((e as Error).message), 'error');
+              return;
+            }
             toast(t('Draft restored from #{seq}. Review the changes and commit.', { seq: viewing.seq }), 'success');
             navigate({ page: 'project', projectId: projectId!, tab: 'model' });
           }}
@@ -292,6 +306,32 @@ function ViewingBanner() {
         </button>
         <button className="btn sm primary" onClick={() => void view(null)} data-testid="back-to-draft">
           {t('Back to draft')}
+        </button>
+      </span>
+    </div>
+  );
+}
+
+/** A "my version" kept in this browser from an earlier draft conflict. */
+function MineBanner() {
+  const mine = useWorkspace((s) => s.mine);
+  const conflict = useWorkspace((s) => s.conflict);
+  const { downloadMine, discardMine } = useWorkspace.getState();
+  if (!mine || conflict) return null;
+  return (
+    <div className="banner warn" data-testid="mine-banner">
+      <span className="small">{t('An unsaved “my version” of this draft from {time} is kept in this browser.', { time: fmtDateTime(mine.savedAt) })}</span>
+      <span className="right row">
+        <button className="btn sm" onClick={downloadMine} data-testid="mine-download">
+          {t('Download')}
+        </button>
+        <button
+          className="btn sm ghost"
+          onClick={() => {
+            if (window.confirm(t('Forget the kept “my version”? Download it first if you still need it.'))) discardMine();
+          }}
+        >
+          {t('Discard')}
         </button>
       </span>
     </div>

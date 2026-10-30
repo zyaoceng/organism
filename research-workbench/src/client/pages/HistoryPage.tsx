@@ -5,20 +5,23 @@ import { SCALAR_KEY, SCENARIOS, type ScenarioId } from '../../domain/model/types
 import { basisPeriodId, computeImpact } from '../../domain/revision/impact';
 import { describeChange } from '../../domain/revision/describe';
 import { diffStates } from '../../domain/revision/diff';
-import { ERROR_CATEGORIES, type ReviewDTO, type RevisionFull, type SeriesPoint } from '../../shared/api';
+import { actorLabel } from '../../shared/actors';
+import { ERROR_CATEGORIES, type AiSessionDTO, type ReviewDTO, type RevisionAnnotationDTO, type RevisionFull, type SeriesPoint } from '../../shared/api';
+import { AiSessionList } from '../components/AiSessions';
 import { ImpactView } from '../components/ImpactView';
 import { LineChart } from '../components/LineChart';
-import { Advanced, Delta, Field } from '../components/ui';
+import { Advanced, AiBadge, Delta, Field } from '../components/ui';
 import { api } from '../lib/api';
 import { getLang, t, tm, tn } from '../lib/i18n';
 import { navigate } from '../lib/router';
 import { useWorkspace } from '../lib/store';
 import { cls, fmtDateTime, periodLabelFn } from '../lib/util';
 
-type View = 'updates' | 'evolution' | 'reviews';
+type View = 'updates' | 'evolution' | 'reviews' | 'ai';
+const VIEWS: readonly string[] = ['evolution', 'reviews', 'ai'];
 
 export function HistoryPage({ param }: { param?: string }) {
-  const [view, setView] = useState<View>(param === 'evolution' || param === 'reviews' ? param : 'updates');
+  const [view, setView] = useState<View>(param && VIEWS.includes(param) ? (param as View) : 'updates');
   return (
     <div className="page">
       <div className="page-head">
@@ -29,6 +32,7 @@ export function HistoryPage({ param }: { param?: string }) {
               ['updates', 'Research updates'],
               ['evolution', 'Estimate evolution & calibration'],
               ['reviews', 'Reviews'],
+              ['ai', 'AI activity'],
             ] as const
           ).map(([v, l]) => (
             <button key={v} className={cls(view === v && 'on plain')} onClick={() => setView(v)} data-testid={`hist-${v}`}>
@@ -37,9 +41,10 @@ export function HistoryPage({ param }: { param?: string }) {
           ))}
         </div>
       </div>
-      {view === 'updates' && <Updates selectedId={param && param !== 'evolution' && param !== 'reviews' ? param : undefined} />}
+      {view === 'updates' && <Updates selectedId={param && !VIEWS.includes(param) ? param : undefined} />}
       {view === 'evolution' && <Evolution />}
       {view === 'reviews' && <Reviews />}
+      {view === 'ai' && <AiActivity />}
     </div>
   );
 }
@@ -67,6 +72,8 @@ function Updates({ selectedId }: { selectedId?: string }) {
                 <div className="row">
                   <b>#{r.seq}</b>
                   <span className="ellipsis grow">{r.title}</span>
+                  {r.excludedFromCalibration && <span className="badge err">{t('marked wrong')}</span>}
+                  <AiBadge actor={r.createdBy} />
                   <Advanced>{r.kind !== 'update' && <span className="badge">{t(r.kind)}</span>}</Advanced>
                 </div>
                 <div className="tiny sub">
@@ -94,9 +101,25 @@ function RevisionDetail({ projectId, revisionId }: { projectId: string; revision
   const revisions = useWorkspace((s) => s.revisions);
   const evidence = useWorkspace((s) => s.evidence);
   const { view, restore, toast } = useWorkspace.getState();
-  useEffect(() => {
+  const [marks, setMarks] = useState<RevisionAnnotationDTO[]>([]);
+  const lang = getLang();
+  const reload = () => {
     void api.revision(projectId, revisionId).then(setRev);
-  }, [projectId, revisionId]);
+    void api
+      .annotations(projectId)
+      .then((all) => setMarks(all.filter((a) => a.revisionId === revisionId)))
+      .catch(() => setMarks([]));
+  };
+  useEffect(reload, [projectId, revisionId]);
+  const annotate = async (kind: 'excluded' | 'included', note: string) => {
+    try {
+      await api.annotate(projectId, revisionId, { kind, note });
+      reload();
+      await useWorkspace.getState().refresh('revisions');
+    } catch (e) {
+      toast(tm((e as Error).message), 'error');
+    }
+  };
   useEffect(() => {
     if (compareTo) void api.revision(projectId, compareTo).then(setOther);
     else setOther(null);
@@ -136,17 +159,37 @@ function RevisionDetail({ projectId, revisionId }: { projectId: string; revision
               className="btn sm"
               onClick={async () => {
                 if (!window.confirm(t('Replace the current draft with the state of #{seq}? Nothing in history is rewritten.', { seq: rev.seq }))) return;
-                await restore(rev.id);
+                try {
+                  await restore(rev.id);
+                } catch (e) {
+                  toast(tm((e as Error).message), 'error');
+                  return;
+                }
                 toast(t('Draft restored from #{seq}. Review and commit it.', { seq: rev.seq }), 'success');
                 navigate({ page: 'project', projectId, tab: 'model' });
               }}
             >
               {t('Restore into draft')}
             </button>
+            {rev.kind !== 'initial' && !rev.excludedFromCalibration && (
+              <button
+                className="btn sm danger"
+                title={t('A committed update cannot be changed or deleted; the mark only removes it from calibration.')}
+                onClick={() => {
+                  const note = window.prompt(t('Why is #{seq} wrong? (kept with the mark; it is excluded from estimate evolution and calibration)', { seq: rev.seq }));
+                  if (note !== null) void annotate('excluded', note);
+                }}
+                data-testid="mark-wrong"
+              >
+                {t('Mark as wrong (exclude from calibration)')}
+              </button>
+            )}
           </span>
         </div>
+        {rev.excludedFromCalibration && <ExcludedNote marks={marks} onUndo={() => void annotate('included', '')} />}
         <div className="small sub" style={{ margin: '4px 0 8px' }}>
           {t('Knowledge date')} <b>{rev.asOfDate ?? '—'}</b> · {t('committed {time}', { time: fmtDateTime(rev.committedAt) })}
+          {rev.createdBy && <> · {t('committed by {who}', { who: actorLabel(rev.createdBy, lang) })}</>}
           <Advanced> · {t('engine {version}', { version: rev.engineVersion })}</Advanced>
           {rev.market && (
             <>
@@ -156,6 +199,11 @@ function RevisionDetail({ projectId, revisionId }: { projectId: string; revision
             </>
           )}
         </div>
+        {rev.contributors && rev.contributors.length > 0 && (
+          <div className="small sub" style={{ margin: '-4px 0 8px' }} data-testid="contributors">
+            {t('Edits: {list}', { list: rev.contributors.map((c) => `${actorLabel(c.actor, lang)} ${c.changes}`).join(lang === 'zh-TW' ? '、' : ', ') })}
+          </div>
+        )}
         <div style={{ whiteSpace: 'pre-wrap' }}>
           <b>{t('Reason / interpretation: ')}</b>
           {rev.reason}
@@ -256,11 +304,13 @@ function Evolution() {
   const latestPeriod = head.state.periods.find((p) => p.id === periodKey);
   const actual = latestPeriod?.status === 'A' && nodeId ? head.computed.values.base[nodeId]?.[periodKey] ?? null : null;
   const colors: Record<ScenarioId, string> = { bear: '#b5473a', base: '#35598f', bull: '#2f7d4f' };
+  // updates marked wrong stay in the table (struck through) but leave the chart and the deltas
+  const counted = knowledge.filter((p) => !p.excluded);
   const series = SCENARIOS.map((s) => ({
     name: t(s.name),
     color: colors[s.id],
     step: true,
-    points: knowledge.map((p) => ({ x: Date.parse(p.asOfDate!), y: p.values[nodeId!]?.[s.id]?.[periodKey] ?? null, label: `#${p.seq} ${p.title}` })),
+    points: counted.map((p) => ({ x: Date.parse(p.asOfDate!), y: p.values[nodeId!]?.[s.id]?.[periodKey] ?? null, label: `#${p.seq} ${p.title}` })),
   }));
   const shortcuts = (['eps', 'target_price', 'target_multiple', 'revenue', 'gross_margin'] as const).map((r) => findByRole(draft, r)).filter(Boolean);
   return (
@@ -333,22 +383,25 @@ function Evolution() {
           <tbody>
             {knowledge.map((p, i) => {
               const base = p.values[nodeId!]?.base?.[periodKey] ?? null;
-              const prev = i > 0 ? knowledge[i - 1].values[nodeId!]?.base?.[periodKey] ?? null : null;
+              // Δ against the previous update that still counts
+              const prevPoint = p.excluded ? undefined : knowledge.slice(0, i).findLast((x) => !x.excluded);
+              const prev = prevPoint ? prevPoint.values[nodeId!]?.base?.[periodKey] ?? null : null;
               const periodThen = p.periods.find((x) => x.id === periodKey);
               return (
-                <tr key={p.revisionId}>
+                <tr key={p.revisionId} className={cls(p.excluded && 'excluded')} data-testid={p.excluded ? 'evo-excluded' : undefined}>
                   <td className="l">
                     <a href={`#/p/${projectId}/history/${p.revisionId}`}>
                       #{p.seq} {p.title}
                     </a>
                     {periodThen && <span className="faint small"> ({periodThen.status === 'A' ? t('actual then') : t('estimate then')})</span>}
+                    {p.excluded && <span className="badge err"> {t('marked wrong')}</span>}
                   </td>
                   <td className="l">{p.asOfDate}</td>
                   {SCENARIOS.map((s) => (
                     <td key={s.id}>{formatValue(p.values[nodeId!]?.[s.id]?.[periodKey], node?.unit)}</td>
                   ))}
-                  <td>{i > 0 ? <Delta before={prev} after={base} unit={node?.unit} /> : ''}</td>
-                  {actual !== null && <td>{base !== null && actual ? <Delta before={actual} after={base} unit={node?.unit} /> : '—'}</td>}
+                  <td>{prevPoint ? <Delta before={prev} after={base} unit={node?.unit} /> : ''}</td>
+                  {actual !== null && <td>{!p.excluded && base !== null && actual ? <Delta before={actual} after={base} unit={node?.unit} /> : '—'}</td>}
                 </tr>
               );
             })}
@@ -366,7 +419,57 @@ function Evolution() {
             {t('“Base vs actual” is the estimate error: positive means the estimate was above what was reported.')}
           </div>
         )}
+        {knowledge.some((p) => p.excluded) && (
+          <div className="small sub" style={{ marginTop: 6 }}>
+            {t('Updates marked wrong are struck through and left out of the chart, the Δ and the calibration.')}
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+/** The mark on an update that is excluded from calibration, with the way to take it back. */
+function ExcludedNote({ marks, onUndo }: { marks: RevisionAnnotationDTO[]; onUndo: () => void }) {
+  const mark = [...marks].reverse().find((a) => a.kind === 'excluded');
+  return (
+    <div className="msg warn" style={{ margin: '6px 0' }} data-testid="excluded-note">
+      <div className="row wrap">
+        <b>{t('Marked wrong: excluded from estimate evolution and calibration.')}</b>
+        {mark && <span className="small">{t('{who}, {time}', { who: actorLabel(mark.actor, getLang()), time: fmtDateTime(mark.at) })}</span>}
+        <button className="btn xs right" onClick={onUndo} data-testid="unmark-wrong">
+          {t('Undo the mark')}
+        </button>
+      </div>
+      {mark?.note && <div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>{mark.note}</div>}
+      <div className="tiny" style={{ marginTop: 4 }}>
+        {t('A committed update cannot be changed or deleted; the mark only removes it from calibration.')}
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------ AI activity
+
+function AiActivity() {
+  const projectId = useWorkspace((s) => s.projectId)!;
+  const auditSeq = useWorkspace((s) => s.auditSeq);
+  const draftVersion = useWorkspace((s) => s.draftVersion);
+  const [sessions, setSessions] = useState<AiSessionDTO[] | null>(null);
+  useEffect(() => {
+    api
+      .aiSessions({ projectId, limit: 20 })
+      .then(setSessions)
+      .catch((e) => useWorkspace.getState().toast(tm((e as Error).message), 'error'));
+  }, [projectId, auditSeq, draftVersion]);
+  return (
+    <div className="card" data-testid="ai-activity">
+      <div className="small sub" style={{ marginBottom: 8 }}>
+        {t('What AI assistants did in this company, grouped into sessions (a pause of 30 minutes starts a new one), with the summary the AI saved.')}
+      </div>
+      {sessions === null && <div className="small sub">{t('Loading…')}</div>}
+      {sessions?.length === 0 && <div className="empty">{t('No AI activity in this company yet.')}</div>}
+      {sessions && <AiSessionList sessions={sessions} />}
     </div>
   );
 }

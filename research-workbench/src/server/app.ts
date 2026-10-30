@@ -3,11 +3,15 @@ import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import fs from 'node:fs';
 import path from 'node:path';
+import { DraftOpsRequestSchema } from '../domain/agent/schema';
 import { ModelOpError } from '../domain/model/ops';
 import type { ModelState, ScenarioId } from '../domain/model/types';
 import { defaultScaleFor, STANDARD_TEMPLATE_ID, STANDARD_TEMPLATE_NAME, standardTemplate, structureOnly } from '../domain/templates/standard';
 import type { FrozenOutputs } from '../domain/calc/engine';
-import type { ProjectBundleDTO, SeriesPoint } from '../shared/api';
+import { describeChange } from '../domain/revision/describe';
+import { agentClientOf, isAgentActor, type Actor, type AgentClient } from '../shared/actors';
+import type { CommitPreviewDTO, DiagnosticsDTO, DraftMetaDTO, HeartbeatDTO, ProjectBundleDTO, SeriesPoint, SessionDTO } from '../shared/api';
+import { currentActor, installActorHooks, NO_ACTOR_MESSAGE, noteAiAction, quietRequest, SESSION_COOKIE } from './actor';
 import { openDatabase, schemaVersion, type DB } from './db/connection';
 import { CsvProvider } from './market/csv';
 import { DemoProvider } from './market/demo';
@@ -17,7 +21,12 @@ import { FinMindProvider } from './market/finmind';
 import { FugleProvider } from './market/fugle';
 import { loadFinMindDirectory, loadIsinDirectory, SymbolSearch } from './market/symbols';
 import { YahooChartProvider } from './market/yahoo';
+import { listAiClients, listAiSessions, saveSessionSummary, touchAiClient } from './repos/aiSessions';
+import { addAnnotation, excludedSet, listAnnotations } from './repos/annotations';
 import { listAudit } from './repos/audit';
+import { draftPending, evidenceTitler, lastDraftOp, listDraftOps, pendingAttribution, periodLabeller, pruneDraftOps, recoverDraft } from './repos/draftOps';
+import { barsMeta } from './repos/market';
+import { dbGeneration } from './repos/meta';
 import {
   createProject,
   getDraft,
@@ -36,6 +45,7 @@ import {
   updateProject,
   updateSecurity,
   getDraftRow,
+  primarySecurity,
 } from './repos/projects';
 import {
   addEvidenceAttachments,
@@ -67,10 +77,14 @@ import {
   updateTrade,
   type EvidenceInput,
 } from './repos/records';
+import { checkAgentProjectCreate, closeAgentTrade, findSecurities, recordAgentTrade } from './services/agentRecords';
 import { BackupService } from './services/backup';
-import { commitDraft } from './services/commit';
+import { commitDraft, previewCommit, type CommitInput, type PreviewInput } from './services/commit';
+import { CommitPreviewStore } from './services/commitPreviews';
+import { applyDraftOps } from './services/draftOps';
 import { AttachmentStore, INLINE_SAFE, sanitizeFilename } from './storage/attachments';
-import { badRequest, HttpError, isDate, notFound, nowIso } from './util';
+import { loadOrCreateTokens, type TokenSet } from './tokens';
+import { badRequest, conflict, errorCode, forbidden, HttpError, isDate, localToday, notFound, nowIso } from './util';
 import { APP_ROOT, readVersion } from './version';
 
 export interface AppOptions {
@@ -98,6 +112,8 @@ export interface AppOptions {
   allowedOrigins?: string[];
   /** Where version.json lives. Default: the research-workbench directory. */
   appRoot?: string;
+  /** Who-is-acting tokens. Default <dataDir>/tokens.json (created when missing). */
+  tokensFile?: string;
 }
 
 export interface AppContext {
@@ -106,6 +122,9 @@ export interface AppContext {
   attachments: AttachmentStore;
   market: MarketService;
   backups: BackupService;
+  /** tokens.json: `tokens.tokens.user`, `tokens.tokens['claude-desktop']`, … */
+  tokens: TokenSet;
+  previews: CommitPreviewStore;
 }
 
 type Params = { id: string };
@@ -117,6 +136,9 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
   const backupDir = opts.backupDir ?? path.join(opts.dataDir, 'backups');
   const version = readVersion(opts.appRoot ?? APP_ROOT);
   const db = openDatabase(dbFile, { backupDir });
+  const tokens = loadOrCreateTokens(opts.tokensFile ?? path.join(opts.dataDir, 'tokens.json'));
+  const previews = new CommitPreviewStore();
+  pruneDraftOps(db);
   const attachments = new AttachmentStore(db, path.join(opts.dataDir, 'attachments'));
   const yahoo = new YahooChartProvider();
   const finmind = new FinMindProvider();
@@ -144,9 +166,11 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
       if (origin !== undefined && !origins.has(origin.toLowerCase())) return reply.status(403).send({ error: 'Origin not allowed' });
     });
   }
+  // who is acting (user, AI client or nobody known); after the Host check
+  installActorHooks(app, tokens, db);
 
   app.setErrorHandler((err, req, reply) => {
-    if (err instanceof HttpError) return reply.status(err.status).send({ error: err.message, details: err.details ?? null });
+    if (err instanceof HttpError) return reply.status(err.status).send({ error: err.message, code: errorCode(err), details: err.details ?? null });
     if (err instanceof ModelOpError) return reply.status(400).send({ error: err.message });
     if (err instanceof MarketDataError) return reply.status(err.code === 'NOT_FOUND' ? 404 : 502).send({ error: err.message, code: err.code });
     const e = err as { statusCode?: number; message: string; code?: string };
@@ -184,21 +208,69 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
 
   const projectOf = (projectId: string) => getProject(db, projectId);
 
+  /** The AI client making this request, or 403 for anyone else. */
+  const agentOnly = (req: FastifyRequest): AgentClient => {
+    const client = agentClientOf(req.actor);
+    if (!client) throw forbidden('Only an AI client can call this', { code: 'AGENT_ONLY' });
+    return client;
+  };
+
+  /** An AI may not throw away or replace draft edits the user has not committed. */
+  const guardAgentDraftReset = (req: FastifyRequest, projectId: string, version: unknown) => {
+    if (!isAgentActor(req.actor)) return;
+    if (typeof version !== 'number') throw badRequest('AI 必須帶草稿版本 version', { code: 'EXPECTED_VERSION_REQUIRED' });
+    const a = pendingAttribution(db, projectId);
+    if (a.userOwned.length) {
+      const periodLabel = periodLabeller(JSON.parse(a.draft.state_json));
+      const evidenceTitle = evidenceTitler(db, projectId);
+      const texts = a.userOwned.map((c) => describeChange(c, { lang: 'zh-TW', periodLabel, evidenceTitle }));
+      throw conflict(`草稿裡有使用者還沒提交的修改（${texts.length} 項），AI 不能捨棄或取代；請使用者在網站處理`, { code: 'USER_CHANGES', changes: texts });
+    }
+  };
+
+  /** A backdated commit records the close of that day's bar: fetch bars first if none are cached. */
+  const ensureBars = async (projectId: string, asOfDate: unknown) => {
+    if (!isDate(asOfDate) || asOfDate >= localToday()) return;
+    const sec = primarySecurity(db, projectId);
+    if (!sec || barsMeta(db, sec.id, sec.priceSource).count > 0) return;
+    try {
+      await market.bars(sec);
+    } catch {
+      // no price is recorded rather than a wrong one
+    }
+  };
+
   // ------------------------------------------------------------ health
   app.get('/api/health', async () => ({ ok: true, time: nowIso(), version }));
 
-  app.get('/api/diagnostics', async () => ({
-    version,
-    node: process.version,
-    platform: process.platform,
-    dataDir: path.resolve(opts.dataDir),
-    dbFile: path.resolve(dbFile),
-    schemaVersion: schemaVersion(db),
-    backups: backups.status(),
-    uptimeSec: Math.round((Date.now() - startedAt) / 1000),
-    // last connection of each AI client (M3)
-    clients: [],
-  }));
+  app.get(
+    '/api/diagnostics',
+    async (): Promise<DiagnosticsDTO> => ({
+      version,
+      node: process.version,
+      platform: process.platform,
+      dataDir: path.resolve(opts.dataDir),
+      dbFile: path.resolve(dbFile),
+      schemaVersion: schemaVersion(db),
+      backups: backups.status(),
+      uptimeSec: Math.round((Date.now() - startedAt) / 1000),
+      // last connection of each AI client (agents only)
+      clients: listAiClients(db),
+    }),
+  );
+
+  // The browser's identity: an HttpOnly cookie holding the user token. Only for a page of this
+  // origin, and never in answer to a request that already carries a token (an AI client, Obsidian).
+  app.get('/api/session', async (req, reply): Promise<SessionDTO> => {
+    if (req.headers.authorization !== undefined) {
+      if (req.actor === 'unknown') throw new HttpError(401, NO_ACTOR_MESSAGE, { code: 'NO_ACTOR' }, 'NO_ACTOR');
+      return { actor: req.actor, dbGeneration: dbGeneration(db) };
+    }
+    const site = req.headers['sec-fetch-site'];
+    if (site !== undefined && site !== 'same-origin' && site !== 'none') throw forbidden('Cross-site request refused', { code: 'CROSS_SITE' });
+    reply.header('set-cookie', `${SESSION_COOKIE}=${tokens.tokens.user}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000`);
+    return { actor: 'user', dbGeneration: dbGeneration(db) };
+  });
 
   // ------------------------------------------------------------ projects
   app.get('/api/projects', async () => listProjectSummaries(db));
@@ -213,6 +285,7 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
       security: { name?: string; ticker: string; exchange?: string; apiSymbol?: string; currency?: string; priceSource?: string };
     }>(req);
     if (!b.security?.ticker?.trim()) throw badRequest('Ticker is required');
+    if (isAgentActor(req.actor)) checkAgentProjectCreate(db, b as typeof b & { confirmedByUser?: unknown });
     const currency = (b.security.currency || 'TWD').toUpperCase();
     let state: ModelState;
     let templateName = STANDARD_TEMPLATE_NAME;
@@ -279,21 +352,72 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
 
   // ------------------------------------------------------------ draft
   app.put<{ Params: Params }>('/api/projects/:id/draft', async (req) => {
-    const b = body<{ state: unknown; version: number }>(req);
+    const b = body<{ state: unknown; version: number; dbGeneration?: string }>(req);
     projectOf(req.params.id);
-    return saveDraft(db, req.params.id, b.state, Number(b.version));
+    // an AI edits through /draft/ops, where units, actual periods and versions are checked
+    if (isAgentActor(req.actor)) throw forbidden('AI 請用 edit_draft（POST /draft/ops）修改草稿', { code: 'USE_DRAFT_OPS' });
+    return saveDraft(db, req.params.id, b.state, Number(b.version), b.dbGeneration);
   });
 
   app.post<{ Params: Params }>('/api/projects/:id/draft/discard', async (req) => {
     const b = body<{ version?: number }>(req);
     const d = getDraftRow(db, req.params.id);
-    return resetDraftTo(db, req.params.id, d.base_revision_id, b.version);
+    guardAgentDraftReset(req, req.params.id, b.version);
+    return resetDraftTo(db, req.params.id, d.base_revision_id, b.version, 'discard');
   });
 
   app.post<{ Params: Params }>('/api/projects/:id/draft/restore', async (req) => {
     const b = body<{ revisionId: string; version?: number }>(req);
     if (!b.revisionId) throw badRequest('revisionId is required');
-    return resetDraftTo(db, req.params.id, b.revisionId, b.version);
+    guardAgentDraftReset(req, req.params.id, b.version);
+    return resetDraftTo(db, req.params.id, b.revisionId, b.version, 'restore');
+  });
+
+  app.post<{ Params: Params }>('/api/projects/:id/draft/recover', async (req) => {
+    const b = body<{ opId?: number; version?: number }>(req);
+    projectOf(req.params.id);
+    if (!Number.isInteger(b.opId) || !Number.isInteger(b.version)) throw badRequest('opId and version are required');
+    guardAgentDraftReset(req, req.params.id, b.version);
+    return recoverDraft(db, req.params.id, b.opId!, b.version!);
+  });
+
+  app.get<{ Params: Params; Querystring: { limit?: string; beforeId?: string } }>('/api/projects/:id/draft/ops', async (req) => {
+    projectOf(req.params.id);
+    return listDraftOps(db, req.params.id, { limit: req.query.limit ? Number(req.query.limit) : undefined, beforeId: req.query.beforeId ? Number(req.query.beforeId) : undefined });
+  });
+
+  app.post<{ Params: Params }>('/api/projects/:id/draft/ops', async (req) => {
+    projectOf(req.params.id);
+    const b = DraftOpsRequestSchema.safeParse(body(req));
+    if (!b.success) {
+      const issues = b.error.issues.map((i) => `${i.path.join('.') || '(body)'}: ${i.message}`);
+      throw badRequest(`操作格式有誤：${issues.slice(0, 5).join('；')}`, { code: 'INVALID_OPS', issues });
+    }
+    if (b.data.dryRun) quietRequest();
+    return applyDraftOps(db, req.params.id, b.data, { actor: currentActor(), dbGeneration: dbGeneration(db) });
+  });
+
+  // polled by the browser every 10 seconds: cheap, and tells it whether anything changed
+  app.get<{ Params: Params }>('/api/projects/:id/draft/meta', async (req): Promise<DraftMetaDTO> => {
+    projectOf(req.params.id);
+    const d = getDraftRow(db, req.params.id);
+    const head = getRevisionRow(db, req.params.id, d.base_revision_id);
+    const auditSeq = (db.prepare("SELECT COALESCE(MAX(id), 0) AS m FROM audit_log WHERE project_id = ? AND action NOT IN ('draft_op','commit')").get(req.params.id) as { m: number }).m;
+    const last = lastDraftOp(db, req.params.id);
+    return {
+      version: d.version,
+      baseRevisionId: d.base_revision_id,
+      updatedAt: d.updated_at,
+      dbGeneration: dbGeneration(db),
+      headSeq: head.seq,
+      auditSeq,
+      lastOp: last ? { id: last.id, actor: last.actor, kind: last.kind, at: last.at, summary: last.summary, changeCount: last.changeCount } : null,
+    };
+  });
+
+  app.get<{ Params: Params }>('/api/projects/:id/draft/pending', async (req) => {
+    projectOf(req.params.id);
+    return draftPending(db, req.params.id);
   });
 
   // ------------------------------------------------------------ revisions
@@ -305,8 +429,72 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
   app.get<{ Params: Params & { rid: string } }>('/api/projects/:id/revisions/:rid', async (req) => toRevisionFull(db, getRevisionRow(db, req.params.id, req.params.rid)));
 
   app.post<{ Params: Params }>('/api/projects/:id/revisions', async (req) => {
+    const id = req.params.id;
+    projectOf(id);
+    if (!isAgentActor(req.actor)) {
+      const b = body<CommitInput>(req);
+      await ensureBars(id, b.asOfDate);
+      return commitDraft(db, id, b);
+    }
+    // an AI commits exactly what it previewed (and showed the user)
+    const b = body<{ previewId?: string; title?: string; reason?: string; notes?: string; confirmedByUser?: boolean }>(req);
+    if (!b.previewId) throw badRequest('AI 提交前必須先 preview_commit，並帶 previewId', { code: 'PREVIEW_REQUIRED' });
+    const p = previews.get(b.previewId);
+    if (!p) throw conflict('預覽已過期（15 分鐘）或伺服器重新啟動過；請重新 preview_commit', { code: 'PREVIEW_EXPIRED' });
+    if (p.client !== agentClientOf(req.actor)) throw forbidden('這個預覽屬於另一個 AI 連線', { code: 'PREVIEW_OTHER_CLIENT' });
+    if (p.projectId !== id || p.dbGeneration !== dbGeneration(db)) throw conflict('預覽和這家公司或目前的資料不符；請重新 preview_commit', { code: 'PREVIEW_MISMATCH' });
+    await ensureBars(id, p.asOfDate);
+    const rev = commitDraft(
+      db,
+      id,
+      { title: b.title ?? '', reason: b.reason ?? '', notes: b.notes, asOfDate: p.asOfDate, evidenceIds: p.evidenceIds, draftVersion: p.draftVersion, kind: p.kind },
+      localToday(),
+      { agent: { confirmedByUser: b.confirmedByUser === true } },
+    );
+    previews.delete(p.id);
+    return rev;
+  });
+
+  app.post<{ Params: Params }>('/api/projects/:id/revisions/preview', async (req): Promise<CommitPreviewDTO> => {
+    const id = req.params.id;
+    projectOf(id);
+    quietRequest();
+    const b = body<PreviewInput>(req);
+    if (b.evidenceIds !== undefined && (!Array.isArray(b.evidenceIds) || b.evidenceIds.some((e) => typeof e !== 'string'))) throw badRequest('evidenceIds must be a list of ids');
+    const today = localToday();
+    await ensureBars(id, b.asOfDate ?? today);
+    const { dto } = previewCommit(db, id, b, today, req.actor as Actor);
+    const client = agentClientOf(req.actor);
+    if (!client || dto.blocked) return { ...dto, previewId: null, expiresAt: null };
+    const p = previews.put({
+      projectId: id,
+      client,
+      draftVersion: dto.draftVersion,
+      baseRevisionId: dto.baseRevisionId,
+      dbGeneration: dbGeneration(db),
+      asOfDate: dto.asOfDate,
+      kind: dto.kind,
+      evidenceIds: dto.citedEvidence.map((e) => e.id),
+      needsConfirmation: dto.needsConfirmation,
+    });
+    return { ...dto, previewId: p.id, expiresAt: new Date(p.expiresAt).toISOString() };
+  });
+
+  app.get<{ Params: { pid: string } }>('/api/commit-previews/:pid', async (req) => {
+    const client = agentOnly(req);
+    const p = previews.get(req.params.pid);
+    if (!p || p.client !== client) throw new HttpError(404, '預覽已過期（15 分鐘）或伺服器重新啟動過；請重新 preview_commit', { code: 'PREVIEW_EXPIRED' });
+    return { projectId: p.projectId, expiresAt: new Date(p.expiresAt).toISOString(), needsConfirmation: p.needsConfirmation };
+  });
+
+  app.get<{ Params: Params }>('/api/projects/:id/revision-annotations', async (req) => {
     projectOf(req.params.id);
-    return commitDraft(db, req.params.id, body(req));
+    return listAnnotations(db, req.params.id);
+  });
+
+  app.post<{ Params: Params & { rid: string } }>('/api/projects/:id/revisions/:rid/annotations', async (req) => {
+    projectOf(req.params.id);
+    return addAnnotation(db, req.params.id, req.params.rid, body<{ kind?: string; note?: string }>(req));
   });
 
   app.get<{ Params: Params; Querystring: { date?: string } }>('/api/projects/:id/as-of', async (req) => {
@@ -317,6 +505,7 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
 
   app.get<{ Params: Params; Querystring: { nodeIds?: string } }>('/api/projects/:id/series', async (req) => {
     const ids = (req.query.nodeIds ?? '').split(',').filter(Boolean);
+    const excluded = excludedSet(db, req.params.id);
     const points: SeriesPoint[] = listRevisionRows(db, req.params.id).map((r) => {
       const state = JSON.parse(r.state_json) as ModelState;
       const computed = JSON.parse(r.computed_json) as FrozenOutputs;
@@ -327,7 +516,7 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
         for (const s of ['bear', 'base', 'bull'] as const) values[id][s] = computed.values[s][id] ?? {};
         est[id] = computed.est[id] ?? {};
       }
-      return { revisionId: r.id, seq: r.seq, kind: r.kind, title: r.title, asOfDate: r.as_of_date, committedAt: r.committed_at, periods: state.periods, values, est };
+      return { revisionId: r.id, seq: r.seq, kind: r.kind, title: r.title, asOfDate: r.as_of_date, committedAt: r.committed_at, periods: state.periods, values, est, excluded: excluded.has(r.id) };
     });
     return points;
   });
@@ -399,9 +588,13 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
   app.get<{ Params: Params }>('/api/projects/:id/trades', async (req) => listTrades(db, req.params.id));
   app.post<{ Params: Params }>('/api/projects/:id/trades', async (req) => {
     projectOf(req.params.id);
+    if (isAgentActor(req.actor)) return recordAgentTrade(db, market, req.params.id, req.body);
     return createTrade(db, req.params.id, body(req));
   });
-  app.patch<{ Params: Params }>('/api/trades/:id', async (req) => updateTrade(db, req.params.id, body(req)));
+  app.patch<{ Params: Params }>('/api/trades/:id', async (req) => {
+    if (isAgentActor(req.actor)) return closeAgentTrade(db, market, req.params.id, req.body);
+    return updateTrade(db, req.params.id, body(req));
+  });
   app.delete<{ Params: Params }>('/api/trades/:id', async (req) => {
     deleteTrade(db, req.params.id);
     return { ok: true };
@@ -430,6 +623,28 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
     return { ok: true };
   });
 
+  // ------------------------------------------------------------ AI clients
+  app.post('/api/ai/heartbeat', async (req): Promise<HeartbeatDTO> => {
+    const client = agentOnly(req);
+    quietRequest();
+    const b = body<{ clientInfo?: { name?: string; version?: string }; adapterVersion?: string }>(req);
+    touchAiClient(db, client, { clientName: b.clientInfo?.name, clientVersion: b.clientInfo?.version, adapterVersion: b.adapterVersion });
+    return { ok: true, actor: `agent:${client}`, today: localToday(), dbGeneration: dbGeneration(db), serverVersion: version.commit };
+  });
+
+  app.post('/api/ai/sessions/summary', async (req) => {
+    const client = agentOnly(req);
+    const b = body<{ summary?: string; decisions?: string; todo?: string; projectIds?: string[] }>(req);
+    if (b.projectIds !== undefined && (!Array.isArray(b.projectIds) || b.projectIds.some((x) => typeof x !== 'string'))) throw badRequest('projectIds must be a list of ids');
+    const session = saveSessionSummary(db, client, { summary: b.summary ?? '', decisions: b.decisions, todo: b.todo, projectIds: b.projectIds });
+    noteAiAction({ kind: 'summary', projectId: session.projectIds[0] ?? null, ref: session.id, summary: `存了對話摘要：${session.summary!.slice(0, 60)}` });
+    return session;
+  });
+
+  app.get<{ Querystring: { projectId?: string; limit?: string } }>('/api/ai/sessions', async (req) =>
+    listAiSessions(db, { projectId: req.query.projectId || undefined, limit: req.query.limit ? Number(req.query.limit) : undefined }),
+  );
+
   // ------------------------------------------------------------ templates
   app.get('/api/templates', async () => [
     { id: STANDARD_TEMPLATE_ID, name: STANDARD_TEMPLATE_NAME, description: 'EPS branch (segments → income statement → EPS), P/E branch, Target Price.', builtIn: true, createdAt: null },
@@ -449,6 +664,7 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
   // ------------------------------------------------------------ market data
   app.get('/api/market/providers', async () => market.listProviders());
   app.get<{ Querystring: { q?: string } }>('/api/symbols/search', async (req) => symbols.search(req.query.q ?? ''));
+  app.get<{ Querystring: { ticker?: string } }>('/api/securities/lookup', async (req) => findSecurities(db, req.query.ticker ?? ''));
   app.get<{ Params: Params; Querystring: { provider?: string; refresh?: string } }>('/api/securities/:id/quote', async (req) => {
     const sec = getSecurity(db, req.params.id);
     return market.quote(sec, req.query.provider || sec.priceSource, req.query.refresh === '1');
@@ -478,5 +694,5 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
     db.close();
   });
   if (opts.startBackups) backups.start();
-  return { app, db, attachments, market, backups };
+  return { app, db, attachments, market, backups, tokens, previews };
 }

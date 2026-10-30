@@ -2,8 +2,18 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { formatValue, parseValueInput, editText } from '../../domain/format';
 import type { Unit } from '../../domain/units';
 import { cls } from '../lib/util';
-import { LANGS, setLang, t, tm, useLang } from '../lib/i18n';
+import { actorLabel, isAgentActor } from '../../shared/actors';
+import { getLang, LANGS, setLang, t, tm, useLang } from '../lib/i18n';
 import { setAdvanced, useAdvanced } from '../lib/prefs';
+
+/**
+ * Whether a closing editor writes what it holds: only after the user typed. The value can change
+ * underneath an open editor (an AI client or another window wrote the draft); writing the untouched
+ * old text back would silently undo that change.
+ */
+export function editorWrites<T>(typed: boolean, held: T, current: T): boolean {
+  return typed && held !== current;
+}
 
 /** Text that becomes an input on click; commits on blur/Enter, cancels on Escape. */
 export function InlineText(props: {
@@ -17,13 +27,21 @@ export function InlineText(props: {
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(props.value);
-  useEffect(() => setDraft(props.value), [props.value]);
+  const typed = useRef(false);
+  // follow the stored value, but never replace what the user is typing
+  useEffect(() => {
+    if (!editing) setDraft(props.value);
+  }, [props.value, editing]);
   if (!editing || props.readOnly) {
     return (
       <div
         className={cls(props.className, 'inline-text', !props.value && 'faint')}
         style={{ cursor: props.readOnly ? 'default' : 'text', whiteSpace: props.multiline ? 'pre-wrap' : undefined, minHeight: 18 }}
-        onClick={() => !props.readOnly && setEditing(true)}
+        onClick={() => {
+          if (props.readOnly) return;
+          typed.current = false;
+          setEditing(true);
+        }}
         title={props.readOnly ? undefined : t('Click to edit')}
       >
         {props.value || props.placeholder || '—'}
@@ -32,13 +50,16 @@ export function InlineText(props: {
   }
   const commit = () => {
     setEditing(false);
-    if (draft !== props.value) props.onCommit(draft);
+    if (editorWrites(typed.current, draft, props.value)) props.onCommit(draft);
   };
   const common = {
     autoFocus: true,
     value: draft,
     placeholder: props.placeholder,
-    onChange: (e: { target: { value: string } }) => setDraft(e.target.value),
+    onChange: (e: { target: { value: string } }) => {
+      typed.current = true;
+      setDraft(e.target.value);
+    },
     onBlur: commit,
     style: { width: '100%' },
   };
@@ -82,6 +103,8 @@ export function NumberField(props: {
   const [text, setText] = useState(props.initialText ?? editText(props.value, props.unit));
   const [error, setError] = useState<string | null>(null);
   const done = useRef(false);
+  // opened by typing a character: that is typing too
+  const typed = useRef(props.initialText !== undefined);
   const finish = (how: 'enter' | 'tab' | 'escape' | 'blur', shift = false) => {
     if (done.current) return;
     if (how !== 'escape') {
@@ -94,7 +117,7 @@ export function NumberField(props: {
         }
         return;
       }
-      if (r.value !== (props.value ?? null)) props.onCommit(r.value);
+      if (editorWrites(typed.current, r.value, props.value ?? null)) props.onCommit(r.value);
     }
     done.current = true;
     props.onDone?.(how, shift);
@@ -108,6 +131,7 @@ export function NumberField(props: {
       placeholder={props.placeholder}
       style={error ? { borderColor: 'var(--err)' } : undefined}
       onChange={(e) => {
+        typed.current = true;
         setText(e.target.value);
         setError(null);
       }}
@@ -208,5 +232,15 @@ export function LangToggle(props: { dark?: boolean }) {
         </button>
       ))}
     </div>
+  );
+}
+
+/** "AI" next to a record an AI client created; the tooltip names which one. */
+export function AiBadge({ actor, label }: { actor: string | null | undefined; label?: string }) {
+  if (!isAgentActor(actor)) return null;
+  return (
+    <span className="badge ai" title={t('Recorded by {who}', { who: actorLabel(actor, getLang()) })} data-testid="ai-badge">
+      {label ?? t('AI')}
+    </span>
   );
 }

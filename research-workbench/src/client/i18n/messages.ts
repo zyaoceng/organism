@@ -142,8 +142,23 @@ const P: [RegExp, string][] = [
   [/^Security belongs to another project$/, '這個股票代號屬於另一家公司'],
   [/^(.+) must be YYYY-MM-DD$/, '$1 格式必須是 YYYY-MM-DD'],
   [/^(.+) must be a number$/, '$1 必須是數字'],
-  [/^(Project|Evidence|Catalyst|Trade|Review|Template|Security|Revision|Attachment|Note|Draft) not found$/, '找不到資料'],
+  [/^(Project|Evidence|Catalyst|Trade|Review|Template|Security|Revision|Attachment|Note|Draft|Draft history entry) not found$/, '找不到資料'],
   [/^Invalid (status|verification status|date precision|review subject)$/, '無效的值'],
+
+  // Server: who is acting, draft history, marks on Research Updates (schema v2)
+  [/^Who is writing could not be identified\. Reload the page; AI assistants must use the Research Workbench tools\.$/, '無法辨識是誰在修改。請重新載入頁面；AI 助理請用研究工作台的工具操作。'],
+  [/^The data was replaced \(imported\) since this page was opened\. Reload the page\.$/, '開啟這個頁面之後資料已被替換（匯入），請重新載入頁面。'],
+  [/^This entry no longer keeps the draft from before it\.$/, '這筆紀錄已經沒有保留之前的草稿。'],
+  [/^The saved draft is invalid$/, '保存的草稿有錯誤'],
+  [/^The earlier draft links evidence that was deleted since \((.+)\), so it cannot be recovered\.$/, '之前的草稿連結了後來被刪除的證據（$1），無法復原。'],
+  [/^opId and version are required$/, '需要指定紀錄和草稿版本'],
+  [/^Annotation kind must be excluded, included or note$/, '標記類型必須是 excluded、included 或 note'],
+  [/^The note is empty$/, '備註是空的'],
+  [/^The note is too long$/, '備註太長'],
+  [/^The starting snapshot has no estimates to exclude$/, '起始快照沒有預估值可以排除'],
+  [/^Cross-site request refused$/, '拒絕來自其他網站的請求'],
+  [/^Only an AI client can call this$/, '只有 AI 用戶端可以使用這個功能'],
+  [/^(evidenceIds|projectIds) must be a list of ids$/, '$1 必須是 id 清單'],
 
   // Market data
   [/^Unknown market data provider "(.+)"\. Available: (.+)$/, '沒有「$1」這個行情來源。可用的有：$2'],

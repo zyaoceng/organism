@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { addLink } from '../../domain/model/ops';
 import { LINK_RELATIONS, type LinkRelation } from '../../domain/model/types';
+import { actorLabel } from '../../shared/actors';
 import { SOURCE_TYPES, type AuditEntryDTO, type EvidenceDTO } from '../../shared/api';
-import { Field } from '../components/ui';
+import { AiBadge, Field } from '../components/ui';
 import { api } from '../lib/api';
 import { createAndLink, KIND_ICON, namedScreenshot } from '../lib/evidence';
-import { t, tm } from '../lib/i18n';
+import { getLang, t, tm } from '../lib/i18n';
 import { navigate } from '../lib/router';
 import { useWorkspace } from '../lib/store';
 import { cls, fmtDateTime } from '../lib/util';
@@ -69,6 +70,8 @@ export function EvidencePage({ param }: { param?: string }) {
                   <b className="ellipsis">{e.title}</b>
                   {e.archivedAt && <span className="badge">{t('archived')}</span>}
                   {e.verification && <span className={cls('badge', e.verification === 'verified' ? 'accent' : e.verification === 'disputed' ? 'err' : '')}>{t(e.verification)}</span>}
+                  <AiBadge actor={e.createdBy} />
+                  {e.publishedAtSource === 'agent-asserted' && <span className="badge warn" title={t('An AI gave this publication date; check it against the source.')}>{t('date given by AI')}</span>}
                 </div>
                 <div className="tiny sub">
                   {[t(SOURCE_TYPES.find((st) => st.value === e.sourceType)?.label ?? ''), e.sourceName, e.publishedAt && t('published {date}', { date: e.publishedAt }), t('added {date}', { date: e.addedAt.slice(0, 10) })].filter(Boolean).join(' · ')}
@@ -229,7 +232,13 @@ function EvidenceDetail({ ev }: { ev: EvidenceDTO }) {
         <div className="row">
           <span style={{ fontSize: 18 }}>{KIND_ICON[ev.kind]}</span>
           <h2 className="grow">{ev.title}</h2>
+          <AiBadge actor={ev.createdBy} />
         </div>
+        {ev.publishedAtSource === 'agent-asserted' && (
+          <div className="msg warn" style={{ margin: '4px 0' }} data-testid="agent-asserted-date">
+            {t('Publication date {date} was given by an AI ({who}); check it against the source.', { date: ev.publishedAt ?? '—', who: actorLabel(ev.createdBy, getLang()) })}
+          </div>
+        )}
         {ev.attachments
           .filter((a) => a.mimeType.startsWith('image/'))
           .map((a) => (
@@ -393,6 +402,7 @@ function EvidenceDetail({ ev }: { ev: EvidenceDTO }) {
             <details key={a.id}>
               <summary>
                 {fmtDateTime(a.at)} — {t(a.action)}
+                {a.actor && <span className="sub"> · {actorLabel(a.actor, getLang())}</span>}
               </summary>
               <pre className="tiny" style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(a.before, null, 1)}</pre>
             </details>

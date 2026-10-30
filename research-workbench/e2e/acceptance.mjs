@@ -6,6 +6,7 @@
  *
  * Uses the synthetic "demo" price provider so it runs offline. Screenshots: e2e/output/.
  * T1–T20 run in advanced mode (set below, only when nothing is saved); T21 switches to basic mode.
+ * T22 writes as an AI client with a token from tokens.json, so it runs only when this script started the server.
  * CHROME=/path/to/chrome overrides the browser executable.
  */
 import { spawn, execSync } from 'node:child_process';
@@ -85,6 +86,25 @@ const api = async (p, init) => {
   if (!r.ok) throw new Error(`${p}: ${r.status} ${await r.text()}`);
   return r.json();
 };
+/** A write as the user: through the page's request context, which carries the browser's session cookie. */
+async function userWrite(method, p, body) {
+  await page.request.get(`${BASE}/api/session`);
+  const r = await page.request.fetch(`${BASE}${p}`, { method, data: body ?? {} });
+  if (!r.ok()) throw new Error(`${method} ${p}: ${r.status()} ${await r.text()}`);
+  return r.json();
+}
+/** Writes as an AI client (or another token holder) named in `${dataDir}/tokens.json`; needs the server this script started. */
+function tokenWrite(name) {
+  if (!dataDir) throw new Error('tokenWrite needs the server started by this script (no BASE_URL)');
+  const token = JSON.parse(fs.readFileSync(path.join(dataDir, 'tokens.json'), 'utf8')).tokens[name];
+  if (!token) throw new Error(`no token "${name}" in tokens.json`);
+  return async (method, p, body) => {
+    const r = await fetch(`${BASE}${p}`, { method, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const text = await r.text();
+    if (!r.ok) throw new Error(`${method} ${p}: ${r.status} ${text}`);
+    return text ? JSON.parse(text) : null;
+  };
+}
 
 // ------------------------------------------------------------ helpers
 const row = (name, nth = 0) => page.getByTestId(`row-${name}`).nth(nth);
@@ -584,6 +604,51 @@ await test(21, 'Basic mode: four daily pages, Market inside Trades, simpler insp
   } finally {
     await p2.close();
   }
+});
+
+await test(22, 'An AI client edits the draft through its checked route; the open page picks it up', async () => {
+  if (!dataDir) {
+    console.log('      (skipped: needs the server started by this script, for tokens.json)');
+    return;
+  }
+  const ai = tokenWrite('claude-desktop');
+  await page.goto(`${BASE}/#/p/${projectId}/model`);
+  await page.getByTestId('tree').waitFor();
+  await waitSaved();
+  // a user write carries the browser's cookie and is recorded as the user
+  const note = await userWrite('POST', `/api/projects/${projectId}/notes`, { body: 'Checked the AI connection.' });
+  assert.equal(note.createdBy, 'user');
+  // the AI previews, then writes with the version the preview returned
+  const ops = [{ op: 'set_value', node: 'AI Market Share', period: 'FY2027', scenario: 'base', value: '33%' }];
+  const url = `/api/projects/${projectId}/draft/ops`;
+  const dry = await ai('POST', url, { ops, dryRun: true, rationale: 'e2e preview' });
+  assert.equal(dry.dryRun, true);
+  assert.match(dry.results[0].cells[0].after, /33\.0%/);
+  await assert.rejects(ai('POST', url, { ops: [{ ...ops[0], value: '33' }], expectedVersion: dry.version, rationale: 'no unit' }), /OP_FAILED.*百分比/);
+  await assert.rejects(ai('POST', url, { ops, rationale: 'no version' }), /EXPECTED_VERSION_REQUIRED/);
+  const res = await ai('POST', url, { ops, expectedVersion: dry.version, rationale: 'AI share 33% in 2027 (e2e)' });
+  assert.equal(res.dryRun, false);
+  assert.equal(res.version, dry.version + 1);
+  // the page polls every 10 s: a toast names the AI and the cell shows the new value
+  await page.getByTestId('toast').filter({ hasText: 'Claude' }).first().waitFor({ timeout: 15000 });
+  await row('AI Market Share').locator('.cell').nth(3).filter({ hasText: '33.0%' }).waitFor({ timeout: 15000 });
+  await snap('ai-edit-picked-up');
+  const history = await api(`/api/projects/${projectId}/draft/ops?limit=5`);
+  assert.equal(history[0].actor, 'agent:claude-desktop');
+  assert.equal(history[0].kind, 'ops');
+  await page.getByTestId('draft-history').click();
+  await page.getByTestId('draft-history-list').getByText('Claude Desktop').first().waitFor();
+  await page.getByTestId('draft-history').click();
+  // a plain draft PUT is refused for an AI: it must use the checked route
+  const b = await api(`/api/projects/${projectId}`);
+  await assert.rejects(ai('PUT', `/api/projects/${projectId}/draft`, { state: b.draft.state, version: b.draft.version }), /USE_DRAFT_OPS/);
+  // the settings page lists the AI clients and the text to paste
+  await page.goto(`${BASE}/`);
+  await page.getByTestId('open-settings').click();
+  await page.getByTestId('ai-client-claude-desktop').getByText(/connected \(\d\d:\d\d\)/).waitFor();
+  assert.match(await page.getByTestId('ai-client-claude-desktop').innerText(), /Claude Desktop/);
+  assert.match(await page.getByTestId('ai-instructions').locator('textarea').inputValue(), /research-workbench/);
+  await snap('settings');
 });
 
 await browser.close();

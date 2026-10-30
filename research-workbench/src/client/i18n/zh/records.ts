@@ -219,4 +219,26 @@ export const records: Record<string, string> = {
 
   // ---------------------------------------------------------------- charts
   'No values yet for this selection.': '此選擇尚無數值。',
+
+  // AI connection (M3): who recorded what, marks on Research Updates
+  'An AI gave this publication date; check it against the source.': '這個發布日期是 AI 給的，請對照原始來源確認。',
+  'date given by AI': 'AI 給的日期',
+  'Publication date {date} was given by an AI ({who}); check it against the source.': '發布日期 {date} 是 AI（{who}）給的，請對照原始來源確認。',
+  'Copied from an old trade journal': '從舊交易日誌匯入',
+  imported: '匯入',
+  'imported from an old journal': '從舊日誌匯入',
+  'Journal excerpt it was imported from': '匯入時的日誌原文',
+  'marked wrong': '已標記錯誤',
+  'A committed update cannot be changed or deleted; the mark only removes it from calibration.': '已提交的研究更新不能修改或刪除；標記只會把它排除在校準之外。',
+  'Why is #{seq} wrong? (kept with the mark; it is excluded from estimate evolution and calibration)': '#{seq} 錯在哪裡？（會和標記一起保存；它會被排除在預估演變與校準之外）',
+  'Mark as wrong (exclude from calibration)': '標記錯誤，校準時排除',
+  'committed by {who}': '提交者：{who}',
+  'Edits: {list}': '修改：{list}',
+  'Updates marked wrong are struck through and left out of the chart, the Δ and the calibration.': '標記錯誤的研究更新會加刪除線，不列入圖表、變動與校準。',
+  'Marked wrong: excluded from estimate evolution and calibration.': '已標記錯誤：不列入預估演變與校準。',
+  '{who}, {time}': '{who}，{time}',
+  'Undo the mark': '取消標記',
+  create: '新增',
+  draft_op: '草稿操作',
+  commit: '提交',
 };

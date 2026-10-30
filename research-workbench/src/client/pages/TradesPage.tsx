@@ -2,14 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { atr, atrAsOf, indexAtOrBefore, trailingStop, type Bar } from '../../domain/market/indicators';
 import { findByRole } from '../../domain/model/tree';
 import { tradeMetrics } from '../../domain/trade/metrics';
+import { actorLabel, isAgentActor } from '../../shared/actors';
 import type { ProviderDTO, TradeDTO } from '../../shared/api';
 import { QuoteCard, RANGES, SecurityCard } from '../components/MarketCards';
 import { PriceChart, type ChartMarker, type ChartPriceLine, type Overlay } from '../components/PriceChart';
-import { Advanced, Field } from '../components/ui';
+import { Advanced, AiBadge, Field } from '../components/ui';
 import { api } from '../lib/api';
 import { navigate } from '../lib/router';
 import { useWorkspace } from '../lib/store';
-import { t, tm, useLang } from '../lib/i18n';
+import { getLang, t, tm, useLang } from '../lib/i18n';
 import { useAdvanced } from '../lib/prefs';
 import { useBars } from '../lib/useBars';
 import { cls, pctText, today } from '../lib/util';
@@ -226,7 +227,10 @@ export function TradesPage() {
               const rev = revSeq(tr.revisionId);
               return (
                 <tr key={tr.id} className={cls(sel === tr.id && 'sel')} onClick={() => setSel(tr.id)} style={{ cursor: 'pointer' }}>
-                  <td className="l">{tr.entryDate}</td>
+                  <td className="l">
+                    {tr.entryDate} <AiBadge actor={tr.createdBy} />
+                    {tr.source === 'import' && <span className="badge" title={t('Copied from an old trade journal')}> {t('imported')}</span>}
+                  </td>
                   <td>{t(tr.side)}</td>
                   <td>{tr.entryPrice}</td>
                   <td>{tr.quantity}</td>
@@ -377,10 +381,24 @@ function TradeDetail({ t: tr, bars }: { t: TradeDTO; bars: Bar[] }) {
         <h2>
           {t('{side} {qty} @ {price} on {date}', { side: t(tr.side), qty: tr.quantity, price: tr.entryPrice, date: tr.entryDate })}
         </h2>
+        {isAgentActor(tr.createdBy) && (
+          <div className="small sub">
+            {t('Recorded by {who}', { who: actorLabel(tr.createdBy, getLang()) })}
+            {tr.source === 'import' && ` · ${t('imported from an old journal')}`}
+          </div>
+        )}
         <div className="small" style={{ whiteSpace: 'pre-wrap', margin: '6px 0' }}>
           <b>{t('Reason: ')}</b>
           {tr.entryReason || <span className="sub">—</span>}
         </div>
+        {tr.sourceText && (
+          <details className="small" style={{ margin: '6px 0' }}>
+            <summary>{t('Journal excerpt it was imported from')}</summary>
+            <div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }} data-testid="trade-source-text">
+              {tr.sourceText}
+            </div>
+          </details>
+        )}
         <table className="grid">
           <tbody>
             <tr>

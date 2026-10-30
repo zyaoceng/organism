@@ -12,9 +12,11 @@ import {
   type TemplateDTO,
   type TradeDTO,
 } from '../../shared/api';
+import { isAgentActor } from '../../shared/actors';
+import { currentActor, noteAiAction } from '../actor';
 import type { DB } from '../db/connection';
 import { toAttachmentDTO, type AttachmentRow } from '../storage/attachments';
-import { badRequest, conflict, isDate, newId, notFound, nowIso, parseJson } from '../util';
+import { badRequest, conflict, isDate, localToday, newId, notFound, nowIso, parseJson } from '../util';
 import { audit } from './audit';
 import { frozenTargetPrice, getDraftRow, getSecurity, revisionAsOf } from './projects';
 import { getBars } from './market';
@@ -34,6 +36,8 @@ interface EvidenceRow {
   verification: string | null;
   archived_at: string | null;
   updated_at: string;
+  created_by: string | null;
+  published_at_source: 'user' | 'agent-asserted' | null;
 }
 
 const SOURCE_TYPE_SET = new Set<string>(SOURCE_TYPES.map((s) => s.value));
@@ -61,8 +65,10 @@ function toEvidence(db: DB, r: EvidenceRow): EvidenceDTO {
     addedAt: r.added_at,
     notes: r.notes,
     verification: r.verification as EvidenceDTO['verification'],
+    publishedAtSource: r.published_at_source,
     archivedAt: r.archived_at,
     updatedAt: r.updated_at,
+    createdBy: r.created_by,
     kind,
     attachments: atts.map(toAttachmentDTO),
     revisionRefs: refs.map((x) => ({ revisionId: x.revision_id, seq: x.seq, kind: x.kind })),
@@ -113,8 +119,21 @@ function cleanEvidence(input: EvidenceInput, base?: EvidenceRow) {
   };
 }
 
+/**
+ * Who stands behind a publication date. An AI must give one (its knowledge of when something was
+ * published is an assertion, shown with a badge) and it cannot be in the future.
+ */
+function publishedAtSource(publishedAt: string | null): EvidenceDTO['publishedAtSource'] {
+  const actor = currentActor();
+  if (!isAgentActor(actor)) return publishedAt ? 'user' : null;
+  if (!publishedAt) throw badRequest('AI 新增證據必須填發布日期（published_at，YYYY-MM-DD）', { code: 'PUBLISHED_AT_REQUIRED' });
+  if (publishedAt > localToday()) throw badRequest(`發布日期 ${publishedAt} 在未來`, { code: 'FUTURE_DATE' });
+  return 'agent-asserted';
+}
+
 export function createEvidence(db: DB, projectId: string, input: EvidenceInput, attachmentIds: string[] = []): EvidenceDTO {
   const c = cleanEvidence(input);
+  const dateSource = publishedAtSource(c.published_at);
   if (!c.source_name && c.url) {
     try {
       c.source_name = new URL(c.url).hostname.replace(/^www\./, '');
@@ -128,19 +147,24 @@ export function createEvidence(db: DB, projectId: string, input: EvidenceInput, 
   if (!c.title) throw badRequest('Evidence needs a title, a URL, a file or a note');
   const id = newId('ev');
   const now = nowIso();
-  db.transaction(() => {
+  return db.transaction(() => {
     db.prepare(
-      'INSERT INTO evidence (id, project_id, title, source_name, source_type, url, published_at, added_at, notes, verification, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    ).run(id, projectId, c.title, c.source_name, c.source_type, c.url, c.published_at, now, c.notes, c.verification, now);
+      'INSERT INTO evidence (id, project_id, title, source_name, source_type, url, published_at, added_at, notes, verification, updated_at, created_by, published_at_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    ).run(id, projectId, c.title, c.source_name, c.source_type, c.url, c.published_at, now, c.notes, c.verification, now, currentActor(), dateSource);
     attachmentIds.forEach((a, i) => db.prepare('INSERT INTO evidence_attachments (evidence_id, attachment_id, position) VALUES (?, ?, ?)').run(id, a, i));
+    const dto = getEvidence(db, id);
+    audit(db, projectId, 'evidence', id, 'create', null, dto);
+    noteAiAction({ kind: 'evidence', projectId, ref: id, summary: `新增證據「${dto.title}」（${dto.publishedAt}）` });
+    return dto;
   })();
-  return getEvidence(db, id);
 }
 
 export function updateEvidence(db: DB, id: string, input: EvidenceInput): EvidenceDTO {
   const before = getEvidenceRow(db, id);
   const c = cleanEvidence(input, before);
   if (!c.title) throw badRequest('Evidence needs a title');
+  const dateChanged = c.published_at !== before.published_at;
+  const dateSource = dateChanged ? publishedAtSource(c.published_at) : before.published_at_source;
   if (c.published_at && c.published_at !== before.published_at) {
     const earliest = db
       .prepare('SELECT r.seq, r.as_of_date FROM revision_evidence re JOIN revisions r ON r.id = re.revision_id WHERE re.evidence_id = ? AND r.as_of_date IS NOT NULL ORDER BY r.as_of_date LIMIT 1')
@@ -149,12 +173,13 @@ export function updateEvidence(db: DB, id: string, input: EvidenceInput): Eviden
       throw badRequest(`Research Update #${earliest.seq} (knowledge date ${earliest.as_of_date}) already relies on this evidence; its publication date cannot be later than that.`);
     }
   }
-  db.prepare('UPDATE evidence SET title = ?, source_name = ?, source_type = ?, url = ?, published_at = ?, notes = ?, verification = ?, updated_at = ? WHERE id = ?').run(
+  db.prepare('UPDATE evidence SET title = ?, source_name = ?, source_type = ?, url = ?, published_at = ?, published_at_source = ?, notes = ?, verification = ?, updated_at = ? WHERE id = ?').run(
     c.title,
     c.source_name,
     c.source_type,
     c.url,
     c.published_at,
+    dateSource,
     c.notes,
     c.verification,
     nowIso(),
@@ -223,6 +248,7 @@ interface CatalystRow {
   node_ids_json: string;
   evidence_ids_json: string;
   revision_id: string | null;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -242,6 +268,7 @@ const toCatalyst = (r: CatalystRow): CatalystDTO => ({
   nodeIds: parseJson<string[]>(r.node_ids_json, []),
   evidenceIds: parseJson<string[]>(r.evidence_ids_json, []),
   revisionId: r.revision_id,
+  createdBy: r.created_by,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -258,7 +285,7 @@ export function listCatalysts(db: DB, projectId: string): CatalystDTO[] {
   );
 }
 
-export type CatalystInput = Partial<Omit<CatalystDTO, 'id' | 'projectId' | 'createdAt' | 'updatedAt'>>;
+export type CatalystInput = Partial<Omit<CatalystDTO, 'id' | 'projectId' | 'createdBy' | 'createdAt' | 'updatedAt'>>;
 
 function cleanCatalyst(db: DB, projectId: string, input: CatalystInput, base?: CatalystDTO): CatalystDTO {
   const next = { ...(base ?? ({} as CatalystDTO)), ...Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) } as CatalystDTO;
@@ -293,10 +320,12 @@ export function createCatalyst(db: DB, projectId: string, input: CatalystInput):
   const id = newId('cat');
   const now = nowIso();
   db.prepare(
-    `INSERT INTO catalysts (id, project_id, title, type, expected_date, date_precision, actual_date, status, expected_outcome, actual_outcome, notes, node_ids_json, evidence_ids_json, revision_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(id, projectId, c.title, c.type, c.expectedDate, c.datePrecision, c.actualDate, c.status, c.expectedOutcome, c.actualOutcome, c.notes, JSON.stringify(c.nodeIds), JSON.stringify(c.evidenceIds), c.revisionId, now, now);
-  return toCatalyst(getCatalystRow(db, id));
+    `INSERT INTO catalysts (id, project_id, title, type, expected_date, date_precision, actual_date, status, expected_outcome, actual_outcome, notes, node_ids_json, evidence_ids_json, revision_id, created_at, updated_at, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, projectId, c.title, c.type, c.expectedDate, c.datePrecision, c.actualDate, c.status, c.expectedOutcome, c.actualOutcome, c.notes, JSON.stringify(c.nodeIds), JSON.stringify(c.evidenceIds), c.revisionId, now, now, currentActor());
+  const dto = toCatalyst(getCatalystRow(db, id));
+  audit(db, projectId, 'catalyst', id, 'create', null, dto);
+  return dto;
 }
 
 export function updateCatalyst(db: DB, id: string, input: CatalystInput): CatalystDTO {
@@ -338,6 +367,10 @@ interface TradeRow {
   exit_reason: string;
   fees: number;
   notes: string;
+  created_by: string | null;
+  source: 'entry' | 'import' | null;
+  external_ref: string | null;
+  source_text: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -361,21 +394,44 @@ const toTrade = (r: TradeRow): TradeDTO => ({
   exitReason: r.exit_reason,
   fees: r.fees,
   notes: r.notes,
+  createdBy: r.created_by,
+  source: r.source,
+  externalRef: r.external_ref,
+  sourceText: r.source_text,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
 
-function getTradeRow(db: DB, id: string): TradeRow {
+export function getTradeRow(db: DB, id: string): TradeRow {
   const r = db.prepare('SELECT * FROM trades WHERE id = ?').get(id) as TradeRow | undefined;
   if (!r) throw notFound('Trade');
   return r;
+}
+
+export function getTrade(db: DB, id: string): TradeDTO {
+  return toTrade(getTradeRow(db, id));
 }
 
 export function listTrades(db: DB, projectId: string): TradeDTO[] {
   return (db.prepare('SELECT * FROM trades WHERE project_id = ? ORDER BY entry_date DESC, created_at DESC').all(projectId) as TradeRow[]).map(toTrade);
 }
 
-export type TradeInput = Partial<Omit<TradeDTO, 'id' | 'projectId' | 'createdAt' | 'updatedAt'>>;
+/** The trade imported from this journal excerpt (jrnl:<hash>), if any. */
+export function tradeByExternalRef(db: DB, ref: string): TradeDTO | null {
+  const r = db.prepare('SELECT * FROM trades WHERE external_ref = ?').get(ref) as TradeRow | undefined;
+  return r ? toTrade(r) : null;
+}
+
+export type TradeInput = Partial<Omit<TradeDTO, 'id' | 'projectId' | 'createdBy' | 'source' | 'externalRef' | 'sourceText' | 'createdAt' | 'updatedAt'>>;
+
+export interface CreateTradeOptions {
+  source?: 'entry' | 'import';
+  /** jrnl:<hash> of the journal excerpt (unique across all companies). */
+  externalRef?: string | null;
+  sourceText?: string | null;
+  /** Imported trades keep only what the journal says: no default target, ATR or stop. */
+  noDefaults?: boolean;
+}
 
 const numOrNull = (v: unknown) => (v === null || v === undefined || v === '' ? null : Number(v));
 
@@ -398,7 +454,7 @@ function validateTrade(t: TradeDTO) {
  * or before the entry date (no look-ahead); target price and ATR default from that snapshot and
  * from cached bars up to the entry date.
  */
-export function createTrade(db: DB, projectId: string, input: TradeInput): TradeDTO {
+export function createTrade(db: DB, projectId: string, input: TradeInput, opts: CreateTradeOptions = {}): TradeDTO {
   const securityId = input.securityId ?? (db.prepare('SELECT id FROM securities WHERE project_id = ? ORDER BY is_primary DESC LIMIT 1').get(projectId) as { id: string } | undefined)?.id;
   if (!securityId) throw badRequest('The project has no security');
   const security = getSecurity(db, securityId);
@@ -406,21 +462,24 @@ export function createTrade(db: DB, projectId: string, input: TradeInput): Trade
   const entryDate = input.entryDate ?? '';
   if (!isDate(entryDate)) throw badRequest('Entry date must be YYYY-MM-DD');
   const rev = input.revisionId ? checkTradeRevision(db, projectId, input.revisionId, entryDate) : revisionAsOf(db, projectId, entryDate);
+  const defaults = !opts.noDefaults;
   let targetPrice = numOrNull(input.targetPriceAtEntry);
-  if (targetPrice === null && rev) {
+  if (targetPrice === null && rev && defaults) {
     const row = db.prepare('SELECT * FROM revisions WHERE id = ?').get(rev.id) as Parameters<typeof frozenTargetPrice>[0];
     targetPrice = frozenTargetPrice(row).base;
   }
   let atrValue = numOrNull(input.atrAtEntry);
-  if (atrValue === null) {
+  if (atrValue === null && defaults) {
     const bars = getBars(db, securityId, security.priceSource);
     atrValue = bars.length ? atrAsOf(bars, entryDate, 14) : null;
   }
-  const atrMultiple = numOrNull(input.atrMultiple) ?? 2;
+  const atrMultiple = numOrNull(input.atrMultiple) ?? (defaults ? 2 : null);
   const entryPrice = Number(input.entryPrice);
   const side = input.side ?? 'long';
   let stop = numOrNull(input.stopAtEntry);
-  if (stop === null && atrValue !== null && entryPrice > 0) stop = side === 'long' ? entryPrice - atrMultiple * atrValue : entryPrice + atrMultiple * atrValue;
+  if (stop === null && atrValue !== null && atrMultiple !== null && entryPrice > 0 && defaults) {
+    stop = side === 'long' ? entryPrice - atrMultiple * atrValue : entryPrice + atrMultiple * atrValue;
+  }
   const now = nowIso();
   const t: TradeDTO = {
     id: newId('trd'),
@@ -441,15 +500,48 @@ export function createTrade(db: DB, projectId: string, input: TradeInput): Trade
     exitReason: input.exitReason ?? '',
     fees: Number(input.fees ?? 0) || 0,
     notes: input.notes ?? '',
+    createdBy: currentActor(),
+    source: opts.source ?? 'entry',
+    externalRef: opts.externalRef ?? null,
+    sourceText: opts.sourceText ?? null,
     createdAt: now,
     updatedAt: now,
   };
   validateTrade(t);
-  db.prepare(
-    `INSERT INTO trades (id, project_id, security_id, side, entry_date, entry_price, quantity, entry_reason, target_price_at_entry, stop_at_entry, atr_at_entry, atr_multiple, revision_id, exit_date, exit_price, exit_reason, fees, notes, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(t.id, projectId, securityId, t.side, t.entryDate, t.entryPrice, t.quantity, t.entryReason, t.targetPriceAtEntry, t.stopAtEntry, t.atrAtEntry, t.atrMultiple, t.revisionId, t.exitDate, t.exitPrice, t.exitReason, t.fees, t.notes, now, now);
-  return toTrade(getTradeRow(db, t.id));
+  return db.transaction(() => {
+    db.prepare(
+      `INSERT INTO trades (id, project_id, security_id, side, entry_date, entry_price, quantity, entry_reason, target_price_at_entry, stop_at_entry, atr_at_entry, atr_multiple, revision_id, exit_date, exit_price, exit_reason, fees, notes, created_at, updated_at, created_by, source, external_ref, source_text)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      t.id,
+      projectId,
+      securityId,
+      t.side,
+      t.entryDate,
+      t.entryPrice,
+      t.quantity,
+      t.entryReason,
+      t.targetPriceAtEntry,
+      t.stopAtEntry,
+      t.atrAtEntry,
+      t.atrMultiple,
+      t.revisionId,
+      t.exitDate,
+      t.exitPrice,
+      t.exitReason,
+      t.fees,
+      t.notes,
+      now,
+      now,
+      t.createdBy,
+      t.source,
+      t.externalRef,
+      t.sourceText,
+    );
+    const dto = toTrade(getTradeRow(db, t.id));
+    audit(db, projectId, 'trade', t.id, 'create', null, dto);
+    return dto;
+  })();
 }
 
 /** A trade may only reference research that was known on its entry date. */
@@ -466,7 +558,7 @@ export function updateTrade(db: DB, id: string, input: TradeInput): TradeDTO {
   const before = toTrade(getTradeRow(db, id));
   const next: TradeDTO = { ...before };
   for (const [k, v] of Object.entries(input)) {
-    if (v === undefined || k === 'id' || k === 'projectId' || k === 'securityId' || k === 'revisionId') continue;
+    if (v === undefined || ['id', 'projectId', 'securityId', 'revisionId', 'createdBy', 'source', 'externalRef', 'sourceText', 'createdAt', 'updatedAt'].includes(k)) continue;
     (next as unknown as Record<string, unknown>)[k] = v;
   }
   // The research snapshot follows the entry date unless one is chosen explicitly (and valid then).
@@ -492,10 +584,11 @@ export function deleteTrade(db: DB, id: string) {
 
 // ---------------------------------------------------------------- notes
 
-const toNote = (r: { id: string; project_id: string; body: string; created_at: string; updated_at: string }): NoteDTO => ({
+const toNote = (r: { id: string; project_id: string; body: string; created_by: string | null; created_at: string; updated_at: string }): NoteDTO => ({
   id: r.id,
   projectId: r.project_id,
   body: r.body,
+  createdBy: r.created_by,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -508,8 +601,11 @@ export function createNote(db: DB, projectId: string, body: string): NoteDTO {
   if (!body.trim()) throw badRequest('Note is empty');
   const id = newId('note');
   const now = nowIso();
-  db.prepare('INSERT INTO notes (id, project_id, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').run(id, projectId, body, now, now);
-  return toNote(db.prepare('SELECT * FROM notes WHERE id = ?').get(id) as Parameters<typeof toNote>[0]);
+  db.prepare('INSERT INTO notes (id, project_id, body, created_at, updated_at, created_by) VALUES (?, ?, ?, ?, ?, ?)').run(id, projectId, body, now, now, currentActor());
+  const dto = toNote(db.prepare('SELECT * FROM notes WHERE id = ?').get(id) as Parameters<typeof toNote>[0]);
+  audit(db, projectId, 'note', id, 'create', null, dto);
+  noteAiAction({ kind: 'note', projectId, ref: id, summary: `新增筆記：${body.trim().slice(0, 60)}` });
+  return dto;
 }
 
 export function updateNote(db: DB, id: string, body: string): NoteDTO {
@@ -541,6 +637,7 @@ interface ReviewRow {
   thesis_verdict: string | null;
   execution_verdict: string | null;
   lessons: string;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -556,6 +653,7 @@ const toReview = (r: ReviewRow): ReviewDTO => ({
   thesisVerdict: r.thesis_verdict as ReviewDTO['thesisVerdict'],
   executionVerdict: r.execution_verdict as ReviewDTO['executionVerdict'],
   lessons: r.lessons,
+  createdBy: r.created_by,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -564,7 +662,7 @@ export function listReviews(db: DB, projectId: string): ReviewDTO[] {
   return (db.prepare('SELECT * FROM reviews WHERE project_id = ? ORDER BY created_at DESC').all(projectId) as ReviewRow[]).map(toReview);
 }
 
-export type ReviewInput = Partial<Omit<ReviewDTO, 'id' | 'projectId' | 'createdAt' | 'updatedAt'>>;
+export type ReviewInput = Partial<Omit<ReviewDTO, 'id' | 'projectId' | 'createdBy' | 'createdAt' | 'updatedAt'>>;
 
 function cleanReview(input: ReviewInput, base?: ReviewDTO): ReviewDTO {
   const next = { ...(base ?? ({} as ReviewDTO)), ...Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) } as ReviewDTO;
@@ -586,9 +684,11 @@ export function createReview(db: DB, projectId: string, input: ReviewInput): Rev
   const id = newId('rvw');
   const now = nowIso();
   db.prepare(
-    'INSERT INTO reviews (id, project_id, subject_type, subject_id, title, outcome, categories_json, thesis_verdict, execution_verdict, lessons, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-  ).run(id, projectId, r.subjectType, r.subjectId, r.title, r.outcome, JSON.stringify(r.categories), r.thesisVerdict, r.executionVerdict, r.lessons, now, now);
-  return toReview(db.prepare('SELECT * FROM reviews WHERE id = ?').get(id) as ReviewRow);
+    'INSERT INTO reviews (id, project_id, subject_type, subject_id, title, outcome, categories_json, thesis_verdict, execution_verdict, lessons, created_at, updated_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  ).run(id, projectId, r.subjectType, r.subjectId, r.title, r.outcome, JSON.stringify(r.categories), r.thesisVerdict, r.executionVerdict, r.lessons, now, now, currentActor());
+  const dto = toReview(db.prepare('SELECT * FROM reviews WHERE id = ?').get(id) as ReviewRow);
+  audit(db, projectId, 'review', id, 'create', null, dto);
+  return dto;
 }
 
 export function updateReview(db: DB, id: string, input: ReviewInput): ReviewDTO {

@@ -5,7 +5,7 @@ import { Advanced, AdvancedToggle, Field, LangToggle } from '../components/ui';
 import { api } from '../lib/api';
 import { getLang, t, tm, useLang } from '../lib/i18n';
 import { providerVisible, useAdvanced } from '../lib/prefs';
-import { navigate } from '../lib/router';
+import { href, navigate } from '../lib/router';
 import { useWorkspace } from '../lib/store';
 import { timeAgo } from '../lib/util';
 
@@ -58,6 +58,9 @@ export function ProjectsPage() {
               <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> {t('show archived')}
             </label>
             <AdvancedToggle />
+            <a className="btn" href={href({ page: 'settings' })} data-testid="open-settings" title={t('AI connections, backups and version')}>
+              {t('Settings')}
+            </a>
             <button className="btn primary" onClick={() => setCreating(!creating)} data-testid="new-project">
               {t('+ New company')}
             </button>

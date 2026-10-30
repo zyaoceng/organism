@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase, schemaVersion, type DB } from './db/connection';
-import { MIGRATIONS } from './db/migrations';
+import { MIGRATIONS, SCHEMA_VERSION } from './db/migrations';
 import { BackupService, fileStamp } from './services/backup';
 
 let dir: string;
@@ -139,13 +139,14 @@ describe('opening a database', () => {
     expect(fs.existsSync(backupsDir())).toBe(false);
     withProject(path.join(dir, 'other.db')).close();
 
-    MIGRATIONS.push({ version: 2, name: 'test only', sql: 'CREATE TABLE extra (x TEXT);' });
+    const next = SCHEMA_VERSION + 1;
+    MIGRATIONS.push({ version: next, name: 'test only', sql: 'CREATE TABLE extra (x TEXT);' });
     try {
       db = openDatabase(path.join(dir, 'other.db'), { backupDir: backupsDir(), now });
-      expect(schemaVersion(db)).toBe(2);
-      expect(ls(backupsDir())).toEqual(['pre-v2-20261030-090507.db']);
-      readOnly(path.join(backupsDir(), 'pre-v2-20261030-090507.db'), (d) => {
-        expect(schemaVersion(d)).toBe(1);
+      expect(schemaVersion(db)).toBe(next);
+      expect(ls(backupsDir())).toEqual([`pre-v${next}-20261030-090507.db`]);
+      readOnly(path.join(backupsDir(), `pre-v${next}-20261030-090507.db`), (d) => {
+        expect(schemaVersion(d)).toBe(SCHEMA_VERSION);
         expect(d.prepare('SELECT name FROM projects').all()).toEqual([{ name: 'Lite-On' }]);
       });
       db.close();

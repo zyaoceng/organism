@@ -5,15 +5,26 @@ export class HttpError extends Error {
     public readonly status: number,
     message: string,
     public readonly details?: unknown,
+    /** Machine-readable reason (NO_ACTOR, VERSION_MISMATCH…); defaults to details.code. */
+    public readonly code?: string,
   ) {
     super(message);
     this.name = 'HttpError';
   }
 }
 
+/** `details` may carry `{ code }`; the error handler sends it as the response's `code`. */
 export const badRequest = (msg: string, details?: unknown) => new HttpError(400, msg, details);
 export const notFound = (what: string) => new HttpError(404, `${what} not found`);
 export const conflict = (msg: string, details?: unknown) => new HttpError(409, msg, details);
+export const forbidden = (msg: string, details?: unknown) => new HttpError(403, msg, details);
+
+/** The code of an HttpError: its own, or `details.code`. */
+export function errorCode(err: HttpError): string | null {
+  if (err.code) return err.code;
+  const d = err.details as { code?: unknown } | null | undefined;
+  return d && typeof d === 'object' && typeof d.code === 'string' ? d.code : null;
+}
 
 export const nowIso = () => new Date().toISOString();
 

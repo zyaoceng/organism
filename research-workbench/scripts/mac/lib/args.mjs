@@ -19,6 +19,7 @@ export const HELP = `研究工作台 Mac 安裝程式 / Research Workbench Mac i
   --yes, -y           不詢問，使用預設答案 / no prompts, take the default answers
   --source-dir <dir>  從本機資料夾安裝（CI 用；也可設 WB_SOURCE_DIR）/ install from a local checkout
   --no-launchd        不建立背景服務與 App（CI／Linux）/ skip the LaunchAgent and launcher
+  --no-register       不登記到 Claude／ChatGPT / do not register with the AI apps
 `;
 
 export class ArgsError extends Error {}
@@ -44,6 +45,7 @@ export function parseInstallArgs(argv, env = {}) {
         yes: { type: 'boolean', short: 'y' },
         'source-dir': { type: 'string' },
         'no-launchd': { type: 'boolean' },
+        'no-register': { type: 'boolean' },
         help: { type: 'boolean', short: 'h' },
       },
     }));
@@ -70,5 +72,6 @@ export function parseInstallArgs(argv, env = {}) {
     yes: !!values.yes,
     sourceDir: src ? path.resolve(src) : null,
     noLaunchd: !!values['no-launchd'],
+    noRegister: !!values['no-register'],
   };
 }

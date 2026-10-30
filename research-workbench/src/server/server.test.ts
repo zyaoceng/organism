@@ -8,8 +8,10 @@ import { SCALAR_KEY, type ModelState } from '../domain/model/types';
 import { fill, idByName } from '../domain/testing/sample';
 import type { Bar } from '../domain/market/indicators';
 import type { BarsResponse, EvidenceDTO, ProjectBundleDTO, QuoteResponse, RevisionFull, RevisionMeta, SeriesPoint, TradeDTO } from '../shared/api';
+import type { TokenName } from '../shared/actors';
 import { buildApp, type AppContext } from './app';
 import { openDatabase } from './db/connection';
+import { MIGRATIONS, SCHEMA_VERSION } from './db/migrations';
 import { CsvProvider } from './market/csv';
 import { DemoProvider } from './market/demo';
 import { MarketDataError, type MarketDataProvider } from './market/provider';
@@ -46,11 +48,17 @@ afterEach(async () => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-async function api<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', url: string, payload?: unknown, expectStatus = 200): Promise<T> {
-  const res = await ctx.app.inject({ method, url, payload: payload as object | undefined });
+type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+/** A request as `who` (the user by default), with that caller's token from tokens.json. */
+async function apiAs<T>(who: TokenName, method: Method, url: string, payload?: unknown, expectStatus = 200): Promise<T> {
+  const res = await ctx.app.inject({ method, url, payload: payload as object | undefined, headers: { authorization: `Bearer ${ctx.tokens.tokens[who]}` } });
   if (res.statusCode !== expectStatus) throw new Error(`${method} ${url} → ${res.statusCode}: ${res.body}`);
   return res.json() as T;
 }
+
+const api = <T>(method: Method, url: string, payload?: unknown, expectStatus = 200) => apiAs<T>('user', method, url, payload, expectStatus);
+const auth = () => ({ authorization: `Bearer ${ctx.tokens.tokens.user}` });
 
 function multipart(fields: Record<string, string>, files: { name: string; filename: string; type: string; data: Buffer }[]) {
   const boundary = `----wbtest${Math.random().toString(16).slice(2)}`;
@@ -243,7 +251,7 @@ describe('evidence attachments', () => {
     const pid = b.project.id;
     const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
     const mp = multipart({ notes: 'Qualification screenshot', publishedAt: '2026-09-25' }, [{ name: 'file', filename: '客戶認證截圖.png', type: 'image/png', data: png }]);
-    const res = await ctx.app.inject({ method: 'POST', url: `/api/projects/${pid}/evidence`, payload: mp.payload, headers: mp.headers });
+    const res = await ctx.app.inject({ method: 'POST', url: `/api/projects/${pid}/evidence`, payload: mp.payload, headers: { ...mp.headers, ...auth() } });
     expect(res.statusCode).toBe(200);
     const ev = res.json() as EvidenceDTO;
     expect(ev.kind).toBe('image');
@@ -261,7 +269,7 @@ describe('evidence attachments', () => {
 
     // an HTML upload is never rendered inline on the app origin
     const html = multipart({ title: 'Saved page' }, [{ name: 'file', filename: 'page.html', type: 'text/html', data: Buffer.from('<script>alert(1)</script>') }]);
-    const r2 = await ctx.app.inject({ method: 'POST', url: `/api/projects/${pid}/evidence`, payload: html.payload, headers: html.headers });
+    const r2 = await ctx.app.inject({ method: 'POST', url: `/api/projects/${pid}/evidence`, payload: html.payload, headers: { ...html.headers, ...auth() } });
     const ev2 = r2.json() as EvidenceDTO;
     expect(ev2.kind).toBe('file');
     const c2 = await ctx.app.inject({ method: 'GET', url: ev2.attachments[0].url });
@@ -271,7 +279,7 @@ describe('evidence attachments', () => {
 
     // same bytes uploaded twice share storage but keep their own names
     const again = multipart({}, [{ name: 'file', filename: 'copy.png', type: 'image/png', data: png }]);
-    const r3 = await ctx.app.inject({ method: 'POST', url: `/api/evidence/${ev.id}/files`, payload: again.payload, headers: again.headers });
+    const r3 = await ctx.app.inject({ method: 'POST', url: `/api/evidence/${ev.id}/files`, payload: again.payload, headers: { ...again.headers, ...auth() } });
     const ev3 = r3.json() as EvidenceDTO;
     expect(ev3.attachments).toHaveLength(2);
     expect(ev3.attachments[1].sha256).toBe(ev3.attachments[0].sha256);
@@ -315,7 +323,7 @@ describe('market data, snapshots and trades', () => {
 
     const csv = 'Date,Open,High,Low,Close,Adj Close,Volume\n2026-09-01,270,275,268,272,272,1000\n2026/09/02,272,280,271,279,279,1200\nbad,row\n';
     const mp = multipart({}, [{ name: 'file', filename: '2301.csv', type: 'text/csv', data: Buffer.from(csv) }]);
-    const imp = await ctx.app.inject({ method: 'POST', url: `/api/securities/${sec.id}/bars/import`, payload: mp.payload, headers: mp.headers });
+    const imp = await ctx.app.inject({ method: 'POST', url: `/api/securities/${sec.id}/bars/import`, payload: mp.payload, headers: { ...mp.headers, ...auth() } });
     expect(imp.json()).toMatchObject({ imported: 2, skipped: 1, first: '2026-09-01', last: '2026-09-02' });
     const csvBars = await api<BarsResponse>('GET', `/api/securities/${sec.id}/bars?provider=csv`);
     expect(csvBars.bars.map((x) => x.close)).toEqual([272, 279]);
@@ -328,9 +336,12 @@ describe('market data, snapshots and trades', () => {
     const pid = b.project.id;
     const sec = b.securities[0];
     await api('GET', `/api/securities/${sec.id}/quote`);
+    await api('GET', `/api/securities/${sec.id}/bars`);
     const d = await saveDraft(pid, populate(b.draft.state), b.draft.version);
     const r = await commit(pid, d.version);
-    expect(r.market!.provider).toBe('demo');
+    // a backdated knowledge date records that day's close, not today's quote
+    expect(r.market).toMatchObject({ provider: 'demo', basis: 'bar' });
+    expect(r.market!.asOf.slice(0, 10) <= '2026-09-20').toBe(true);
     const before = await api<RevisionFull>('GET', `/api/projects/${pid}/revisions/${r.id}`);
     // new market data arrives
     ctx.db.prepare('UPDATE quotes SET price = price * 2, fetched_at = ? WHERE security_id = ?').run(new Date().toISOString(), sec.id);
@@ -368,8 +379,9 @@ describe('market data, snapshots and trades', () => {
     const closed = await api<TradeDTO>('PATCH', `/api/trades/${t.id}`, { exitDate: '2026-09-24', exitPrice: 110, exitReason: 'Trailing stop' });
     expect(closed.exitPrice).toBe(110);
     await api('PATCH', `/api/trades/${t.id}`, { exitDate: '2026-09-01' }, 400);
-    const log = await api<{ action: string }[]>('GET', `/api/projects/${pid}/audit?entityId=${t.id}`);
-    expect(log).toHaveLength(1);
+    const log = await api<{ action: string; actor: string }[]>('GET', `/api/projects/${pid}/audit?entityId=${t.id}`);
+    expect(log.map((l) => l.action)).toEqual(['update', 'create']);
+    expect(log.map((l) => l.actor)).toEqual(['user', 'user']);
     // a trade before any knowledge-dated research has no snapshot
     const t3 = await api<TradeDTO>('POST', `/api/projects/${pid}/trades`, { entryDate: '2026-09-01', entryPrice: 100, quantity: 1 });
     expect(t3.revisionId).toBeNull();
@@ -467,10 +479,28 @@ describe('catalysts, notes, reviews, templates, export, migrations', () => {
     const a = openDatabase(file);
     a.close();
     const b = openDatabase(file);
-    const rows = b.prepare('SELECT version FROM schema_migrations').all();
-    expect(rows).toEqual([{ version: 1 }]);
+    const rows = b.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
+    expect(rows).toEqual(MIGRATIONS.map((m) => ({ version: m.version })));
     const tables = (b.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all() as { name: string }[]).map((r) => r.name);
-    expect(tables).toEqual(expect.arrayContaining(['projects', 'revisions', 'drafts', 'evidence', 'attachments', 'catalysts', 'trades', 'price_bars', 'quotes', 'audit_log']));
+    expect(tables).toEqual(
+      expect.arrayContaining([
+        'projects',
+        'revisions',
+        'drafts',
+        'evidence',
+        'attachments',
+        'catalysts',
+        'trades',
+        'price_bars',
+        'quotes',
+        'audit_log',
+        'draft_ops',
+        'ai_sessions',
+        'ai_clients',
+        'revision_annotations',
+        'db_meta',
+      ]),
+    );
     b.close();
   });
 });
@@ -510,7 +540,12 @@ describe('host and origin check', () => {
       expect((await get('127.0.0.1:4311')).statusCode).toBe(403);
 
       const create = (origin: string) =>
-        g.app.inject({ method: 'POST', url: '/api/projects', headers: { host: '127.0.0.1:4310', origin }, payload: { name: 'X', security: { ticker: '1', priceSource: 'demo' } } });
+        g.app.inject({
+          method: 'POST',
+          url: '/api/projects',
+          headers: { host: '127.0.0.1:4310', origin, authorization: `Bearer ${g.tokens.tokens.user}` },
+          payload: { name: 'X', security: { ticker: '1', priceSource: 'demo' } },
+        });
       expect((await create('http://127.0.0.1:4310')).statusCode).toBe(200);
       expect((await create('http://localhost:4310')).statusCode).toBe(200);
       expect((await create('app://obsidian.md')).statusCode).toBe(200);
@@ -545,10 +580,11 @@ describe('version and diagnostics', () => {
         platform: process.platform,
         dataDir,
         dbFile: path.join(dataDir, 'workbench.db'),
-        schemaVersion: 1,
+        schemaVersion: SCHEMA_VERSION,
         backups: { count: 1, dir: path.join(dataDir, 'backups'), lastError: null },
-        clients: [],
       });
+      expect(diag.clients.map((c: { client: string }) => c.client)).toEqual(['claude-desktop', 'claude-code', 'chatgpt']);
+      expect(diag.clients.every((c: { lastSeenAt: string | null }) => c.lastSeenAt === null)).toBe(true);
       expect(diag.backups.lastBackupAt).toEqual(expect.any(String));
       expect(diag.uptimeSec).toBeGreaterThanOrEqual(0);
     } finally {
@@ -589,7 +625,7 @@ describe('main.ts', () => {
     child.kill('SIGTERM');
     expect(await exited).toBe(0);
     // closed cleanly: the write-ahead log was checkpointed and removed; the startup backup is complete
-    expect(fs.readdirSync(dataDir).sort()).toEqual(['attachments', 'backups', 'workbench.db']);
+    expect(fs.readdirSync(dataDir).sort()).toEqual(['attachments', 'backups', 'tokens.json', 'workbench.db']);
     expect(fs.readdirSync(path.join(dataDir, 'backups', 'daily'))).toEqual([expect.stringMatching(/^workbench-\d{8}-\d{6}\.db$/)]);
   }, 30_000);
 });

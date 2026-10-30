@@ -4,18 +4,20 @@
  * this file with it; it uses only Node built-ins and the pure helpers in ./lib, so it works before
  * `npm ci`.
  *
- *   install.mjs [--yes] [--port <n>] [--import <wb-data.tgz>]     install, or update to release.json's commit
+ *   install.mjs [--yes] [--port <n>] [--import <wb-data.tgz>] [--no-register]   install, or update to release.json's commit
  *   install.mjs --dry-run | --doctor | --uninstall [--purge]
  *   install.mjs --source-dir <checkout> [--no-launchd]             CI: install a local checkout
  *
  * Re-running is the update: the new version is built in its own ~/ResearchWorkbench/app-<sha7>
  * folder next to the running one, `current` is switched over, and if /api/health does not answer
  * within 60 s the previous version, its LaunchAgent and the database as it was before the switch are
- * put back. Environment overrides (tests and install.sh):
+ * put back. After that the AI apps found on this Mac are pointed at the MCP adapter (lib/register.mjs).
+ * Environment overrides (tests and install.sh):
  * WB_SOURCE_DIR, WB_RELEASE_COMMIT (skip reading release.json), WB_NODE (the Node the service runs).
  */
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -25,8 +27,9 @@ import { launchAgent, parseLaunchctlPrint, parseLsof, parsePrintDisabled, render
 import { launcherScript, osacompileArgs } from './lib/launcher.mjs';
 import { APP_NAME, DEFAULT_PORT, ONE_LINER, appDirName, importedArchiveName, layout, shouldCopy, tilde } from './lib/layout.mjs';
 import { appDirsToDelete } from './lib/prune.mjs';
+import { detectTargets, registerAll, registrationStatus } from './lib/register.mjs';
 import { ReleaseError, isCommit, parseRelease, releaseUrl, tarExtractArgs, tarballUrl } from './lib/release.mjs';
-import { finalMessage, formatBytes, formatDoctorReport, formatImportSummary, lastJsonLine, summarizeDiagnostics } from './lib/report.mjs';
+import { finalMessage, formatBytes, formatDoctorReport, formatImportSummary, lastJsonLine, registrationCheck, summarizeDiagnostics } from './lib/report.mjs';
 import { nodeForMacos } from './lib/system.mjs';
 
 class InstallError extends Error {
@@ -42,6 +45,7 @@ const MARKER = '.wb-install.json';
 const say = (zh, en) => console.log(`==> ${zh} / ${en}`);
 const ok = (zh, en) => console.log(`    OK  ${zh} / ${en}`);
 const warn = (zh, en) => console.log(`    !!  ${zh} / ${en}`);
+const info = (zh, en) => console.log(`    --  ${zh} / ${en}`);
 const plan = (zh, en) => console.log(`    [dry-run] ${zh} / ${en}`);
 const fail = (zh, en, details) => {
   throw new InstallError(zh, en, details);
@@ -569,6 +573,12 @@ function buildLauncher(L, port) {
   }
 }
 
+/** smol-toml from the installed app's node_modules (this script itself runs before `npm ci`). */
+const tomlLoader = (L) => () => createRequire(path.join(L.current, 'package.json'))('smol-toml');
+
+/** pgrep, osascript and the claude CLI; the CLI may be a Node script, which finds the bundled Node first. */
+const runForApps = (cmd, args, opts = {}) => run(cmd, args, { env: childEnv(), ...opts });
+
 // ------------------------------------------------------------ install
 
 /** In a dry run install.sh has not created runtime/current yet (it runs us from a temporary Node), so a missing one is fine. */
@@ -743,8 +753,16 @@ async function install(o, L, settings) {
     }
     ciOutput('launcher', launcher ? 'ok' : 'off');
 
-    // g. how to use it
-    console.log(finalMessage({ L, port, launcher, launchd: service === 'ok' }));
+    // g. the AI apps; after the health check, so the server has written tokens.json
+    let registration = null;
+    if (!o.noRegister) {
+      say('登記到 Claude 與 ChatGPT', 'registering the MCP adapter with the AI apps');
+      registration = await registerAll({ layout: L, port, loadToml: tomlLoader(L), run: runForApps, ask: (q, d) => ask(o, q, d), log: { ok, warn, info } });
+    }
+    ciOutput('register', registration ? registration.map((r) => `${r.target}:${r.status}`).join(',') : 'off');
+
+    // h. how to use it
+    console.log(finalMessage({ L, port, launcher, launchd: service === 'ok', registration }));
     return 0;
   } finally {
     unlock();
@@ -808,6 +826,15 @@ async function dryRun(o, L, port, launchd) {
     }
     plan(`建立 ${tilde(L.launcher, L.home)}`, 'build the launcher app');
   } else plan('不建立背景服務與 App；改為直接啟動伺服器測試 /api/health', 'no LaunchAgent or launcher; start-up test instead');
+  if (o.noRegister) plan('不登記到 Claude／ChatGPT（--no-register）', 'no AI registration');
+  else if (!L.mac) plan('只在 macOS 上登記到 Claude／ChatGPT', 'AI registration is macOS only');
+  else {
+    const found = detectTargets({ layout: L }).filter((x) => x.found);
+    plan(
+      found.length ? `登記到 ${found.map((x) => `${x.label}（${tilde(x.file, L.home)}，先備份）`).join('、')}` : '沒有找到 Claude 或 ChatGPT，不登記',
+      found.length ? `would register with ${found.map((x) => x.client).join(', ')}` : 'no AI app found',
+    );
+  }
   if (problems.length) {
     console.log(`\n[dry-run] 有 ${problems.length} 個問題 / problems:`);
     for (const l of problems) console.log(`  - ${l}`);
@@ -932,6 +959,14 @@ async function doctor(o, L, settings) {
       add(s.ok ? 'ok' : 'warn', '診斷與備份 / diagnostics', s.detail, s.lines);
     } else add('warn', '診斷與備份 / diagnostics', d.error ?? 'not JSON');
   }
+
+  // the AI apps: our entry in each config with today's paths and port, and the client's token in tokens.json
+  if (L.mac) {
+    for (const r of registrationStatus({ layout: L, port, loadToml: tomlLoader(L) })) {
+      const c = registrationCheck(r, L.home);
+      add(c.status, c.label, c.detail, c.lines);
+    }
+  } else add('skip', 'AI 登記 / AI apps', '只在 macOS / macOS only');
 
   if (exists(L.dataDir)) {
     // daily/, weekly/ and the permanent pre-v*/pre-import copies (src/server/services/backup.ts)

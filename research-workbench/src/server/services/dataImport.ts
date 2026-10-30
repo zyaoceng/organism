@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { schemaVersion, type DB } from '../db/connection';
 import { migrate } from '../db/migrations';
+import { rotateDbGeneration } from '../repos/meta';
 import { fileStamp, writeVerifiedBackup } from './backup';
 
 /**
@@ -110,6 +111,8 @@ export async function importData(opts: ImportOptions): Promise<ImportResult> {
       } catch (e) {
         throw new ImportError((e as Error).message);
       }
+      // a copy of another database keeps its generation; open browser tabs must notice the swap
+      rotateDbGeneration(db);
       const integrity = (db.pragma('integrity_check') as { integrity_check: string }[]).map((r) => r.integrity_check);
       if (integrity.join() !== 'ok') throw new ImportError(`The database failed its integrity check: ${integrity.slice(0, 5).join('; ')}`);
       const fk = db.pragma('foreign_key_check') as { table: string; parent: string }[];

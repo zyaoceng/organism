@@ -1,12 +1,15 @@
 import { compute, freeze, ENGINE_VERSION, type FrozenOutputs } from '../../domain/calc/engine';
 import { parseState } from '../../domain/model/schema';
 import type { ModelState } from '../../domain/model/types';
-import type { ModelChange } from '../../domain/revision/diff';
+import { diffStates, type ModelChange } from '../../domain/revision/diff';
 import type { Impact } from '../../domain/revision/impact';
-import type { DraftDTO, MarketContext, ProjectDTO, ProjectSummaryDTO, RevisionFull, RevisionKind, RevisionMeta, SecurityDTO } from '../../shared/api';
+import type { ContributorDTO, DraftDTO, MarketContext, ProjectDTO, ProjectSummaryDTO, RevisionFull, RevisionKind, RevisionMeta, SecurityDTO } from '../../shared/api';
+import { currentActor, noteAiAction } from '../actor';
 import type { DB } from '../db/connection';
 import { badRequest, conflict, newId, notFound, nowIso, parseJson } from '../util';
 import { audit } from './audit';
+import { logDraftOp } from './draftOps';
+import { dbGeneration } from './meta';
 
 interface ProjectRow {
   id: string;
@@ -44,8 +47,10 @@ export interface RevisionRow {
   impact_json: string;
   market_json: string | null;
   engine_version: string;
+  created_by: string | null;
+  contributors_json: string | null;
 }
-interface DraftRow {
+export interface DraftRow {
   project_id: string;
   state_json: string;
   base_revision_id: string;
@@ -95,7 +100,18 @@ export function toRevisionMeta(db: DB, r: RevisionRow): RevisionMeta {
     market: parseJson<MarketContext | null>(r.market_json, null),
     engineVersion: r.engine_version,
     citedEvidenceIds: citedEvidence(db, r.id),
+    createdBy: r.created_by,
+    contributors: parseJson<ContributorDTO[] | null>(r.contributors_json, null),
+    excludedFromCalibration: isExcluded(db, r.id),
   };
+}
+
+/** The latest excluded/included annotation decides (revision_annotations is insert-only). */
+export function isExcluded(db: DB, revisionId: string): boolean {
+  const r = db.prepare("SELECT kind FROM revision_annotations WHERE revision_id = ? AND kind IN ('excluded','included') ORDER BY id DESC LIMIT 1").get(revisionId) as
+    | { kind: string }
+    | undefined;
+  return r?.kind === 'excluded';
 }
 
 export function toRevisionFull(db: DB, r: RevisionRow): RevisionFull {
@@ -179,6 +195,8 @@ export function createProject(db: DB, input: CreateProjectInput): string {
       computed: freeze(compute(parsed.state)),
     });
     db.prepare('INSERT INTO drafts (project_id, state_json, base_revision_id, version, updated_at) VALUES (?, ?, ?, 1, ?)').run(projectId, JSON.stringify(parsed.state), revId, now);
+    audit(db, projectId, 'project', projectId, 'create', null, { ...getProjectRow(db, projectId), security: { ...s, priceSource: s.priceSource || 'demo' }, templateName: input.templateName });
+    noteAiAction({ kind: 'project', projectId, ref: projectId, summary: `建立公司「${input.name.trim()}」（${s.ticker.trim()}）` });
   })();
   return projectId;
 }
@@ -276,27 +294,71 @@ export function assertLinksBelong(db: DB, projectId: string, state: ModelState) 
   if (missing.length) throw badRequest(`Evidence not found in this project: ${missing.join(', ')}`);
 }
 
-export function saveDraft(db: DB, projectId: string, state: unknown, expectedVersion: number): DraftDTO {
+const versionConflict = (currentVersion: number) =>
+  conflict('The draft was changed elsewhere (another window?). Reload to continue.', { code: 'VERSION', currentVersion });
+
+/** Replace the draft's state if it is still at `version`; returns false when someone else wrote first. */
+export function writeDraftState(db: DB, projectId: string, state: ModelState | string, version: number): boolean {
+  const json = typeof state === 'string' ? state : JSON.stringify(state);
+  return db.prepare('UPDATE drafts SET state_json = ?, version = version + 1, updated_at = ? WHERE project_id = ? AND version = ?').run(json, nowIso(), projectId, version).changes === 1;
+}
+
+/**
+ * Save the whole draft (the browser's autosave). Optimistic: the write only happens at
+ * `expectedVersion`. A save from a tab opened before the database was replaced is refused.
+ */
+export function saveDraft(db: DB, projectId: string, state: unknown, expectedVersion: number, dbGen?: string | null): DraftDTO {
   const parsed = parseState(state);
   if (!parsed.ok) throw badRequest('The model is invalid and was not saved', parsed.errors);
   assertLinksBelong(db, projectId, parsed.state);
-  const row = getDraftRow(db, projectId);
-  if (row.version !== expectedVersion) {
-    throw conflict('The draft was changed elsewhere (another window?). Reload to continue.', { currentVersion: row.version });
-  }
-  const now = nowIso();
-  db.prepare('UPDATE drafts SET state_json = ?, version = version + 1, updated_at = ? WHERE project_id = ?').run(JSON.stringify(parsed.state), now, projectId);
-  return getDraft(db, projectId);
+  return db.transaction(() => {
+    if (dbGen && dbGen !== dbGeneration(db)) throw conflict('The data was replaced (imported) since this page was opened. Reload the page.', { code: 'DB_GENERATION' });
+    const row = getDraftRow(db, projectId);
+    if (row.version !== expectedVersion) throw versionConflict(row.version);
+    const before = JSON.parse(row.state_json) as ModelState;
+    const changes = diffStates(before, parsed.state);
+    if (!writeDraftState(db, projectId, parsed.state, expectedVersion)) throw versionConflict(getDraftRow(db, projectId).version);
+    if (changes.length) {
+      logDraftOp(db, {
+        projectId,
+        baseRevisionId: row.base_revision_id,
+        versionBefore: expectedVersion,
+        versionAfter: expectedVersion + 1,
+        kind: 'save',
+        op: { type: 'save' },
+        changes,
+        before,
+        after: parsed.state,
+        summary: '',
+        coalesce: true,
+      });
+    }
+    return getDraft(db, projectId);
+  })();
 }
 
-export function resetDraftTo(db: DB, projectId: string, revisionId: string, expectedVersion?: number): DraftDTO {
-  const row = getDraftRow(db, projectId);
-  if (expectedVersion !== undefined && row.version !== expectedVersion) {
-    throw conflict('The draft was changed elsewhere (another window?). Reload to continue.', { currentVersion: row.version });
-  }
-  const rev = getRevisionRow(db, projectId, revisionId);
-  db.prepare('UPDATE drafts SET state_json = ?, version = version + 1, updated_at = ? WHERE project_id = ?').run(rev.state_json, nowIso(), projectId);
-  return getDraft(db, projectId);
+/** Discard the draft (back to its base) or restore an older Research Update into it; the old draft is kept in draft_ops. */
+export function resetDraftTo(db: DB, projectId: string, revisionId: string, expectedVersion: number | undefined, kind: 'discard' | 'restore'): DraftDTO {
+  return db.transaction(() => {
+    const row = getDraftRow(db, projectId);
+    if (expectedVersion !== undefined && row.version !== expectedVersion) throw versionConflict(row.version);
+    const rev = getRevisionRow(db, projectId, revisionId);
+    const before = JSON.parse(row.state_json) as ModelState;
+    if (!writeDraftState(db, projectId, rev.state_json, row.version)) throw versionConflict(getDraftRow(db, projectId).version);
+    const changes = diffStates(before, JSON.parse(rev.state_json) as ModelState);
+    logDraftOp(db, {
+      projectId,
+      baseRevisionId: row.base_revision_id,
+      versionBefore: row.version,
+      versionAfter: row.version + 1,
+      kind,
+      op: { type: kind, revisionId },
+      changes,
+      before,
+      summary: kind === 'discard' ? `捨棄草稿（${changes.length} 項）` : `還原研究更新 #${rev.seq}（${changes.length} 項）`,
+    });
+    return getDraft(db, projectId);
+  })();
 }
 
 // ---------------------------------------------------------------- revisions
@@ -339,14 +401,17 @@ export interface InsertRevision {
   changes: ModelChange[];
   impact: Impact | null;
   market: MarketContext | null;
+  /** Default: the current actor. */
+  createdBy?: string;
+  contributors?: ContributorDTO[] | null;
 }
 
 export function insertRevision(db: DB, r: InsertRevision): string {
   const id = newId('rev');
   const seq = ((db.prepare('SELECT MAX(seq) AS m FROM revisions WHERE project_id = ?').get(r.projectId) as { m: number | null }).m ?? 0) + 1;
   db.prepare(
-    `INSERT INTO revisions (id, project_id, seq, parent_id, kind, title, reason, notes, as_of_date, committed_at, state_json, computed_json, changes_json, impact_json, market_json, engine_version)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO revisions (id, project_id, seq, parent_id, kind, title, reason, notes, as_of_date, committed_at, state_json, computed_json, changes_json, impact_json, market_json, engine_version, created_by, contributors_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     r.projectId,
@@ -364,6 +429,8 @@ export function insertRevision(db: DB, r: InsertRevision): string {
     JSON.stringify(r.impact),
     r.market ? JSON.stringify(r.market) : null,
     ENGINE_VERSION,
+    r.createdBy ?? currentActor(),
+    r.contributors ? JSON.stringify(r.contributors) : null,
   );
   return id;
 }

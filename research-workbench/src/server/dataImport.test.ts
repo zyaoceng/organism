@@ -9,6 +9,7 @@ import { SCALAR_KEY } from '../domain/model/types';
 import { idByName } from '../domain/testing/sample';
 import type { EvidenceDTO, ProjectBundleDTO } from '../shared/api';
 import { buildApp, type AppContext } from './app';
+import { SCHEMA_VERSION } from './db/migrations';
 import { DemoProvider } from './market/demo';
 import { ImportError, importData, type ImportSummary } from './services/dataImport';
 import { APP_ROOT } from './version';
@@ -28,7 +29,7 @@ const fresh = (name: string) => path.join(dir, `${name}-${++n}`);
 const tar = (cwd: string, out: string, members: string[]) => execFileSync('tar', ['czf', out, ...members], { cwd });
 
 async function api<T>(ctx: AppContext, method: 'GET' | 'POST' | 'PUT', url: string, payload?: unknown): Promise<T> {
-  const res = await ctx.app.inject({ method, url, payload: payload as object | undefined });
+  const res = await ctx.app.inject({ method, url, payload: payload as object | undefined, headers: { authorization: `Bearer ${ctx.tokens.tokens.user}` } });
   if (res.statusCode !== 200) throw new Error(`${method} ${url} → ${res.statusCode}: ${res.body}`);
   return res.json() as T;
 }
@@ -41,7 +42,7 @@ async function upload(ctx: AppContext, url: string, filename: string, data: Buff
     data,
     Buffer.from(`\r\n--${boundary}--\r\n`),
   ]);
-  const res = await ctx.app.inject({ method: 'POST', url, payload, headers: { 'content-type': `multipart/form-data; boundary=${boundary}` } });
+  const res = await ctx.app.inject({ method: 'POST', url, payload, headers: { 'content-type': `multipart/form-data; boundary=${boundary}`, authorization: `Bearer ${ctx.tokens.tokens.user}` } });
   if (res.statusCode !== 200) throw new Error(res.body);
   return res.json() as EvidenceDTO;
 }
@@ -127,9 +128,20 @@ describe('importing a data archive', () => {
     expect(r.imported).toBe(true);
     expect(r.backupFile).toBeNull();
     expect(r.copiedAttachments).toBe(1);
-    expect(r.summary).toEqual({ projects: [{ ...expectedProject, lastCommitAt: expect.any(String) }], attachments: 1, schemaVersion: 1, hadWal: false } satisfies ImportSummary);
+    expect(r.summary).toEqual({ projects: [{ ...expectedProject, lastCommitAt: expect.any(String) }], attachments: 1, schemaVersion: SCHEMA_VERSION, hadWal: false } satisfies ImportSummary);
     expect(fs.readdirSync(tmpDir)).toEqual([]); // staging removed
     expect(fs.readdirSync(dataDir).sort()).toEqual(['attachments', 'workbench.db']); // one file, no -wal/-shm
+    // a new generation: browser tabs opened on the copied database reload instead of saving into this one
+    const generation = (file: string) => {
+      const db = new Database(file, { readonly: true });
+      try {
+        return (db.prepare('SELECT db_generation FROM db_meta').get() as { db_generation: string }).db_generation;
+      } finally {
+        db.close();
+      }
+    };
+    expect(generation(path.join(dataDir, 'workbench.db'))).toMatch(/^[0-9a-f]{32}$/);
+    expect(generation(path.join(dataDir, 'workbench.db'))).not.toBe(generation(path.join(codespace, 'wb.db')));
     const back = await readBack(dataDir);
     expect(back.projects).toEqual(['Lite-On Technology']);
     expect(back.filename).toBe('客戶認證截圖.png');
@@ -202,7 +214,7 @@ describe('importing a data archive', () => {
     expect((await readBack(dataDir)).projects).toEqual(['Lite-On Technology']);
     // attachments already in the target are never deleted
     expect(fs.readdirSync(path.join(dataDir, 'attachments')).length).toBe(2);
-    expect(fs.readdirSync(path.join(dataDir)).sort()).toEqual(['attachments', 'backups', 'workbench.db']);
+    expect(fs.readdirSync(path.join(dataDir)).sort()).toEqual(['attachments', 'backups', 'tokens.json', 'workbench.db']);
   });
 
   it('refuses to replace a database that a running server still has open', async () => {
@@ -236,7 +248,7 @@ describe('import-data CLI', () => {
     const first = cli('--archive', archive, '--data-dir', dataDir);
     expect(first.status).toBe(0);
     const last = JSON.parse(first.stdout.trim().split('\n').at(-1)!) as ImportSummary;
-    expect(last).toMatchObject({ attachments: 1, schemaVersion: 1, hadWal: false, projects: [expectedProject] });
+    expect(last).toMatchObject({ attachments: 1, schemaVersion: SCHEMA_VERSION, hadWal: false, projects: [expectedProject] });
 
     const again = cli('--archive', archive, '--data-dir', dataDir);
     expect(again.status).toBe(2);

@@ -358,7 +358,7 @@ CREATE TABLE audit_log (
   project_id TEXT,
   entity TEXT NOT NULL,                   -- evidence | catalyst | trade | note | review | security | project
   entity_id TEXT NOT NULL,
-  action TEXT NOT NULL,                   -- update | delete | archive
+  action TEXT NOT NULL,                   -- update | delete | archive (v2 adds more, §2a)
   at TEXT NOT NULL,
   before_json TEXT,
   after_json TEXT
@@ -367,10 +367,142 @@ CREATE TABLE audit_log (
 CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
 ```
 
+The statements above are migration 1 (schema v1). Later migrations only add
+to it; see §2a.
+
 Review error categories (fixed list, user-selected):
 `evidence_quality, evidence_interpretation, assumption_magnitude,
 model_formula, timing_catalyst, valuation_multiple, trading_execution,
 risk_management`.
+
+---
+
+## 2a. Migration v2: who did what (AI connection)
+
+`migrations.ts` exports `SCHEMA_VERSION` (the highest migration); tests compare
+against it. Before migrating an existing database the server copies it to
+`backups/pre-v<N>-<time>.db`.
+
+Added columns are nullable. Rows written before v2 keep `NULL` and are shown as
+“before v2” (「v2 之前」); nothing is backfilled, because revisions are
+immutable.
+
+**Actors.** `audit_log.actor`, every `*.created_by`, `draft_ops.actor` and
+`revision_annotations.actor` hold `user`, `system` (seeding, CLIs, background
+work) or `agent:<client>` with client `claude-desktop`, `claude-code` or
+`chatgpt` (`src/shared/actors.ts`). A request whose caller cannot be
+identified may read but not write (401 `NO_ACTOR`), so `unknown` is never
+stored. Bare client ids appear only in `ai_sessions.client` and
+`ai_clients.client`. The browser is identified by an HttpOnly cookie from
+`GET /api/session`; AI clients send a Bearer token from
+`<dataDir>/tokens.json` (created by the server, mode 0600). This records who
+acted; it is not security: any program of the same macOS user can read the
+file.
+
+```sql
+ALTER TABLE audit_log ADD COLUMN actor TEXT;
+ALTER TABLE revisions ADD COLUMN created_by TEXT;        -- who committed it
+ALTER TABLE revisions ADD COLUMN contributors_json TEXT; -- [{actor, changes}]: who made its draft edits
+ALTER TABLE evidence ADD COLUMN created_by TEXT;
+ALTER TABLE evidence ADD COLUMN published_at_source TEXT CHECK (published_at_source IN ('user','agent-asserted'));
+ALTER TABLE catalysts ADD COLUMN created_by TEXT;
+ALTER TABLE trades ADD COLUMN created_by TEXT;
+ALTER TABLE trades ADD COLUMN source TEXT CHECK (source IN ('entry','import'));
+ALTER TABLE trades ADD COLUMN external_ref TEXT;         -- 'jrnl:' + sha256(normalised excerpt)[0:32]
+ALTER TABLE trades ADD COLUMN source_text TEXT;          -- the normalised journal excerpt
+ALTER TABLE notes ADD COLUMN created_by TEXT;
+ALTER TABLE reviews ADD COLUMN created_by TEXT;
+CREATE UNIQUE INDEX trades_external_ref ON trades(external_ref) WHERE external_ref IS NOT NULL;
+CREATE INDEX audit_project ON audit_log(project_id, id);
+
+CREATE TABLE draft_ops (                  -- every write to a draft
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id TEXT NOT NULL REFERENCES projects(id),
+  base_revision_id TEXT NOT NULL REFERENCES revisions(id),
+  version_after INTEGER NOT NULL,          -- drafts.version after the write
+  actor TEXT NOT NULL,
+  at TEXT NOT NULL,
+  kind TEXT NOT NULL,                      -- save | ops | discard | restore | recover | commit
+  op_json TEXT NOT NULL,                   -- AI ops and rationale, or {type, revisionId|opId}
+  changes_json TEXT NOT NULL DEFAULT '[]', -- ModelChange[] of this write
+  before_json TEXT,                        -- full draft state before it (recovery)
+  summary TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX draft_ops_project ON draft_ops(project_id, base_revision_id, id);
+
+CREATE TABLE ai_sessions (                -- one AI client's writes until 30 idle minutes
+  id TEXT PRIMARY KEY,
+  client TEXT NOT NULL,                    -- claude-desktop | claude-code | chatgpt
+  project_ids_json TEXT NOT NULL DEFAULT '[]',
+  started_at TEXT NOT NULL,
+  last_at TEXT NOT NULL,
+  actions_json TEXT NOT NULL DEFAULT '[]', -- [{at, tool, kind, projectId, ref, summary}], last 500
+  summary_md TEXT, decisions_md TEXT, todo_md TEXT,  -- save_session_summary
+  summary_at TEXT
+);
+CREATE INDEX ai_sessions_client ON ai_sessions(client, last_at);
+
+CREATE TABLE ai_clients (                 -- connection status (settings page, diagnostics)
+  client TEXT PRIMARY KEY,
+  first_seen_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,              -- any request (written at most once a minute)
+  last_heartbeat_at TEXT,                  -- MCP adapter start / every 10 minutes
+  client_name TEXT, client_version TEXT, adapter_version TEXT
+);
+
+CREATE TABLE revision_annotations (       -- insert-only marks on committed updates
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  revision_id TEXT NOT NULL REFERENCES revisions(id),
+  project_id TEXT NOT NULL REFERENCES projects(id),
+  kind TEXT NOT NULL,                      -- excluded | included | note
+  note TEXT NOT NULL DEFAULT '',
+  actor TEXT NOT NULL,
+  at TEXT NOT NULL
+);
+CREATE INDEX revision_annotations_rev ON revision_annotations(revision_id, id);
+
+CREATE TABLE db_meta (                    -- exactly one row
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  db_generation TEXT NOT NULL,             -- 32 hex; rotated by the data import
+  created_at TEXT NOT NULL
+);
+```
+
+Rules that go with these tables:
+
+- **Audit.** `audit_log.action` is now `create | update | delete | archive |
+  unarchive | draft_op | commit`; every create is audited (`after_json` is the
+  new record). Draft writes other than browser saves add a `draft_op` row, and
+  each commit a `commit` row (`entity='revision'`).
+- **Draft attribution.** A pending change (head → draft) belongs to the last
+  `draft_ops` row since the draft's base whose `changes_json` touches the same
+  field (`src/domain/revision/changeKey.ts`). Changes with no such row (edits
+  made before v2) count as the user's. An AI may not commit or discard the
+  user's pending changes (409 `USER_CHANGES`).
+- **Saves.** Browser autosaves by the same person within 10 minutes share one
+  `save` row (its `before_json` is the state before the burst). The
+  `before_json` of `save` and `ops` rows is dropped after 90 days; discard,
+  restore and recover rows keep theirs, so a discarded draft can be recovered
+  (`POST /api/projects/:id/draft/recover`).
+- **Committed price.** `revisions.market_json` gains `basis`: `quote` (the
+  latest quote, knowledge date today) or `bar` (the close of the last daily bar
+  on or before a backdated knowledge date, at most 7 days earlier; otherwise no
+  price).
+- **Evidence dates.** An AI must give a publication date, never in the future;
+  it is stored with `published_at_source = 'agent-asserted'` and shown with a
+  badge. A date set by the user is `user`.
+- **Imported trades.** `external_ref` is unique across all companies, so the
+  same journal excerpt imported again returns the existing trade (`status:
+  'existing'`). Re-importing an excerpt whose trade was deleted needs
+  `allowReimport` (409 `IMPORT_DELETED` otherwise). Imported trades store only
+  the numbers in the journal: no default target, ATR or stop.
+- **Exclusions.** The latest `excluded`/`included` annotation of a revision
+  decides whether it is left out of the estimate history and calibration
+  (`RevisionMeta.excludedFromCalibration`, `SeriesPoint.excluded`). The
+  revision itself is never changed.
+- **Generation.** `dbGeneration` is read on every request; a save from a page
+  opened before the database was replaced is refused (409 `DB_GENERATION`) and
+  the page reloads.
 
 ---
 
@@ -383,6 +515,7 @@ risk_management`.
 | When did assumption X change and why? | Revisions whose `changes_json` mention node X → `title`, `reason`, cited evidence. |
 | Which sources supported X on date D? | `links` for X in the state of the revision valid on D. |
 | Research state behind a trade | `trades.revision_id` (resolved by `entry_date`). |
+| Who wrote this, and which AI changed the draft? | `created_by` / `audit_log.actor`; `draft_ops` per project. |
 
 ## 4. Project JSON export
 

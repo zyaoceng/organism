@@ -1,9 +1,13 @@
 import type { DB } from '../db/connection';
 import type { AuditEntryDTO } from '../../shared/api';
+import { currentActor } from '../actor';
 import { nowIso, parseJson } from '../util';
 
-export function audit(db: DB, projectId: string | null, entity: string, entityId: string, action: 'update' | 'delete' | 'archive' | 'unarchive', before: unknown, after: unknown) {
-  db.prepare('INSERT INTO audit_log (project_id, entity, entity_id, action, at, before_json, after_json) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+export type AuditAction = 'create' | 'update' | 'delete' | 'archive' | 'unarchive' | 'draft_op' | 'commit';
+
+/** Record a change with the current actor (see actor.ts). */
+export function audit(db: DB, projectId: string | null, entity: string, entityId: string, action: AuditAction, before: unknown, after: unknown) {
+  db.prepare('INSERT INTO audit_log (project_id, entity, entity_id, action, at, before_json, after_json, actor) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
     projectId,
     entity,
     entityId,
@@ -11,6 +15,7 @@ export function audit(db: DB, projectId: string | null, entity: string, entityId
     nowIso(),
     before === undefined ? null : JSON.stringify(before),
     after === undefined ? null : JSON.stringify(after),
+    currentActor(),
   );
 }
 
@@ -19,13 +24,14 @@ export function listAudit(db: DB, projectId: string, entityId?: string): AuditEn
     entityId
       ? db.prepare('SELECT * FROM audit_log WHERE project_id = ? AND entity_id = ? ORDER BY id DESC').all(projectId, entityId)
       : db.prepare('SELECT * FROM audit_log WHERE project_id = ? ORDER BY id DESC LIMIT 500').all(projectId)
-  ) as { id: number; entity: string; entity_id: string; action: string; at: string; before_json: string | null; after_json: string | null }[];
+  ) as { id: number; entity: string; entity_id: string; action: string; at: string; actor: string | null; before_json: string | null; after_json: string | null }[];
   return rows.map((r) => ({
     id: r.id,
     entity: r.entity,
     entityId: r.entity_id,
     action: r.action,
     at: r.at,
+    actor: r.actor,
     before: parseJson(r.before_json, null),
     after: parseJson(r.after_json, null),
   }));

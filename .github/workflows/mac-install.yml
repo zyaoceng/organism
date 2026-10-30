@@ -53,6 +53,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Config files of the AI apps with someone else's content: the installer must merge into them,
+      # keep everything else and leave a backup. Copies of the originals stay in $RUNNER_TEMP/ai-config.
+      - name: Fake Claude Desktop and Codex (ChatGPT) config files
+        run: |
+          mkdir -p "$RUNNER_TEMP/ai-config" "$HOME/Library/Application Support/Claude" "$HOME/.codex"
+          cat > "$RUNNER_TEMP/ai-config/claude_desktop_config.json" <<'EOF'
+          {
+            "globalShortcut": "Alt+Space",
+            "mcpServers": {
+              "filesystem": {
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/runner/Desktop"]
+              }
+            }
+          }
+          EOF
+          cat > "$RUNNER_TEMP/ai-config/config.toml" <<'EOF'
+          # Codex settings written by hand: every line here must survive the install
+          model = "gpt-5" # the default model
+
+          [mcp_servers.github]
+          command = "npx"
+          args = ["-y", "@modelcontextprotocol/server-github"]   # keep this comment
+
+          [profiles.fast]
+          model = "gpt-5-mini"
+          EOF
+          cp "$RUNNER_TEMP/ai-config/claude_desktop_config.json" "$HOME/Library/Application Support/Claude/"
+          cp "$RUNNER_TEMP/ai-config/config.toml" "$HOME/.codex/"
+
       # macOS's own /bin/bash (3.2) in the same `-c "$(…)" -- <args>` form as the one-liner users paste;
       # the runner images put a newer Homebrew bash first on PATH
       - name: Install from this checkout
@@ -89,6 +119,58 @@ jobs:
           test -f "$HOME/Applications/$WB_APP.app/Contents/Resources/Scripts/main.scpt"
           osadecompile "$HOME/Applications/$WB_APP.app/Contents/Resources/Scripts/main.scpt"
 
+      - name: Claude Desktop and Codex configs were merged, the existing content kept and backed up
+        env:
+          REGISTER: ${{ steps.install.outputs.register }}
+        run: |
+          echo "installer: $REGISTER"
+          case "$REGISTER" in *claude-desktop:registered*chatgpt:registered*) ;; *) echo "expected claude-desktop and chatgpt to be registered"; exit 1 ;; esac
+          claude="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+          codex="$HOME/.codex/config.toml"
+          cat "$claude" "$codex"
+          # exactly one backup each, byte-for-byte the original
+          test "$(ls "$claude".bak-* | wc -l)" -eq 1
+          test "$(ls "$codex".bak-* | wc -l)" -eq 1
+          cmp "$RUNNER_TEMP/ai-config/claude_desktop_config.json" "$claude".bak-*
+          cmp "$RUNNER_TEMP/ai-config/config.toml" "$codex".bak-*
+          cat > "$RUNNER_TEMP/check-ai-config.cjs" <<'EOF'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const home = process.env.HOME;
+          const orig = (f) => fs.readFileSync(path.join(process.env.RUNNER_TEMP, 'ai-config', f), 'utf8');
+          const app = path.join(home, 'ResearchWorkbench', 'current');
+          const node = path.join(home, 'ResearchWorkbench', 'runtime', 'current', 'bin', 'node');
+          const adapter = path.join(app, 'dist', 'mcp', 'research-workbench-mcp.mjs');
+          const dataDir = path.join(home, 'Library', 'Application Support', 'ResearchWorkbench');
+          const toml = require(path.join(app, 'node_modules', 'smol-toml'));
+          assert.ok(fs.existsSync(adapter), `the adapter was built: ${adapter}`);
+          const tokens = JSON.parse(fs.readFileSync(path.join(dataDir, 'tokens.json'), 'utf8')).tokens;
+          for (const c of ['claude-desktop', 'claude-code', 'chatgpt']) assert.ok(tokens[c], `tokens.json has ${c}`);
+          const args = (client) => [adapter, `--client=${client}`, `--data-dir=${dataDir}`, '--port=4310'];
+
+          const before = JSON.parse(orig('claude_desktop_config.json'));
+          const after = JSON.parse(fs.readFileSync(path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json'), 'utf8'));
+          assert.equal(after.globalShortcut, before.globalShortcut);
+          assert.deepEqual(after.mcpServers.filesystem, before.mcpServers.filesystem);
+          assert.deepEqual(after.mcpServers['research-workbench'], { command: node, args: args('claude-desktop') });
+
+          const tb = orig('config.toml');
+          const ta = fs.readFileSync(path.join(home, '.codex', 'config.toml'), 'utf8');
+          assert.ok(ta.startsWith(tb), 'every byte of the original config.toml, comments included, is still there');
+          const pb = toml.parse(tb);
+          const pa = toml.parse(ta);
+          assert.equal(pa.model, pb.model);
+          assert.deepEqual(pa.mcp_servers.github, pb.mcp_servers.github);
+          assert.deepEqual(pa.profiles, pb.profiles);
+          const rw = pa.mcp_servers.research_workbench;
+          assert.equal(rw.command, node);
+          assert.deepEqual(rw.args, args('chatgpt'));
+          for (const t of ['commit_research_update', 'record_trade', 'close_trade']) assert.equal(rw.tools[t].approval_mode, 'prompt');
+          console.log('Claude Desktop and Codex configs merged; the existing content is unchanged');
+          EOF
+          "$HOME/ResearchWorkbench/runtime/current/bin/node" "$RUNNER_TEMP/check-ai-config.cjs"
+
       - name: Doctor
         env:
           WB_SOURCE_DIR: ${{ github.workspace }}/research-workbench
@@ -123,12 +205,17 @@ jobs:
       - name: The update switched versions, kept the previous one and imported the data
         env:
           LAUNCHD: ${{ steps.update.outputs.launchd }}
+          REGISTER: ${{ steps.update.outputs.register }}
         run: |
           short="$(printf '%s' "$GITHUB_SHA" | cut -c1-7)"
           test "$(readlink "$HOME/ResearchWorkbench/current")" = "app-$short"
           test -d "$HOME/ResearchWorkbench/app-$short-local"
           test ! -e "$HOME/Downloads/wb-data.tgz"
           ls "$HOME/Downloads"/wb-data.imported-*.tgz
+          # the AI registration goes through the stable links: an update leaves the configs alone
+          case "$REGISTER" in *claude-desktop:unchanged*chatgpt:unchanged*) ;; *) echo "expected no registration change: $REGISTER"; exit 1 ;; esac
+          test "$(ls "$HOME/Library/Application Support/Claude/claude_desktop_config.json".bak-* | wc -l)" -eq 1
+          test "$(ls "$HOME/.codex/config.toml".bak-* | wc -l)" -eq 1
           if [ "$LAUNCHD" = "ok" ]; then
             curl -fsS http://127.0.0.1:4310/api/projects | "$HOME/ResearchWorkbench/runtime/current/bin/node" -e \
               'let s="";process.stdin.on("data",(d)=>(s+=d)).on("end",()=>{const n=JSON.parse(s).length;console.log("companies after import:",n);if(n<1)process.exit(1)})'

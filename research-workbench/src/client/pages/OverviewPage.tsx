@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatValue } from '../../domain/format';
 import { updateThesis } from '../../domain/model/ops';
 import { findByRole } from '../../domain/model/tree';
 import { SCALAR_KEY, SCENARIOS, type ThesisStatus } from '../../domain/model/types';
+import type { AiSessionDTO } from '../../shared/api';
 import { basisPeriodId } from '../../domain/revision/impact';
-import { Delta, InlineText } from '../components/ui';
+import { AiSessionList } from '../components/AiSessions';
+import { AiBadge, Delta, InlineText } from '../components/ui';
 import { api } from '../lib/api';
 import { calcOf } from '../lib/derived';
 import { t, tm } from '../lib/i18n';
@@ -134,12 +136,15 @@ export function OverviewPage() {
                   <a href={`#/p/${projectId}/history/${r.id}`}>
                     #{r.seq} {r.title}
                   </a>
+                  <AiBadge actor={r.createdBy} />
+                  {r.excludedFromCalibration && <span className="badge err">{t('marked wrong')}</span>}
                   <span className="sub nowrap">{r.asOfDate ?? ''}</span>
                   <span className="right num">{h && h.before !== null && h.after !== null ? <Delta before={h.before} after={h.after} /> : ''}</span>
                 </div>
               );
             })}
           </div>
+          <AiActivityCard projectId={projectId} />
         </div>
         <div className="col" style={{ gap: 14 }}>
           <div className="card">
@@ -203,6 +208,30 @@ export function OverviewPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** The last AI sessions in this company (full list: History → AI activity). */
+function AiActivityCard({ projectId }: { projectId: string }) {
+  const [sessions, setSessions] = useState<AiSessionDTO[]>([]);
+  const auditSeq = useWorkspace((s) => s.auditSeq);
+  useEffect(() => {
+    api
+      .aiSessions({ projectId, limit: 3 })
+      .then(setSessions)
+      .catch(() => setSessions([]));
+  }, [projectId, auditSeq]);
+  if (!sessions.length) return null;
+  return (
+    <div className="card" data-testid="overview-ai">
+      <div className="row">
+        <h2>{t('AI activity')}</h2>
+        <a className="right small" href={`#/p/${projectId}/history/ai`}>
+          {t('all')}
+        </a>
+      </div>
+      <AiSessionList sessions={sessions} limitActions={10} />
     </div>
   );
 }

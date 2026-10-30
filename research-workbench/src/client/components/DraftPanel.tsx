@@ -3,13 +3,15 @@ import { formatValue } from '../../domain/format';
 import { findByRole } from '../../domain/model/tree';
 import { describeChange } from '../../domain/revision/describe';
 import { changeNodeId, type ModelChange } from '../../domain/revision/diff';
-import type { RevisionFull } from '../../shared/api';
+import { actorLabel } from '../../shared/actors';
+import type { DraftOpRowDTO, RevisionFull } from '../../shared/api';
+import { api } from '../lib/api';
 import { diffOf, impactOf } from '../lib/derived';
 import { KIND_ICON } from '../lib/evidence';
 import { getLang, t, tm, tn, useLang } from '../lib/i18n';
 import { useAdvanced } from '../lib/prefs';
 import { useWorkspace } from '../lib/store';
-import { cls, periodLabelFn, today } from '../lib/util';
+import { cls, fmtDateTime, periodLabelFn, today } from '../lib/util';
 import { ImpactView } from './ImpactView';
 import { Advanced, Delta, Field } from './ui';
 
@@ -24,8 +26,11 @@ export function DraftPanel() {
   const undoLen = useWorkspace((s) => s.undoStack.length);
   const redoLen = useWorkspace((s) => s.redoStack.length);
   const scenario = useWorkspace((s) => s.scenario);
+  const conflict = useWorkspace((s) => s.conflict);
+  const hasOps = useWorkspace((s) => !!s.lastOp);
   const { setDraftPanelOpen, undo, redo, discard, load, projectId } = useWorkspace.getState();
   const [committed, setCommitted] = useState<RevisionFull | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   useLang();
 
   if (!draft || !head || viewing) return null;
@@ -42,7 +47,7 @@ export function DraftPanel() {
         <span className="row" title={saveError ? tm(saveError) : t('Every edit is autosaved as a draft. Commit to make it part of the research record.')}>
           <span className={cls('save-dot', saveStatus)} /> <span className="small sub">{saveLabel}</span>
         </span>
-        {saveStatus === 'conflict' && (
+        {saveStatus === 'conflict' && !conflict && (
           <button className="btn sm" onClick={() => projectId && void load(projectId)}>
             {t('Reload latest')}
           </button>
@@ -62,6 +67,11 @@ export function DraftPanel() {
           <button className="btn sm ghost" disabled={!redoLen} onClick={redo} title={t('Redo (Ctrl+Shift+Z)')}>
             {t('↷ Redo')}
           </button>
+          {hasOps && (
+            <button className={cls('btn sm ghost', historyOpen && 'on')} onClick={() => setHistoryOpen(!historyOpen)} title={t('Every write to this draft, by whom; recover an earlier draft')} data-testid="draft-history">
+              {t('Draft history')}
+            </button>
+          )}
           {changes.length > 0 && (
             <button
               className="btn sm danger"
@@ -77,6 +87,8 @@ export function DraftPanel() {
           </button>
         </span>
       </div>
+      {conflict && <ConflictBox />}
+      {historyOpen && <DraftHistory onClose={() => setHistoryOpen(false)} />}
       {open && (
         <div className="draft-body">
           <div>
@@ -290,6 +302,110 @@ function CommittedSummary({ rev }: { rev: RevisionFull }) {
         <a href={`#/p/${projectId}/history/${rev.id}`}>{t('Open in History')}</a>
       </div>
       {rev.impact ? <ImpactView impact={rev.impact} state={rev.state} /> : <div className="small sub">{t('Checkpoint: no model changes.')}</div>}
+    </div>
+  );
+}
+
+/** The draft was changed elsewhere and some of this tab's edits could not be re-applied: choose a version. */
+function ConflictBox() {
+  const conflict = useWorkspace((s) => s.conflict)!;
+  const { resolveConflict, downloadMine } = useWorkspace.getState();
+  return (
+    <div className="draft-conflict" data-testid="draft-conflict">
+      <div className="msg warn">
+        <b>{t('The draft was changed elsewhere while you were editing.')}</b> {t('{applied} of your edits were re-applied; {n} conflict:', { applied: conflict.applied, n: conflict.failed.length })}
+        <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+          {conflict.failed.slice(0, 20).map((f, i) => (
+            <li key={i}>{f}</li>
+          ))}
+          {conflict.failed.length > 20 && <li>{t('…and {n} more', { n: conflict.failed.length - 20 })}</li>}
+        </ul>
+      </div>
+      <div className="row wrap" style={{ marginTop: 6 }}>
+        <button className="btn sm primary" onClick={() => resolveConflict('rebased')} data-testid="conflict-rebased">
+          {t('Use the latest version and re-apply the edits that fit')}
+        </button>
+        <button
+          className="btn sm"
+          onClick={() => {
+            if (window.confirm(t('Drop your conflicting edits and use the latest version? Download your version first if you may need it.'))) resolveConflict('theirs');
+          }}
+          data-testid="conflict-theirs"
+        >
+          {t('Drop my edits')}
+        </button>
+        <button className="btn sm ghost" onClick={downloadMine} data-testid="conflict-download">
+          {t('Download my version')}
+        </button>
+        <span className="small sub">{t('Editing is paused until you choose.')}</span>
+      </div>
+    </div>
+  );
+}
+
+const OP_LABEL: Record<DraftOpRowDTO['kind'], string> = {
+  save: 'Edited in the browser',
+  ops: 'Edited by AI tools',
+  discard: 'Discarded the draft',
+  restore: 'Restored an earlier Research Update into the draft',
+  recover: 'Recovered an earlier draft',
+  commit: 'Committed a Research Update',
+};
+
+/** Every write to the draft (who, what), with "go back to before this step" where the earlier draft is kept. */
+function DraftHistory({ onClose }: { onClose: () => void }) {
+  const projectId = useWorkspace((s) => s.projectId);
+  const draftVersion = useWorkspace((s) => s.draftVersion);
+  const { recover, toast } = useWorkspace.getState();
+  const [rows, setRows] = useState<DraftOpRowDTO[] | null>(null);
+  const lang = useLang();
+  useEffect(() => {
+    if (!projectId) return;
+    api
+      .draftOps(projectId, { limit: 20 })
+      .then(setRows)
+      .catch((e) => toast(tm((e as Error).message), 'error'));
+  }, [projectId, draftVersion]);
+  return (
+    <div className="draft-history" data-testid="draft-history-list">
+      <div className="row">
+        <b className="small">{t('Draft history')}</b>
+        <span className="tiny sub">{t('newest first')}</span>
+        <button className="btn xs ghost right" onClick={onClose}>
+          {t('Close')}
+        </button>
+      </div>
+      {rows === null && <div className="small sub">{t('Loading…')}</div>}
+      {rows?.length === 0 && <div className="small sub">{t('No draft history yet.')}</div>}
+      <table className="grid" style={{ marginTop: 4 }}>
+        <tbody>
+          {rows?.map((r) => (
+            <tr key={r.id} data-testid="draft-op">
+              <td className="l nowrap small sub">{fmtDateTime(r.at)}</td>
+              <td className="l nowrap small">{actorLabel(r.actor, lang)}</td>
+              <td className="l small">
+                {t(OP_LABEL[r.kind])}
+                {(r.kind === 'save' || r.kind === 'ops') && ` · ${tn(r.changeCount, '{n} change', '{n} changes')}`}
+                {r.kind === 'ops' && r.summary && <span className="sub"> · {r.summary}</span>}
+              </td>
+              <td className="r nowrap">
+                {r.hasBefore && (
+                  <button
+                    className="btn xs"
+                    onClick={async () => {
+                      if (!window.confirm(t('Replace the current draft with the draft as it was before this step? The current draft stays in this history.'))) return;
+                      await recover(r.id);
+                    }}
+                    data-testid="recover-op"
+                  >
+                    {r.kind === 'discard' ? t('Recover the discarded draft') : t('Go back to before this step')}
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

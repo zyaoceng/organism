@@ -5,6 +5,7 @@
 import path from 'node:path';
 import { APP_NAME, ONE_LINER, tilde } from './layout.mjs';
 import { appUrl } from './health.mjs';
+import { STATUS_ZH } from './register.mjs';
 
 const WIDE = /[ᄀ-ᅟ⺀-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦]/u;
 
@@ -143,8 +144,51 @@ export function summarizeDiagnostics(d) {
   return { ok, detail: parts.join('，') || JSON.stringify(d).slice(0, 120), lines };
 }
 
-/** Closing instructions after a successful install (Chinese first, short English hints). */
-export function finalMessage({ L, port, launcher, launchd }) {
+/**
+ * The AI apps section: one line per app from register.mjs registerAll(); null means --no-register.
+ * @param {{ label: string, status: string, message?: string }[] | null} registration
+ */
+export function registrationLines(registration) {
+  const out = ['AI 連線 / AI apps:'];
+  if (!registration) {
+    out.push('  沒有登記到 Claude／ChatGPT（--no-register）；不加 --no-register 再執行一次安裝指令即可 / skipped');
+    return out;
+  }
+  const width = Math.max(...registration.map((r) => displayWidth(r.label)), 10) + 2;
+  for (const r of registration) {
+    const msg = r.status === 'unchanged' ? '' : r.message;
+    out.push(`  ${padEnd(r.label, width)}${STATUS_ZH[r.status] ?? r.status}${msg ? `：${msg}` : ''}`);
+  }
+  if (registration.some((r) => r.status === 'registered' || r.status === 'unchanged')) {
+    out.push('  在 AI 對話裡直接請它用「研究工作台」查模型、寫草稿、記交易；提交前它會先給你看差異。');
+    out.push('  網站的「設定」頁有連線狀態，以及可以貼進 Claude 專案指示／ChatGPT 自訂指令的說明文字。');
+  }
+  return out;
+}
+
+/**
+ * One --doctor line per AI app from register.mjs registrationStatus(): is our entry in its config
+ * with today's paths and port, and is the client's token in tokens.json. Problems are warnings: the
+ * app itself works without them.
+ * @param {{ label: string, status: string, token: boolean, file?: string, detail?: string }} r
+ */
+export function registrationCheck(r, home) {
+  const label = `AI：${r.label}`;
+  if (r.status === 'absent') return { status: 'skip', label, detail: r.detail ?? '沒有安裝 / not installed' };
+  const where = r.file ? `  ${tilde(r.file, home)}` : '';
+  const token = r.token ? '憑證 OK / token ok' : '缺少憑證 / no token in tokens.json';
+  const rerun = '重新執行安裝指令即可登記 / re-run the installer to register';
+  if (r.status === 'ok') {
+    return r.token
+      ? { status: 'ok', label, detail: `已登記 / registered，${token}${where}` }
+      : { status: 'warn', label, detail: `已登記 / registered，${token}${where}`, lines: ['伺服器啟動時會產生 tokens.json；請重新執行安裝指令 / the server writes tokens.json at start-up'] };
+  }
+  const what = { missing: '沒有登記 / not registered', 'stale-paths': '登記的路徑或埠不是目前的 / stale paths or port' }[r.status] ?? '設定檔無法讀取 / config unreadable';
+  return { status: 'warn', label, detail: `${what}，${token}${where}`, lines: [r.detail, rerun].filter(Boolean) };
+}
+
+/** Closing instructions after a successful install (Chinese first, short English hints). `registration` undefined: no AI section. */
+export function finalMessage({ L, port, launcher, launchd, registration }) {
   const t = (p) => tilde(p, L.home);
   const out = ['', '安裝完成 / Installed', ''];
   out.push('怎麼打開 / How to open:');
@@ -160,6 +204,7 @@ export function finalMessage({ L, port, launcher, launchd }) {
   out.push(`備份 / Backups:  ${t(L.backupsDir)}（每天自動備份；建議開啟 Time Machine）`);
   out.push(`記錄 / Logs:     ${t(L.logsDir)}`);
   out.push('');
+  if (registration !== undefined) out.push(...registrationLines(registration), '');
   out.push('更新 / Update:   在「終端機」再貼一次同一行安裝指令（資料會保留）/ re-run the same one-liner');
   out.push(`  ${ONE_LINER}`);
   out.push('診斷 / Doctor:   同一行指令最後加上 -- --doctor，把結果截圖回報 / append -- --doctor');

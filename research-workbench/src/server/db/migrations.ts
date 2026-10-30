@@ -229,7 +229,89 @@ CREATE TABLE audit_log (
 CREATE INDEX audit_entity ON audit_log(entity, entity_id);
 `,
   },
+  {
+    version: 2,
+    name: 'AI connection: actors, draft ops, AI sessions',
+    sql: `
+-- Added columns are nullable; rows written before v2 keep NULL (shown as "before v2").
+-- Never backfill with UPDATE: revisions are immutable (revisions_no_update).
+ALTER TABLE audit_log ADD COLUMN actor TEXT;
+ALTER TABLE revisions ADD COLUMN created_by TEXT;
+ALTER TABLE revisions ADD COLUMN contributors_json TEXT;
+ALTER TABLE evidence ADD COLUMN created_by TEXT;
+ALTER TABLE evidence ADD COLUMN published_at_source TEXT CHECK (published_at_source IN ('user','agent-asserted'));
+ALTER TABLE catalysts ADD COLUMN created_by TEXT;
+ALTER TABLE trades ADD COLUMN created_by TEXT;
+ALTER TABLE trades ADD COLUMN source TEXT CHECK (source IN ('entry','import'));
+ALTER TABLE trades ADD COLUMN external_ref TEXT;
+ALTER TABLE trades ADD COLUMN source_text TEXT;
+ALTER TABLE notes ADD COLUMN created_by TEXT;
+ALTER TABLE reviews ADD COLUMN created_by TEXT;
+CREATE UNIQUE INDEX trades_external_ref ON trades(external_ref) WHERE external_ref IS NOT NULL;
+CREATE INDEX audit_project ON audit_log(project_id, id);
+
+-- Every write to a draft (browser saves, discards, restores, AI operations), with the state before it.
+CREATE TABLE draft_ops (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id TEXT NOT NULL REFERENCES projects(id),
+  base_revision_id TEXT NOT NULL REFERENCES revisions(id),
+  version_after INTEGER NOT NULL,
+  actor TEXT NOT NULL,
+  at TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('save','ops','discard','restore','recover','commit')),
+  op_json TEXT NOT NULL,
+  changes_json TEXT NOT NULL DEFAULT '[]',
+  before_json TEXT,
+  summary TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX draft_ops_project ON draft_ops(project_id, base_revision_id, id);
+
+-- Writes of one AI client grouped into sessions (a gap of 30 minutes starts a new one).
+CREATE TABLE ai_sessions (
+  id TEXT PRIMARY KEY,
+  client TEXT NOT NULL,
+  project_ids_json TEXT NOT NULL DEFAULT '[]',
+  started_at TEXT NOT NULL,
+  last_at TEXT NOT NULL,
+  actions_json TEXT NOT NULL DEFAULT '[]',
+  summary_md TEXT,
+  decisions_md TEXT,
+  todo_md TEXT,
+  summary_at TEXT
+);
+CREATE INDEX ai_sessions_client ON ai_sessions(client, last_at);
+
+CREATE TABLE ai_clients (
+  client TEXT PRIMARY KEY,
+  first_seen_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,
+  last_heartbeat_at TEXT,
+  client_name TEXT,
+  client_version TEXT,
+  adapter_version TEXT
+);
+
+-- Insert-only marks on committed Research Updates (e.g. "wrong, exclude from calibration").
+CREATE TABLE revision_annotations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  revision_id TEXT NOT NULL REFERENCES revisions(id),
+  project_id TEXT NOT NULL REFERENCES projects(id),
+  kind TEXT NOT NULL CHECK (kind IN ('excluded','included','note')),
+  note TEXT NOT NULL DEFAULT '',
+  actor TEXT NOT NULL,
+  at TEXT NOT NULL
+);
+CREATE INDEX revision_annotations_rev ON revision_annotations(revision_id, id);
+
+-- A random id that changes when the whole database is replaced (data import), so open tabs reload.
+CREATE TABLE db_meta (id INTEGER PRIMARY KEY CHECK (id = 1), db_generation TEXT NOT NULL, created_at TEXT NOT NULL);
+INSERT INTO db_meta (id, db_generation, created_at) VALUES (1, lower(hex(randomblob(16))), strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+`,
+  },
 ];
+
+/** The schema version this code writes (the highest migration). */
+export const SCHEMA_VERSION = Math.max(...MIGRATIONS.map((m) => m.version));
 
 /** Apply pending migrations. Refuses a database written by a newer version of the app. */
 export function migrate(db: Database.Database): number[] {
