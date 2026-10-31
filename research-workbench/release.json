@@ -1,5 +1,5 @@
 {
-  "commit": "69dc207ac26fd2ea3706cc1075c87209bbe22ab2",
-  "date": "2026-10-30",
-  "note": "M1 (Mac install, backups, data import) + M2 (basic/advanced mode); verified by the Mac install workflow on macos-15 and macos-15-intel"
+  "commit": "7b0788a41b0aa77bd819e6e791520adedb269d19",
+  "date": "2026-10-31",
+  "note": "M1-M4 (Mac install, basic/advanced mode, AI connection via MCP for Claude and ChatGPT desktop, all-companies overview and trade log); verified by the Mac install workflow on macos-15 and macos-15-intel"
 }
