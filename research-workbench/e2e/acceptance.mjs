@@ -8,6 +8,7 @@
  * T1–T20 run in advanced mode (set below, only when nothing is saved); T21 switches to basic mode.
  * T22 writes as an AI client with a token from tokens.json, so it runs only when this script started the server.
  * T23 (dashboard) and T24 (trade log) add two companies with trades; one of them is recorded by an AI client when tokens are at hand.
+ * T25 plays the Obsidian plugin with the obsidian token from tokens.json, so it also needs the server this script started.
  * CHROME=/path/to/chrome overrides the browser executable.
  */
 import { spawn, execSync } from 'node:child_process';
@@ -752,6 +753,100 @@ await test(24, 'Trade log across companies: R, P&L per currency, research snapsh
   await rows.filter({ hasText: 'Delta Electronics' }).click();
   await page.waitForURL(new RegExp(`/p/${delta}/trades/${deltaTrade.id}$`));
   await page.getByTestId('trade-table').locator('tr.sel').filter({ hasText: '2026-09-22' }).waitFor();
+});
+
+await test(25, 'Obsidian: the plugin pulls notes, sends a reflection back; the page and the trade log show it', async () => {
+  if (!dataDir) {
+    console.log('      (skipped: needs the server started by this script, for tokens.json)');
+    return;
+  }
+  const token = JSON.parse(fs.readFileSync(path.join(dataDir, 'tokens.json'), 'utf8')).tokens.obsidian;
+  assert.ok(token, 'tokens.json has an obsidian token');
+  const vault = async (method, p, body) => {
+    const r = await fetch(`${BASE}${p}`, { method, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+    return { status: r.status, json: await r.json().catch(() => null) };
+  };
+  const ok = async (method, p, body) => {
+    const r = await vault(method, p, body);
+    if (r.status !== 200) throw new Error(`${method} ${p}: ${r.status} ${JSON.stringify(r.json)}`);
+    return r.json;
+  };
+  const ping = await ok('GET', '/api/vault/ping');
+  assert.equal(ping.ok, true);
+  // pull every note the way the plugin does: pages after a cursor until `more` is false
+  const notes = [];
+  let after = 0;
+  for (let guard = 0; guard < 50; guard++) {
+    const pg = await ok('GET', `/api/vault/notes?after=${after}&limit=200`);
+    notes.push(...pg.notes);
+    after = pg.nextAfter;
+    if (!pg.more) break;
+  }
+  const trade = (await api(`/api/projects/${projectId}/trades`))[0];
+  assert.ok(trade, 'Lite-On has a trade');
+  const tradeNote = notes.find((n) => n.wbId === trade.id);
+  const companyNote = notes.find((n) => n.wbId === projectId);
+  assert.ok(tradeNote && companyNote, 'the company and its trade are notes');
+  assert.equal(tradeNote.kind, 'trade');
+  assert.match(tradeNote.body, /## 反思/, 'a new trade note has a reflection heading');
+  const tradePath = `研究工作台/${tradeNote.path}`;
+  const companyPath = `研究工作台/${companyNote.path}`;
+  // the plugin reports where the notes are, and one it left alone
+  await ok('POST', '/api/vault/status', {
+    protocol: ping.protocol,
+    pluginVersion: '0.1.0',
+    vaultName: 'e2e 筆記庫',
+    cursor: after,
+    pending: 0,
+    skippedOpen: 0,
+    missing: 0,
+    conflicts: [{ wbId: projectId, reason: 'hand-edited', paths: [companyPath] }],
+    errors: [],
+    paths: { reset: true, set: { [trade.id]: tradePath, [projectId]: companyPath }, removed: [] },
+  });
+  const sent = await ok('POST', '/api/vault/reflections', { items: [{ wbId: trade.id, text: '測試反思：進場太早', path: tradePath, mtime: Date.now() }] });
+  assert.equal(sent.results[0].status, 'stored', JSON.stringify(sent.results));
+  // the same text again is not a new version
+  assert.equal((await ok('POST', '/api/vault/reflections', { items: [{ wbId: trade.id, text: '測試反思：進場太早', path: tradePath, mtime: Date.now() }] })).results[0].status, 'unchanged');
+
+  await page.goto(`${BASE}/#/p/${projectId}/trades/${trade.id}`);
+  const card = page.locator(`[data-testid=reflection-card][data-note-id="${trade.id}"]`);
+  await card.getByTestId('reflection-text').filter({ hasText: '測試反思：進場太早' }).waitFor();
+  assert.match(await card.getByTestId('reflection-open').getAttribute('href'), /^obsidian:\/\/open\?vault=e2e/);
+  // a new version written while the page is open shows up on the next poll
+  await ok('POST', '/api/vault/reflections', { items: [{ wbId: trade.id, text: '第二版：停損應設在前低', path: tradePath, mtime: Date.now() }] });
+  await card.getByTestId('reflection-text').filter({ hasText: '第二版' }).waitFor({ timeout: 15000 });
+  await card.getByTestId('reflection-versions-toggle').filter({ hasText: '(2)' }).click();
+  await card.getByTestId('reflection-versions').getByText('測試反思：進場太早').waitFor();
+  await snap('obsidian-reflection');
+
+  // the trade log shows an excerpt
+  await page.goto(`${BASE}/#/journal`);
+  await page.locator(`[data-testid=journal-row][data-trade-id="${trade.id}"]`).getByTestId('journal-reflection').filter({ hasText: '第二版' }).waitFor();
+
+  // the settings page shows the vault and the note the plugin left alone
+  await page.goto(`${BASE}/#/settings`);
+  const sec = page.getByTestId('settings-obsidian');
+  await sec.getByTestId('obsidian-status').getByText(/connected \(\d\d:\d\d\)/).waitFor();
+  assert.match(await sec.innerText(), /e2e 筆記庫/);
+  assert.match(await sec.getByTestId('obsidian-conflict').first().innerText(), /Lite-On Technology[\s\S]*edited by hand/);
+  assert.equal(await sec.getByTestId('obsidian-zip').getAttribute('href'), '/api/vault/plugin.zip');
+  await snap('settings-obsidian');
+
+  // the zip is for the browser user only (it holds the token); 404 when the plugin is not built
+  await page.request.get(`${BASE}/api/session`);
+  const zip = await page.request.get(`${BASE}/api/vault/plugin.zip`);
+  const built = fs.existsSync(path.join(root, 'dist', 'obsidian-plugin', 'main.js'));
+  assert.equal(zip.status(), built ? 200 : 404);
+  if (built) assert.equal((await zip.body()).subarray(0, 2).toString(), 'PK');
+  assert.equal((await vault('GET', '/api/vault/plugin.zip')).status, 403);
+  // the obsidian token works only on /api/vault/*
+  const refused = await vault('POST', `/api/projects/${projectId}/notes`, { body: 'not from the plugin' });
+  assert.equal(refused.status, 403);
+  assert.equal(refused.json.code ?? refused.json.details?.code, 'OBSIDIAN_SCOPE', JSON.stringify(refused.json));
+  // and a browser user cannot pretend to be the plugin
+  const asUser = await page.request.fetch(`${BASE}/api/vault/reflections`, { method: 'POST', data: { items: [{ wbId: trade.id, text: 'x', path: tradePath, mtime: 0 }] } });
+  assert.equal(asUser.status(), 403);
 });
 
 await browser.close();

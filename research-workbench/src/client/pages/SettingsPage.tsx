@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { CLIENT_LABEL } from '../../shared/actors';
 import { PASTE_INSTRUCTIONS } from '../../shared/aiInstructions';
-import type { AiClientStatusDTO, AiSessionDTO, DiagnosticsDTO, ProjectSummaryDTO } from '../../shared/api';
+import type { AiClientStatusDTO, AiSessionDTO, DiagnosticsDTO, ProjectSummaryDTO, VaultStatusDTO } from '../../shared/api';
 import { AiSessionList, hhmm } from '../components/AiSessions';
+import { conflictLabel } from '../components/ReflectionCard';
 import { Advanced, AdvancedToggle } from '../components/ui';
 import { api } from '../lib/api';
 import { getLang, t, tm, useLang } from '../lib/i18n';
@@ -18,7 +19,7 @@ const mmddhhmm = (iso: string) => {
   return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${hhmm(iso)}`;
 };
 
-/** Settings: AI connections, the text to paste into Claude / ChatGPT, recent AI activity, system status. */
+/** Settings: AI connections, the text to paste into Claude / ChatGPT, recent AI activity, Obsidian sync, system status. */
 export function SettingsPage() {
   const [diag, setDiag] = useState<DiagnosticsDTO | null>(null);
   const [sessions, setSessions] = useState<AiSessionDTO[]>([]);
@@ -97,6 +98,8 @@ export function SettingsPage() {
           {sessions.length === 0 && <div className="small sub">{t('No AI activity yet.')}</div>}
           <AiSessionList sessions={sessions} projectName={projectName} />
         </div>
+
+        <ObsidianSection vault={diag ? diag.vault : undefined} />
 
         <div className="card" style={{ marginTop: 14 }} data-testid="system-status">
           <h2>{t('System')}</h2>
@@ -179,6 +182,91 @@ function PasteBox() {
         <button className="btn primary" onClick={() => void copy()} data-testid="copy-ai-instructions">
           {t('Copy')}
         </button>
+      </div>
+    </div>
+  );
+}
+
+const obsidianLink = (vault: string, file: string) => `obsidian://open?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(file)}`;
+
+/** Obsidian sync: the plugin's last report, the notes it could not update, and how to install it. `undefined` while loading. */
+function ObsidianSection({ vault: v }: { vault: VaultStatusDTO | null | undefined }) {
+  const status = !v ? t('never connected') : v.connected ? t('connected ({time})', { time: hhmm(v.lastSeenAt) }) : t('last connected {time}', { time: mmddhhmm(v.lastSeenAt) });
+  const counts = v
+    ? [
+        v.behind > 0 && t('{n} changes not fetched yet', { n: v.behind }),
+        v.pending > 0 && t('{n} notes waiting to be written', { n: v.pending }),
+        v.skippedOpen > 0 && t('{n} notes skipped while open in an editor', { n: v.skippedOpen }),
+        v.missing > 0 && t('{n} notes no longer in the vault', { n: v.missing }),
+      ].filter((x): x is string => !!x)
+    : [];
+  return (
+    <div className="card" data-testid="settings-obsidian" style={{ marginTop: 14 }}>
+      <h2>{t('Obsidian')}</h2>
+      {v !== undefined && (
+        <table className="grid">
+          <tbody>
+            <tr data-testid="obsidian-status">
+              <td className="l">
+                <b>{t('Obsidian plugin')}</b>
+              </td>
+              <td className="l">
+                <span className={cls('save-dot', v?.connected ? 'saved' : v ? 'pending' : 'never')} /> {status}
+              </td>
+              <td className="l small sub">{v && [v.vaultName && t('vault “{name}”', { name: v.vaultName }), v.pluginVersion && t('plugin {version}', { version: v.pluginVersion })].filter(Boolean).join(' · ')}</td>
+            </tr>
+          </tbody>
+        </table>
+      )}
+      {v && (
+        <div className="small" style={{ marginTop: 6 }} data-testid="obsidian-sync">
+          {counts.length ? counts.join(' · ') : t('Up to date')}
+        </div>
+      )}
+      {v && v.errors.length > 0 && (
+        <div className="msg err" style={{ marginTop: 6 }} data-testid="obsidian-errors">
+          {v.errors.map((e, i) => (
+            <div key={i}>{e}</div>
+          ))}
+        </div>
+      )}
+      {v && v.conflicts.length > 0 && (
+        <div style={{ marginTop: 8 }} data-testid="obsidian-conflicts">
+          <b className="small">{t('Notes the plugin left alone ({n})', { n: v.conflicts.length })}</b>
+          <div className="tiny sub">{t('Your text in these files was not changed. Fix the file in Obsidian, or open it and run the plugin command that rebuilds the generated section of the current note.')}</div>
+          <ul style={{ margin: '4px 0', paddingLeft: 18 }}>
+            {v.conflicts.map((c) => (
+              <li key={c.wbId} className="small" data-testid="obsidian-conflict">
+                <b>{c.title || c.wbId}</b> — {conflictLabel(c.reason)}
+                {c.paths.map((p) => (
+                  <div key={p} className="tiny">
+                    <a href={obsidianLink(v.vaultName, p)}>{p}</a>
+                  </div>
+                ))}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className="small sub" style={{ marginTop: 10 }}>
+        {t('The plugin writes each company, Research Update and trade as a note, and sends back what you write under “## 反思”. It never changes text you wrote.')}
+      </div>
+      <div className="small" style={{ marginTop: 8 }}>
+        {t('The Mac installer sets up the plugin in your vault. To install it by hand:')}
+        <ol style={{ margin: '4px 0', paddingLeft: 20 }}>
+          <li>{t('Download the zip below and unzip it.')}</li>
+          <li>{t('In Obsidian: Settings → Community plugins → turn off Restricted mode.')}</li>
+          <li>{t('Click the folder icon next to “Installed plugins” and drag the unzipped folder research-workbench-sync into it.')}</li>
+          <li>{t('Reload the plugins, then turn on “Research Workbench Sync”.')}</li>
+        </ol>
+      </div>
+      <div className="row" style={{ marginTop: 6 }}>
+        <a className="btn" href="/api/vault/plugin.zip" download data-testid="obsidian-zip">
+          {t('Download the Obsidian plugin (zip)')}
+        </a>
+      </div>
+      <div className="msg warn" style={{ marginTop: 8 }}>
+        {t('The zip contains the plugin’s connection key. Do not share it or put it in a synced folder other than your vault.')}
       </div>
     </div>
   );

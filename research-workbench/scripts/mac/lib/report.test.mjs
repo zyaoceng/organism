@@ -136,6 +136,23 @@ describe('finalMessage', () => {
     expect(off).toContain('--no-register');
     expect(off).not.toContain('「設定」頁');
   });
+
+  it('adds the Obsidian section after the AI apps, with the remaining steps', () => {
+    const L = layout({ home: '/Users/a', platform: 'darwin' });
+    expect(finalMessage({ L, port: 4310, launcher: true, launchd: true })).not.toContain('Obsidian:');
+    const text = finalMessage({
+      L,
+      port: 4310,
+      launcher: true,
+      launchd: true,
+      registration: [],
+      obsidian: { status: 'installed', message: '~/筆記/.obsidian/plugins/research-workbench-sync（外掛 0.1.0）', lines: ['關閉「限制模式」'] },
+    });
+    expect(text).toContain('Obsidian:\n  已安裝外掛：~/筆記/.obsidian/plugins/research-workbench-sync（外掛 0.1.0）\n  - 關閉「限制模式」');
+    expect(text.indexOf('AI 連線')).toBeLessThan(text.indexOf('Obsidian:'));
+    expect(text.indexOf('Obsidian:')).toBeLessThan(text.indexOf('更新 / Update'));
+    expect(finalMessage({ L, port: 4310, launcher: true, launchd: true, obsidian: { status: 'blocked' } })).toContain('  被 macOS 擋下\n');
+  });
 });
 
 describe('registrationCheck', () => {

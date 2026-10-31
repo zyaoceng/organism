@@ -88,6 +88,9 @@ import { AttachmentStore, INLINE_SAFE, sanitizeFilename } from './storage/attach
 import { loadOrCreateTokens, type TokenSet } from './tokens';
 import { badRequest, conflict, errorCode, forbidden, HttpError, isDate, localToday, notFound, nowIso } from './util';
 import { APP_ROOT, readVersion } from './version';
+import { projectReflectionVersions } from './vault/reflections';
+import { registerVaultRoutes } from './vault/routes';
+import { vaultStatus } from './vault/status';
 
 export interface AppOptions {
   dataDir: string;
@@ -118,6 +121,10 @@ export interface AppOptions {
   tokensFile?: string;
   /** Market cache and throttle settings (tests use minIntervalMs: 0). */
   market?: MarketServiceOptions;
+  /** This server's address as the Obsidian plugin and notes see it. Default http://127.0.0.1:4310. */
+  publicUrl?: string;
+  /** The built Obsidian plugin (main.js, manifest.json). Default <appRoot>/dist/obsidian-plugin. */
+  pluginDir?: string;
 }
 
 export interface AppContext {
@@ -264,6 +271,8 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
       uptimeSec: Math.round((Date.now() - startedAt) / 1000),
       // last connection of each AI client (agents only)
       clients: listAiClients(db),
+      // the Obsidian plugin's last report
+      vault: vaultStatus(db),
     }),
   );
 
@@ -359,6 +368,8 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
       notes: listNotes(db, id),
       reviews: listReviews(db, id),
       auditLog: listAudit(db, id),
+      // `## 反思` sections read back from Obsidian, every version (additive: formatVersion stays 1)
+      reflections: projectReflectionVersions(db, id),
     };
     const safe = project.name.replace(/[^\p{L}\p{N}_-]+/gu, '_');
     reply.header('Content-Disposition', `attachment; filename="project.json"; filename*=UTF-8''${encodeURIComponent(`${safe}-${nowIso().slice(0, 10)}.json`)}`);
@@ -710,6 +721,15 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
       if (e instanceof MarketDataError) throw badRequest(e.message);
       throw e;
     }
+  });
+
+  // ------------------------------------------------------------ Obsidian sync
+  registerVaultRoutes(app, {
+    db,
+    publicUrl: (opts.publicUrl ?? 'http://127.0.0.1:4310').replace(/\/+$/, ''),
+    pluginDir: opts.pluginDir ?? path.join(opts.appRoot ?? APP_ROOT, 'dist/obsidian-plugin'),
+    obsidianToken: () => tokens.tokens.obsidian,
+    generation: () => dbGeneration(db),
   });
 
   // ------------------------------------------------------------ built client (production)

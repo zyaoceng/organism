@@ -20,6 +20,9 @@ export const HELP = `研究工作台 Mac 安裝程式 / Research Workbench Mac i
   --source-dir <dir>  從本機資料夾安裝（CI 用；也可設 WB_SOURCE_DIR）/ install from a local checkout
   --no-launchd        不建立背景服務與 App（CI／Linux）/ skip the LaunchAgent and launcher
   --no-register       不登記到 Claude／ChatGPT / do not register with the AI apps
+  --obsidian          重新選擇要連接的 Obsidian vault / choose the Obsidian vault again
+  --obsidian-vault <dir>  把 Obsidian 外掛裝到這個 vault / install the Obsidian plugin into this vault
+  --no-obsidian       這次不安裝 Obsidian 外掛 / skip the Obsidian plugin this time
 `;
 
 export class ArgsError extends Error {}
@@ -46,6 +49,9 @@ export function parseInstallArgs(argv, env = {}) {
         'source-dir': { type: 'string' },
         'no-launchd': { type: 'boolean' },
         'no-register': { type: 'boolean' },
+        obsidian: { type: 'boolean' },
+        'obsidian-vault': { type: 'string' },
+        'no-obsidian': { type: 'boolean' },
         help: { type: 'boolean', short: 'h' },
       },
     }));
@@ -57,6 +63,12 @@ export function parseInstallArgs(argv, env = {}) {
   if (values.doctor && values['dry-run']) throw new ArgsError('--doctor already changes nothing; drop --dry-run');
   if (values.purge && !values.uninstall) throw new ArgsError('--purge only works together with --uninstall');
   if (values.uninstall && values.import) throw new ArgsError('--import cannot be combined with --uninstall');
+  if (values.obsidian && values['no-obsidian']) throw new ArgsError('--obsidian and --no-obsidian cannot be combined');
+  if (values['obsidian-vault'] !== undefined && values['no-obsidian']) throw new ArgsError('--obsidian-vault and --no-obsidian cannot be combined');
+  if (values['obsidian-vault'] === '') throw new ArgsError('--obsidian-vault needs a folder');
+  if (values.uninstall && (values.obsidian || values['obsidian-vault'] !== undefined || values['no-obsidian'])) {
+    throw new ArgsError('the Obsidian options cannot be combined with --uninstall (it never touches the vault)');
+  }
   let port = null;
   if (values.port !== undefined) {
     port = /^\d+$/.test(values.port) ? Number(values.port) : NaN;
@@ -73,5 +85,8 @@ export function parseInstallArgs(argv, env = {}) {
     sourceDir: src ? path.resolve(src) : null,
     noLaunchd: !!values['no-launchd'],
     noRegister: !!values['no-register'],
+    obsidian: !!values.obsidian,
+    obsidianVault: values['obsidian-vault'] ? path.resolve(values['obsidian-vault']) : null,
+    noObsidian: !!values['no-obsidian'],
   };
 }

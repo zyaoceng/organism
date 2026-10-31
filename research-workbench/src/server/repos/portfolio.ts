@@ -13,6 +13,7 @@ import type { DB } from '../db/connection';
 import { barsBySecurity } from './market';
 import { toSecurity } from './projects';
 import { toReview, toTrade, type ReviewRow, type TradeRow } from './records';
+import { latestExcerpts } from '../vault/reflections';
 
 // ---------------------------------------------------------------- dashboard
 
@@ -347,6 +348,7 @@ export function listJournalTrades(db: DB, f: JournalFilter, o: { synthetic: Set<
     .prepare("SELECT * FROM reviews WHERE subject_type = 'trade' AND subject_id IN (SELECT value FROM json_each(?)) ORDER BY created_at")
     .all(JSON.stringify(rows.map((r) => r.id))) as ReviewRow[];
   for (const r of reviewRows) reviews.set(r.subject_id!, [...(reviews.get(r.subject_id!) ?? []), toReview(r)]);
+  const reflections = latestExcerpts(db, rows.map((r) => r.id));
 
   return rows.map((r): JournalTradeDTO => {
     const trade = toTrade(r);
@@ -369,6 +371,7 @@ export function listJournalTrades(db: DB, f: JournalFilter, o: { synthetic: Set<
         categories: v.categories.map((c) => c.category),
         createdAt: v.createdAt,
       })),
+      reflection: reflections.get(r.id) ?? null,
     };
   });
 }

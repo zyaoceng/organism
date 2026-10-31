@@ -32,6 +32,13 @@ const SORTS: Record<string, { value: (r: Trade) => number | string | null; first
 };
 
 const money = (v: number | null) => (v === null ? '—' : v.toLocaleString('en-US', { maximumFractionDigits: 0 }));
+/** Characters of a reflection shown in the table; the whole excerpt is in the cell's tooltip. */
+const EXCERPT_SHOWN = 80;
+/** Cut by characters, not UTF-16 units, so an emoji is never split. */
+const shortExcerpt = (s: string) => {
+  const chars = Array.from(s.replace(/\s+/g, ' ').trim());
+  return chars.length > EXCERPT_SHOWN ? `${chars.slice(0, EXCERPT_SHOWN).join('')}…` : chars.join('');
+};
 const categoryLabel = (c: string) => t(ERROR_CATEGORIES.find((x) => x.value === c)?.label ?? c);
 
 /** Every trade across companies (#/journal): R, P&L in each security's own currency, research snapshot, reviews. */
@@ -43,6 +50,7 @@ export function JournalPage() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [unreviewed, setUnreviewed] = useState(false);
+  const [unreflected, setUnreflected] = useState(false);
   const [q, setQ] = useState('');
   const [switching, setSwitching] = useState(false);
   const [sort, clickSort] = useSortState('wb.journal.sort');
@@ -73,11 +81,12 @@ export function JournalPage() {
         (!from || tr.entryDate >= from) &&
         (!to || tr.entryDate <= to) &&
         (!unreviewed || tr.reviews.length === 0) &&
+        (!unreflected || (!tr.metrics.open && !tr.reflection)) &&
         (!query || [tr.project.name, tr.security.ticker, tr.entryReason].some((x) => norm(x).includes(query))),
     );
     const s = SORTS[sort.key];
     return s ? sortBy(rows, s.value, sort.dir) : rows;
-  }, [trades, status, projectId, from, to, unreviewed, q, sort]);
+  }, [trades, status, projectId, from, to, unreviewed, unreflected, q, sort]);
 
   const summary = useMemo(() => summarizeTrades(visible.map((tr) => ({ currency: tr.security.currency, metrics: tr.metrics, reviewCategories: tr.reviews.flatMap((r) => r.categories) }))), [visible]);
 
@@ -86,7 +95,7 @@ export function JournalPage() {
       {label}
     </th>
   );
-  const cols = adv ? 14 : 12;
+  const cols = adv ? 15 : 13;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }} lang={lang}>
@@ -169,6 +178,9 @@ export function JournalPage() {
               <label className="small sub row" style={{ gap: 4 }}>
                 <input type="checkbox" checked={unreviewed} onChange={(e) => setUnreviewed(e.target.checked)} /> {t('Not reviewed only')}
               </label>
+              <label className="small sub row" style={{ gap: 4 }}>
+                <input type="checkbox" checked={unreflected} onChange={(e) => setUnreflected(e.target.checked)} data-testid="journal-unreflected" /> {t('Closed, no reflection yet')}
+              </label>
               <input className="dash-search" placeholder={t('Search company, code or reason')} value={q} onChange={(e) => setQ(e.target.value)} data-testid="journal-search" />
             </div>
             <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
@@ -187,6 +199,9 @@ export function JournalPage() {
                     {th('days', t('Days held'))}
                     {th('research', t('Research snapshot'), 'l')}
                     {th('review', t('Review'), 'l')}
+                    <th className="l" title={t('The “## 反思” section of the trade’s note in Obsidian')}>
+                      {t('Reflection')}
+                    </th>
                     {adv && <th>MFE / MAE</th>}
                     {adv && <th className="l">{t('Trail-stop exit')}</th>}
                   </tr>
@@ -268,6 +283,16 @@ function JournalRow({ tr }: { tr: Trade }) {
               {t('write review')}
             </a>
           </span>
+        )}
+      </td>
+      <td className="l small journal-reflection" title={tr.reflection?.excerpt} data-testid="journal-reflection">
+        {tr.reflection ? (
+          <>
+            {shortExcerpt(tr.reflection.excerpt)}
+            {tr.reflection.cleared && <span className="badge warn">{t('cleared in Obsidian')}</span>}
+          </>
+        ) : (
+          <span className="sub">—</span>
         )}
       </td>
       <Advanced>

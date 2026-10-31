@@ -75,6 +75,7 @@ vi.mock('./api', () => {
       catalysts: async () => [],
       notes: async () => [],
       reviews: async () => [],
+      reflections: async () => [],
     },
   };
 });

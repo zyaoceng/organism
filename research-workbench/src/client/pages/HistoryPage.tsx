@@ -10,6 +10,7 @@ import { ERROR_CATEGORIES, type AiSessionDTO, type ReviewDTO, type RevisionAnnot
 import { AiSessionList } from '../components/AiSessions';
 import { ImpactView } from '../components/ImpactView';
 import { LineChart } from '../components/LineChart';
+import { ReflectionCard } from '../components/ReflectionCard';
 import { Advanced, AiBadge, Delta, Field } from '../components/ui';
 import { api } from '../lib/api';
 import { getLang, t, tm, tn } from '../lib/i18n';
@@ -62,35 +63,38 @@ function Updates({ selectedId }: { selectedId?: string }) {
   const draft = useWorkspace((s) => s.draft);
   const tp = draft ? findByRole(draft, 'target_price') : undefined;
   return (
-    <div className="split" style={{ gridTemplateColumns: '380px minmax(0, 1fr)' }}>
-      <div className="timeline" data-testid="timeline">
-        {sorted.map((r) => {
-          const h = r.impact?.headline.targetPrice.find((x) => x.scenario === 'base');
-          return (
-            <div key={r.id} className={cls('tl-item', r.kind, sel === r.id && 'sel')} onClick={() => setSel(r.id)}>
-              <div className="tl-card">
-                <div className="row">
-                  <b>#{r.seq}</b>
-                  <span className="ellipsis grow">{r.title}</span>
-                  {r.excludedFromCalibration && <span className="badge err">{t('marked wrong')}</span>}
-                  <AiBadge actor={r.createdBy} />
-                  <Advanced>{r.kind !== 'update' && <span className="badge">{t(r.kind)}</span>}</Advanced>
-                </div>
-                <div className="tiny sub">
-                  {r.asOfDate ? t('as of {date}', { date: r.asOfDate }) : t('no knowledge date')} · {tn(r.changes.length, '{n} change', '{n} changes')}
-                </div>
-                {h && h.before !== null && h.after !== null && h.before !== h.after && (
-                  <div className="small num">
-                    {t('Base TP')} {formatValue(h.before, tp?.unit)} → <b>{formatValue(h.after, tp?.unit)}</b> <Delta before={h.before} after={h.after} />
+    <>
+      <ReflectionCard noteId={projectId} kind="company" compact />
+      <div className="split" style={{ gridTemplateColumns: '380px minmax(0, 1fr)' }}>
+        <div className="timeline" data-testid="timeline">
+          {sorted.map((r) => {
+            const h = r.impact?.headline.targetPrice.find((x) => x.scenario === 'base');
+            return (
+              <div key={r.id} className={cls('tl-item', r.kind, sel === r.id && 'sel')} onClick={() => setSel(r.id)}>
+                <div className="tl-card">
+                  <div className="row">
+                    <b>#{r.seq}</b>
+                    <span className="ellipsis grow">{r.title}</span>
+                    {r.excludedFromCalibration && <span className="badge err">{t('marked wrong')}</span>}
+                    <AiBadge actor={r.createdBy} />
+                    <Advanced>{r.kind !== 'update' && <span className="badge">{t(r.kind)}</span>}</Advanced>
                   </div>
-                )}
+                  <div className="tiny sub">
+                    {r.asOfDate ? t('as of {date}', { date: r.asOfDate }) : t('no knowledge date')} · {tn(r.changes.length, '{n} change', '{n} changes')}
+                  </div>
+                  {h && h.before !== null && h.after !== null && h.before !== h.after && (
+                    <div className="small num">
+                      {t('Base TP')} {formatValue(h.before, tp?.unit)} → <b>{formatValue(h.after, tp?.unit)}</b> <Delta before={h.before} after={h.after} />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+        <div>{sel ? <RevisionDetail key={sel} projectId={projectId} revisionId={sel} /> : <div className="empty">{t('No Research Updates yet.')}</div>}</div>
       </div>
-      <div>{sel ? <RevisionDetail key={sel} projectId={projectId} revisionId={sel} /> : <div className="empty">{t('No Research Updates yet.')}</div>}</div>
-    </div>
+    </>
   );
 }
 
@@ -222,6 +226,7 @@ function RevisionDetail({ projectId, revisionId }: { projectId: string; revision
           </div>
         )}
       </div>
+      <ReflectionCard noteId={rev.id} kind="research_update" compact />
       {rev.impact && (
         <div className="card">
           <h2>{t('Impact')}</h2>

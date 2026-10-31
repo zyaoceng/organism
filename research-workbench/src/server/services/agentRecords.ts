@@ -2,13 +2,14 @@
  * Records an AI writes outside the draft: trades (new, imported from an old journal, closed),
  * companies, and the cross-company security lookup. The rules are the server's, not the tool's:
  * share counts (1 張 = 1000 股), no future dates, prices inside the day's bar unless confirmed,
- * and a journal excerpt imported twice gives back the same trade.
+ * a journal excerpt imported twice gives back the same trade, and an import that looks like a trade
+ * already on record (another excerpt, or typed in by hand) waits for the user's word.
  */
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import type { Bar } from '../../domain/market/indicators';
 import type { SecurityMatchDTO, TradeCloseResponse, TradeDTO, TradeRecordResponse } from '../../shared/api';
-import { noteAiAction } from '../actor';
+import { noteAiAction, quietRequest } from '../actor';
 import type { DB } from '../db/connection';
 import type { MarketService } from '../market/service';
 import { getBars } from '../repos/market';
@@ -40,6 +41,11 @@ export function journalRef(s: string): string {
 
 /** Shortest journal excerpt accepted for an import (shorter text cannot identify a trade). */
 export const MIN_SOURCE_TEXT = 10;
+/** Longest excerpt kept (normalised): one trade's entry, not a whole journal pasted at once. */
+export const MAX_SOURCE_TEXT = 4000;
+
+/** Relative price difference under which an imported trade is taken for one already on record. */
+const DUPLICATE_PRICE_TOLERANCE = 0.005;
 
 // ---------------------------------------------------------------- securities across companies
 
@@ -105,7 +111,16 @@ const RecordTradeSchema = z.object({
   sourceText: z.string().max(20_000).optional(),
   /** Import again an excerpt whose trade was deleted. */
   allowReimport: z.boolean().optional(),
+  /** Import although a trade with the same side, date, shares and price is already on record. */
+  allowDuplicate: z.boolean().optional(),
+  /** Run every check and return the trade that would be recorded, writing nothing. */
+  dryRun: z.boolean().optional(),
 });
+
+/** Thrown inside the dry run's transaction to roll it back. */
+class DryRun {
+  constructor(readonly trade: TradeDTO) {}
+}
 
 const CloseTradeSchema = z.object({
   exitDate: isoDate,
@@ -179,6 +194,7 @@ export async function recordAgentTrade(db: DB, market: MarketService, projectId:
     throw badRequest('數量請用 quantityShares（股數；台股 1 張 = 1000 股），不要用 quantity', { code: 'QUANTITY_SHARES_REQUIRED' });
   }
   const b = parseBody(RecordTradeSchema, body);
+  if (b.dryRun) quietRequest();
   const today = localToday();
   for (const d of [b.entryDate, b.exitDate]) if (d && d > today) throw badRequest(`日期 ${d} 在未來（今天是 ${today}）`, { code: 'FUTURE_DATE', today });
   if ((b.exitDate === undefined) !== (b.exitPrice === undefined)) throw badRequest('出場要同時填日期和價格', { code: 'INVALID_INPUT' });
@@ -187,6 +203,9 @@ export async function recordAgentTrade(db: DB, market: MarketService, projectId:
   let ref: string | null = null;
   if (b.sourceText !== undefined) {
     sourceText = normalizeSourceText(b.sourceText) || null;
+    if (sourceText && sourceText.length > MAX_SOURCE_TEXT) {
+      throw badRequest(`原文 sourceText 太長（${sourceText.length} 字，上限 ${MAX_SOURCE_TEXT}）：只附這一筆交易的那段日誌`, { code: 'SOURCE_TEXT_TOO_LONG', length: sourceText.length, max: MAX_SOURCE_TEXT });
+    }
     // a text too short to identify a trade ("買兩張") must not key it: the next trade quoting the
     // same words would come back as "existing" and never be recorded
     if (sourceText && sourceText.length >= MIN_SOURCE_TEXT) ref = journalRef(b.sourceText);
@@ -208,15 +227,34 @@ export async function recordAgentTrade(db: DB, market: MarketService, projectId:
       });
     }
   }
+  if (b.source === 'import' && !b.allowDuplicate) {
+    // the same trade written up twice in the journal (or already typed in by hand) has another
+    // excerpt, so its key differs: catch it by what was traded
+    const dup = db
+      .prepare(
+        `SELECT id, entry_price, quantity, source, created_by FROM trades
+         WHERE project_id = ? AND side = ? AND entry_date = ? AND ABS(quantity - ?) < 1e-9
+           AND ABS(entry_price - ?) <= ? * ? AND (external_ref IS NULL OR external_ref <> ?)
+         ORDER BY created_at LIMIT 1`,
+      )
+      .get(projectId, b.side, b.entryDate, b.quantityShares, b.entryPrice, DUPLICATE_PRICE_TOLERANCE, b.entryPrice, ref ?? '') as
+      | { id: string; entry_price: number; quantity: number; source: string; created_by: string }
+      | undefined;
+    if (dup) {
+      throw conflict(
+        `這家公司已經有一筆 ${b.entryDate} ${b.side === 'long' ? '買進' : '放空'} ${b.quantityShares.toLocaleString('en-US')} 股 @ ${dup.entry_price} 的交易（${dup.id}），可能是同一筆。請先問使用者；確定是另一筆交易才帶 allow_duplicate=true`,
+        { code: 'PROBABLE_DUPLICATE', duplicateOf: dup.id, entryDate: b.entryDate, side: b.side, quantity: dup.quantity, entryPrice: dup.entry_price, source: dup.source, createdBy: dup.created_by },
+      );
+    }
+  }
 
   const warnings: string[] = [];
   const data = await barsFor(db, market, projectId);
   checkPrice('進場', b.entryDate, b.entryPrice, data, !!b.confirmPrice, warnings);
   if (b.exitDate && b.exitPrice !== undefined) checkPrice('出場', b.exitDate, b.exitPrice, data, !!b.confirmPrice, warnings);
 
-  let trade: TradeDTO;
-  try {
-    trade = createTrade(
+  const create = () =>
+    createTrade(
       db,
       projectId,
       {
@@ -235,6 +273,27 @@ export async function recordAgentTrade(db: DB, market: MarketService, projectId:
       },
       { source: b.source, externalRef: ref, sourceText, noDefaults: b.source === 'import' },
     );
+  if (b.dryRun) {
+    // the real insert (defaults, validation, constraints) inside a transaction that is rolled back
+    let trade: TradeDTO | null = null;
+    try {
+      db.transaction(() => {
+        throw new DryRun(create());
+      })();
+    } catch (e) {
+      if (!(e instanceof DryRun)) throw e;
+      trade = e.trade;
+    }
+    warnings.push(...quantityWarnings(trade!, data?.currency ?? ''));
+    if (b.source === 'import') warnings.push('匯入的交易只記日誌寫明的數字，不會自動補停損與目標價');
+    warnings.push('這是預覽，沒有寫入；給使用者確認後，用同樣的內容、不帶 dry_run 再呼叫一次');
+    // no id: nothing was stored, and the id drawn inside the rolled-back insert names nothing
+    return { status: 'would-create', trade: { ...trade!, id: '' }, warnings };
+  }
+
+  let trade: TradeDTO;
+  try {
+    trade = create();
   } catch (e) {
     // the same excerpt sent twice at once: the second insert hits the unique index
     const existing = ref && (e as { code?: string }).code === 'SQLITE_CONSTRAINT_UNIQUE' ? tradeByExternalRef(db, ref) : null;

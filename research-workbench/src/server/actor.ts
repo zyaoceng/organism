@@ -11,7 +11,7 @@ import { HttpError, nowIso } from './util';
  * Who is making the current request, carried through async code with AsyncLocalStorage so that
  * repositories can record it without changing their signatures (`currentActor()`).
  *
- * Resolution: `Authorization: Bearer <token>` (AI clients, tests) → the token's actor; otherwise
+ * Resolution: `Authorization: Bearer <token>` (AI clients, Obsidian, tests) → the token's actor; otherwise
  * the `wb_session` cookie set by GET /api/session (the browser) → user; otherwise unknown.
  * An unknown caller may read but never write: writes are refused with 401 NO_ACTOR instead of being
  * recorded as the user. Code outside a request (seeding, CLIs, background work) is `system`.
@@ -41,6 +41,11 @@ const resources = new WeakMap<object, AsyncResource>();
 export const SESSION_COOKIE = 'wb_session';
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 export const isMutating = (method: string) => MUTATING.has(method.toUpperCase());
+
+export const OBSIDIAN_SCOPE_MESSAGE = 'The Obsidian plugin may only call /api/vault/*';
+
+/** The Obsidian token may call only the vault routes (by matched route, so encoded paths cannot slip through). */
+export const inObsidianScope = (routeUrl: string | undefined) => !!routeUrl && routeUrl.startsWith('/api/vault/');
 
 export const NO_ACTOR_MESSAGE = 'Who is writing could not be identified. Reload the page; AI assistants must use the Research Workbench tools.';
 
@@ -107,6 +112,10 @@ export function installActorHooks(app: FastifyInstance, tokens: TokenSet, db: DB
     req.actor = actor;
     // Decided on the method alone: a percent-encoded path (/%61pi/…) still reaches an /api route,
     // and a handler that writes before it audits would otherwise keep a write nobody is named for.
+    if (actor === 'obsidian' && !inObsidianScope(req.routeOptions.url)) {
+      reply.code(403).send({ error: OBSIDIAN_SCOPE_MESSAGE, code: 'OBSIDIAN_SCOPE', details: null });
+      return;
+    }
     if (actor === 'unknown' && isMutating(req.method)) {
       reply.code(401).send({ error: NO_ACTOR_MESSAGE, code: 'NO_ACTOR', details: null });
       return;

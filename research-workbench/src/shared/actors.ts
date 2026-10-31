@@ -1,20 +1,21 @@
 /**
  * Who did something. Every write records an actor: the user (browser cookie or user token), an AI
- * client (its own token from tokens.json) or the server itself (background work, CLIs, seeding).
+ * client (its own token from tokens.json), the Obsidian plugin (its own token; it may call only
+ * /api/vault/*) or the server itself (background work, CLIs, seeding).
  * This is attribution, not security: any program on the same Mac can read tokens.json.
  *
- * Stored values (audit_log.actor, *.created_by, draft_ops.actor): 'user', 'system' or
+ * Stored values (audit_log.actor, *.created_by, draft_ops.actor): 'user', 'system', 'obsidian' or
  * 'agent:<client>'. Bare client ids appear only in ai_sessions.client and ai_clients.client.
  */
 export const AGENT_CLIENTS = ['claude-desktop', 'claude-code', 'chatgpt'] as const;
 export type AgentClient = (typeof AGENT_CLIENTS)[number];
 
 /** Keys of tokens.json: one per caller that gets its own token. */
-export const TOKEN_NAMES = ['user', ...AGENT_CLIENTS] as const;
+export const TOKEN_NAMES = ['user', ...AGENT_CLIENTS, 'obsidian'] as const;
 export type TokenName = (typeof TOKEN_NAMES)[number];
 
 export type AgentActor = `agent:${AgentClient}`;
-export type Actor = 'user' | 'system' | AgentActor;
+export type Actor = 'user' | 'system' | 'obsidian' | AgentActor;
 
 export const isAgentClient = (c: unknown): c is AgentClient => typeof c === 'string' && (AGENT_CLIENTS as readonly string[]).includes(c);
 
@@ -25,7 +26,7 @@ export const agentClientOf = (a?: string | null): AgentClient | null => (isAgent
 
 /** The actor a token name stands for. */
 export function actorFor(name: TokenName): Actor {
-  return name === 'user' ? 'user' : `agent:${name}`;
+  return name === 'user' || name === 'obsidian' ? name : `agent:${name}`;
 }
 
 export const CLIENT_LABEL: Record<'en' | 'zh-TW', Record<AgentClient, string>> = {
@@ -39,6 +40,7 @@ export function actorLabel(a: string | null | undefined, lang: 'en' | 'zh-TW'): 
   if (!a) return zh ? 'v2 之前' : 'before v2';
   if (a === 'user') return zh ? '你' : 'You';
   if (a === 'system') return zh ? '系統' : 'System';
+  if (a === 'obsidian') return 'Obsidian';
   const c = agentClientOf(a);
   return c ? CLIENT_LABEL[lang][c] : a;
 }

@@ -5,13 +5,15 @@
  * `npm ci`.
  *
  *   install.mjs [--yes] [--port <n>] [--import <wb-data.tgz>] [--no-register]   install, or update to release.json's commit
+ *               [--obsidian | --obsidian-vault <dir> | --no-obsidian]            and the Obsidian plugin (lib/obsidian.mjs)
  *   install.mjs --dry-run | --doctor | --uninstall [--purge]
  *   install.mjs --source-dir <checkout> [--no-launchd]             CI: install a local checkout
  *
  * Re-running is the update: the new version is built in its own ~/ResearchWorkbench/app-<sha7>
  * folder next to the running one, `current` is switched over, and if /api/health does not answer
  * within 60 s the previous version, its LaunchAgent and the database as it was before the switch are
- * put back. After that the AI apps found on this Mac are pointed at the MCP adapter (lib/register.mjs).
+ * put back. After that the AI apps found on this Mac are pointed at the MCP adapter (lib/register.mjs),
+ * and the Obsidian plugin is copied into the vault the user chose (lib/obsidian.mjs; never deletes there).
  * Environment overrides (tests and install.sh):
  * WB_SOURCE_DIR, WB_RELEASE_COMMIT (skip reading release.json), WB_NODE (the Node the service runs).
  */
@@ -26,10 +28,11 @@ import { appUrl, checkHealth, healthUrl, waitForHealth } from './lib/health.mjs'
 import { launchAgent, parseLaunchctlPrint, parseLsof, parsePrintDisabled, renderPlist, serviceTarget } from './lib/launchd.mjs';
 import { launcherScript, osacompileArgs } from './lib/launcher.mjs';
 import { APP_NAME, DEFAULT_PORT, ONE_LINER, appDirName, importedArchiveName, layout, shouldCopy, tilde } from './lib/layout.mjs';
+import { decideVault, formatVaultMenu, installPlugin, isPermissionError, obsidianConfigPath, parseVaultChoice, parseVaults, pluginCheck, pluginTargetDir, probePath } from './lib/obsidian.mjs';
 import { appDirsToDelete } from './lib/prune.mjs';
 import { detectTargets, registerAll, registrationStatus } from './lib/register.mjs';
 import { ReleaseError, isCommit, parseRelease, releaseUrl, tarExtractArgs, tarballUrl } from './lib/release.mjs';
-import { finalMessage, formatBytes, formatDoctorReport, formatImportSummary, lastJsonLine, registrationCheck, summarizeDiagnostics } from './lib/report.mjs';
+import { OBSIDIAN_STATUS_ZH, finalMessage, formatBytes, formatDoctorReport, formatImportSummary, lastJsonLine, registrationCheck, summarizeDiagnostics } from './lib/report.mjs';
 import { nodeForMacos } from './lib/system.mjs';
 
 class InstallError extends Error {
@@ -579,6 +582,66 @@ const tomlLoader = (L) => () => createRequire(path.join(L.current, 'package.json
 /** pgrep, osascript and the claude CLI; the CLI may be a Node script, which finds the bundled Node first. */
 const runForApps = (cmd, args, opts = {}) => run(cmd, args, { env: childEnv(), ...opts });
 
+/** true / false from `pgrep -x Obsidian`; null when that cannot tell (no pgrep). */
+function obsidianRunning() {
+  const r = run(exists('/usr/bin/pgrep') ? '/usr/bin/pgrep' : 'pgrep', ['-x', 'Obsidian']);
+  return r.status === 0 ? true : r.status === 1 ? false : null;
+}
+
+/**
+ * Choose the vault (flag, the saved one, or the menu) and copy the plugin into it. Never fails the
+ * install. Returns the result for the closing message and the new `settings.obsidian`.
+ * @returns {{ result: { status: string, message: string, lines: string[] }, saved: object | undefined }}
+ */
+function obsidianStep(o, L, appDir, port, settings) {
+  say('連接 Obsidian', 'Obsidian plugin');
+  const prev = settings.obsidian;
+  const skip = (status, message, saved = prev) => {
+    info(message, `obsidian ${status}`);
+    return { result: { status, message, lines: [] }, saved };
+  };
+  const d = decideVault({ o, saved: prev, mac: L.mac });
+  if (d.action === 'skip') return skip(d.status, d.message);
+  let vault = d.action === 'use' ? d.vault : null;
+  if (d.action === 'ask') {
+    const cfg = obsidianConfigPath(L.home);
+    let text = null;
+    try {
+      text = fs.readFileSync(cfg, 'utf8');
+    } catch (e) {
+      if (isPermissionError(e)) warn(`沒有權限讀取 ${tilde(cfg, L.home)}`, `cannot read obsidian.json (${e.code})`);
+    }
+    const { vaults, error } = text === null ? { vaults: [], error: null } : parseVaults(text, { exists: probePath });
+    if (error) warn(error, 'obsidian.json unreadable');
+    const later = `之後可以執行 ${ONE_LINER} -- --obsidian`;
+    if (!vaults.length) return skip('skipped', `沒有找到 Obsidian 的 vault（沒有安裝 Obsidian，或還沒建立 vault）；${later}`);
+    if (o.yes) return skip('skipped', `--yes 不會替你選 vault；${later}，或加上 --obsidian-vault <資料夾>`);
+    console.log('    要把研究工作台的筆記寫進哪一個 Obsidian vault？外掛只會寫在 vault 的「研究工作台」資料夾，不會改動你其他的筆記。');
+    console.log(formatVaultMenu(vaults, L.home));
+    let choice = null;
+    for (let i = 0; i < 3 && choice === null; i++) {
+      const a = readTtyLine(`    輸入編號 / number [0-${vaults.length}]: `);
+      if (a === null) return skip('skipped', `沒有可輸入的終端機 / no terminal；${later}`);
+      choice = parseVaultChoice(a, vaults.length);
+      if (choice === null) warn(`請輸入 0 到 ${vaults.length} 的數字`, 'not a menu number');
+    }
+    if (choice === null) return skip('skipped', `沒有選擇 vault；${later}`);
+    if (choice === 0) return skip('declined', `不連接 Obsidian；${later}`, { declined: true });
+    vault = vaults[choice - 1].path;
+  }
+  const r = installPlugin({ vault, appDir, dataDir: L.dataDir, port, home: L.home, obsidianRunning });
+  const line = `${OBSIDIAN_STATUS_ZH[r.status] ?? r.status}：${r.message}`;
+  if (r.status === 'failed' || r.status === 'blocked' || r.status === 'skipped') warn(line, `obsidian plugin ${r.status}`);
+  else ok(line, `obsidian plugin ${r.status}`);
+  // keep the choice unless the folder is not a vault, so an update re-copies it (also after a macOS refusal)
+  const isVault = probePath(path.join(vault, '.obsidian'));
+  const done = ['installed', 'updated', 'unchanged'].includes(r.status);
+  const saved = isVault
+    ? { vault, installedAt: done ? new Date().toISOString() : (prev?.installedAt ?? null), pluginVersion: done ? r.pluginVersion : (prev?.pluginVersion ?? null) }
+    : prev;
+  return { result: { status: r.status, message: r.dir ? r.message : `${tilde(vault, L.home)}  ${r.message}`, lines: r.lines }, saved };
+}
+
 // ------------------------------------------------------------ install
 
 /** In a dry run install.sh has not created runtime/current yet (it runs us from a temporary Node), so a missing one is fine. */
@@ -761,8 +824,19 @@ async function install(o, L, settings) {
     }
     ciOutput('register', registration ? registration.map((r) => `${r.target}:${r.status}`).join(',') : 'off');
 
-    // h. how to use it
-    console.log(finalMessage({ L, port, launcher, launchd: service === 'ok', registration }));
+    // h. the Obsidian plugin; it needs tokens.json too, and remembers the vault in settings.json
+    let obs;
+    try {
+      obs = obsidianStep(o, L, L.current, port, settings);
+    } catch (e) {
+      warn('Obsidian 外掛沒有安裝', `obsidian step failed: ${e?.message ?? e}`);
+      obs = { result: { status: 'failed', message: String(e?.message ?? e).split('\n')[0], lines: [] }, saved: settings.obsidian };
+    }
+    if (obs.saved !== settings.obsidian) writeFileAtomic(L.settings, `${JSON.stringify({ ...settings, port, obsidian: obs.saved }, null, 2)}\n`);
+    ciOutput('obsidian', obs.result.status);
+
+    // i. how to use it
+    console.log(finalMessage({ L, port, launcher, launchd: service === 'ok', registration, obsidian: obs.result }));
     return 0;
   } finally {
     unlock();
@@ -835,6 +909,10 @@ async function dryRun(o, L, port, launchd) {
       found.length ? `would register with ${found.map((x) => x.client).join(', ')}` : 'no AI app found',
     );
   }
+  const d = decideVault({ o, saved: readSettings(L).obsidian, mac: L.mac });
+  if (d.action === 'skip') plan(d.message, `no Obsidian plugin (${d.status})`);
+  else if (d.action === 'use') plan(`複製 Obsidian 外掛到 ${tilde(pluginTargetDir(d.vault), L.home)}`, `would copy the plugin into the ${d.source === 'flag' ? '--obsidian-vault' : 'saved'} vault`);
+  else plan(`詢問要連接哪一個 Obsidian vault（${tilde(obsidianConfigPath(L.home), L.home)}）`, 'would ask which Obsidian vault to use');
   if (problems.length) {
     console.log(`\n[dry-run] 有 ${problems.length} 個問題 / problems:`);
     for (const l of problems) console.log(`  - ${l}`);
@@ -846,13 +924,22 @@ async function dryRun(o, L, port, launchd) {
 
 // ------------------------------------------------------------ uninstall
 
-async function uninstall(o, L) {
+async function uninstall(o, L, settings) {
   const launchd = !o.noLaunchd;
+  // the vault is the user's: the plugin folder stays, and we say where it is
+  const vault = typeof settings.obsidian?.vault === 'string' ? settings.obsidian.vault : null;
+  const vaultNote = () =>
+    vault &&
+    info(
+      `Obsidian 外掛沒有刪除：${tilde(pluginTargetDir(vault), L.home)}；要移除請在 Obsidian「設定 → 第三方外掛」停用並解除安裝`,
+      'the Obsidian plugin folder in the vault is left alone',
+    );
   const remove = [...(launchd ? [L.plist, L.launcher] : []), L.root, ...(o.purge ? [L.dataDir, L.logsDir] : [])].filter(exists);
   if (o.dryRun) {
     if (launchd) plan(`停止背景服務 ${target()}`, 'would boot out the LaunchAgent');
     for (const p of remove) plan(`刪除 ${tilde(p, L.home)}`, 'would delete');
     if (!o.purge) plan(`保留資料 ${tilde(L.dataDir, L.home)}`, 'data is kept');
+    vaultNote();
     return 0;
   }
   if (o.purge && !askTyped(`這會永久刪除所有研究資料與備份：${tilde(L.dataDir, L.home)} / This deletes ALL data and backups.`, 'yes')) {
@@ -869,6 +956,7 @@ async function uninstall(o, L) {
   }
   if (o.purge) ok('已完整移除，包括資料', 'uninstalled, data deleted');
   else ok(`已移除；資料保留在 ${tilde(L.dataDir, L.home)}（重新安裝會繼續使用）`, 'uninstalled; data kept (a re-install picks it up)');
+  vaultNote();
   return 0;
 }
 
@@ -944,6 +1032,7 @@ async function doctor(o, L, settings) {
     add(ours ? 'ok' : 'warn', '埠 / port', `${port}：${listeners.map((l) => `${l.command} (pid ${l.pid})`).join(', ')}${ours ? '' : '（不是背景服務 / not the LaunchAgent）'}`);
   }
 
+  let diagnostics = null;
   const h = await checkHealth(healthUrl(port));
   add(h.ok ? 'ok' : launchd ? 'fail' : 'warn', '健康檢查 / health', h.ok ? `HTTP ${h.status}, ${h.ms} ms  ${healthUrl(port)}` : `${h.error}  ${healthUrl(port)}`);
   if (h.ok) {
@@ -955,6 +1044,7 @@ async function doctor(o, L, settings) {
       /* not JSON */
     }
     if (d.ok && json) {
+      diagnostics = json;
       const s = summarizeDiagnostics(json);
       add(s.ok ? 'ok' : 'warn', '診斷與備份 / diagnostics', s.detail, s.lines);
     } else add('warn', '診斷與備份 / diagnostics', d.error ?? 'not JSON');
@@ -967,6 +1057,12 @@ async function doctor(o, L, settings) {
       add(c.status, c.label, c.detail, c.lines);
     }
   } else add('skip', 'AI 登記 / AI apps', '只在 macOS / macOS only');
+
+  // the Obsidian plugin in the saved vault, and when it last talked to the server (/api/diagnostics vault)
+  const pc = pluginCheck({ vault: settings.obsidian?.vault ?? null, appDir, dataDir: L.dataDir, port, home: L.home });
+  const seen = diagnostics?.vault?.lastSeenAt;
+  if (pc.status !== 'skip' && diagnostics) pc.lines = [...(pc.lines ?? []), seen ? `最近同步 / last sync: ${seen}` : '外掛還沒有連線過 / the plugin has not synced yet'];
+  add(pc.status, pc.label, pc.detail, pc.lines);
 
   if (exists(L.dataDir)) {
     // daily/, weekly/ and the permanent pre-v*/pre-import copies (src/server/services/backup.ts)
@@ -1010,7 +1106,7 @@ async function main() {
   if (!L.mac) o.noLaunchd = true; // Linux is for CI and dry runs: no launchd there
   const settings = readSettings(L);
   if (o.mode === 'doctor') return doctor(o, L, settings);
-  if (o.mode === 'uninstall') return uninstall(o, L);
+  if (o.mode === 'uninstall') return uninstall(o, L, settings);
   return install(o, L, settings);
 }
 

@@ -353,3 +353,12 @@ details > summary { cursor: pointer; color: var(--sub); font-size: 12px; }
 .symbol-hit { display: flex; align-items: baseline; gap: 8px; padding: 6px 10px; border: 0; border-bottom: 1px solid var(--line); background: #fff; text-align: left; cursor: pointer; flex-wrap: wrap; }
 .symbol-hit:last-child { border-bottom: 0; }
 .symbol-hit:hover { background: var(--accent-bg); }
+
+/* Obsidian reflections: the user's own text, shown as written (no markdown rendering) */
+.reflection-card .reflection-text { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 6px; font-size: 13px; line-height: 1.55; }
+.reflection-card.compact { padding: 8px 12px; margin-bottom: 12px; }
+.reflection-card.compact h2 { font-size: 13px; }
+.reflection-card.compact .reflection-text { max-height: 9em; overflow-y: auto; }
+.reflection-versions { margin-top: 6px; max-height: 320px; overflow-y: auto; border-top: 1px solid var(--line); }
+.reflection-versions .reflection-text { font-size: 12px; margin-top: 2px; }
+.journal-reflection { max-width: 260px; white-space: normal; }

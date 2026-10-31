@@ -150,7 +150,7 @@ describe('who is acting', () => {
     // tokens.json: one token per caller, readable only by this user
     const file = path.join(dir, 'tokens.json');
     expect((fs.statSync(file).mode & 0o777).toString(8)).toBe('600');
-    expect(Object.keys(JSON.parse(fs.readFileSync(file, 'utf8')).tokens)).toEqual(['user', 'claude-desktop', 'claude-code', 'chatgpt']);
+    expect(Object.keys(JSON.parse(fs.readFileSync(file, 'utf8')).tokens)).toEqual(['user', 'claude-desktop', 'claude-code', 'chatgpt', 'obsidian']);
   });
 
   it('refuses an unidentified write whatever its path looks like', async () => {
@@ -583,6 +583,54 @@ describe('trades by an AI', () => {
     expect([a.trade!.externalRef, a.trade!.sourceText]).toEqual([null, '買兩張']);
     expect((await claude<TradeRecordResponse>('POST', `/api/projects/${pid}/trades`, at('2026-09-17', 1000, ' \r\n '))).trade).toMatchObject({ sourceText: null, externalRef: null });
     expect((await user<TradeDTO[]>('GET', `/api/projects/${pid}/trades`)).length).toBe(3);
+  });
+
+  it('previews an import without writing, and holds back what looks like a trade already on record', async () => {
+    const b = await newProject();
+    const pid = b.project.id;
+    const bars = (await user<BarsResponse>('GET', `/api/securities/${b.securities[0].id}/bars`)).bars;
+    const bar = bars.find((x) => x.date === '2026-09-15')!;
+    const url = `/api/projects/${pid}/trades`;
+    const trade = { side: 'long', entryDate: bar.date, entryPrice: bar.close, quantityShares: 2000, source: 'import' };
+    const count = (sql: string) => (ctx.db.prepare(sql).get() as { n: number }).n;
+    const written = () => [count('SELECT COUNT(*) AS n FROM trades'), count('SELECT COUNT(*) AS n FROM audit_log'), count('SELECT COUNT(*) AS n FROM vault_changes')];
+
+    // a dry run makes every check and returns the trade it would record, with no id and no defaults
+    const before = written();
+    const text = `2026/9/15 買進 光寶科 2 張 成本 ${bar.close}`;
+    const dry = await claude<TradeRecordResponse>('POST', url, { ...trade, sourceText: text, dryRun: true });
+    expect(dry).toMatchObject({ status: 'would-create', trade: { id: '', source: 'import', externalRef: journalRef(text), sourceText: text, quantity: 2000, stopAtEntry: null, targetPriceAtEntry: null, atrAtEntry: null } });
+    expect(dry.warnings.join()).toMatch(/2,000 股 = 2 張[\s\S]*這是預覽，沒有寫入/);
+    await fails('claude-desktop', 'POST', url, { ...trade, sourceText: text, dryRun: true, entryPrice: Math.round(bar.high * 1.1) }, 409, 'PRICE_OUT_OF_RANGE');
+    await fails('claude-desktop', 'POST', url, { ...trade, sourceText: text, dryRun: true, exitDate: '2026-09-10', exitPrice: bar.close, confirmPrice: true }, 400);
+    expect(written()).toEqual(before);
+    expect(await user<AiSessionDTO[]>('GET', '/api/ai/sessions')).toEqual([]); // a preview is not AI activity
+
+    // the excerpt: at least 10 and at most 4,000 characters once normalised
+    const long = `${text}\n${'理由'.repeat(2000)}`;
+    expect((await fails('claude-desktop', 'POST', url, { ...trade, sourceText: long, dryRun: true }, 400, 'SOURCE_TEXT_TOO_LONG')).details).toMatchObject({ length: long.length, max: 4000 });
+    const padded = `  ${'x'.repeat(3990)}   \r\n `;
+    expect((await claude<TradeRecordResponse>('POST', url, { ...trade, sourceText: padded, dryRun: true })).status).toBe('would-create');
+
+    // the user typed the trade in by hand; the journal's excerpt of it has another key
+    const typed = await user<TradeDTO>('POST', url, { side: 'long', entryDate: bar.date, entryPrice: bar.close, quantity: 2000 });
+    const dup = await fails('claude-desktop', 'POST', url, { ...trade, entryPrice: bar.close * 1.004, sourceText: text }, 409, 'PROBABLE_DUPLICATE');
+    expect(dup.details).toMatchObject({ duplicateOf: typed.id, entryDate: bar.date, side: 'long', quantity: 2000, entryPrice: bar.close, source: 'entry', createdBy: 'user' });
+    await fails('claude-desktop', 'POST', url, { ...trade, sourceText: text, dryRun: true }, 409, 'PROBABLE_DUPLICATE'); // a dry run says so too
+    // another side, day, share count or a clearly different price is another trade
+    for (const other of [{ side: 'short' }, { entryDate: '2026-09-16', entryPrice: bars.find((x) => x.date === '2026-09-16')!.close }, { quantityShares: 1000 }, { entryPrice: bar.close * 1.02, confirmPrice: true }]) {
+      expect((await claude<TradeRecordResponse>('POST', url, { ...trade, ...other, sourceText: text, dryRun: true })).status).toBe('would-create');
+    }
+    // only for imports: a live entry of the same trade is the user's own business
+    expect((await claude<TradeRecordResponse>('POST', url, { side: 'long', entryDate: bar.date, entryPrice: bar.close, quantityShares: 2000, dryRun: true })).status).toBe('would-create');
+    const imp = await claude<TradeRecordResponse>('POST', url, { ...trade, sourceText: text, allowDuplicate: true });
+    expect(imp).toMatchObject({ status: 'created', trade: { externalRef: journalRef(text), stopAtEntry: null } });
+    // once imported, the excerpt itself is recognised before any duplicate check
+    expect((await claude<TradeRecordResponse>('POST', url, { ...trade, sourceText: ` ${text} `, dryRun: true })).status).toBe('existing');
+    // a second excerpt of the same trade now matches the import as well as the hand-typed one
+    const again = await fails('claude-desktop', 'POST', url, { ...trade, sourceText: `光寶科 9/15 進場兩張 @ ${bar.close}` }, 409, 'PROBABLE_DUPLICATE');
+    expect(again.details!.duplicateOf).toBe(typed.id);
+    expect((await user<TradeDTO[]>('GET', url)).length).toBe(2);
   });
 
   it('normalises journal excerpts the same way everywhere', () => {

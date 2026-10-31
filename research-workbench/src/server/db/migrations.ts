@@ -3,6 +3,10 @@ import type Database from 'better-sqlite3';
 /**
  * Ordered, append-only schema migrations. Never edit a migration that has shipped; add a new one.
  * Keep docs/DATA_MODEL.md in sync.
+ *
+ * v3 adds SQLite triggers (vault_*) that queue Obsidian notes in vault_changes whenever a synced
+ * table changes. A future migration that rebuilds one of those tables (CREATE new, copy, DROP old,
+ * RENAME) drops its triggers with it and must create them again.
  */
 export const MIGRATIONS: { version: number; name: string; sql: string }[] = [
   {
@@ -306,6 +310,164 @@ CREATE INDEX revision_annotations_rev ON revision_annotations(revision_id, id);
 -- A random id that changes when the whole database is replaced (data import), so open tabs reload.
 CREATE TABLE db_meta (id INTEGER PRIMARY KEY CHECK (id = 1), db_generation TEXT NOT NULL, created_at TEXT NOT NULL);
 INSERT INTO db_meta (id, db_generation, created_at) VALUES (1, lower(hex(randomblob(16))), strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+`,
+  },
+  {
+    version: 3,
+    name: 'Obsidian sync: note change queue, reflections',
+    sql: `
+-- Notes to (re)write in the Obsidian vault, in order. Filled by the vault_* triggers below, so every
+-- write path (browser, AI, seeding, data import) is covered in the same transaction as the write.
+CREATE TABLE vault_changes (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  note_kind TEXT NOT NULL CHECK (note_kind IN ('company','research_update','trade','ai_session','index')),
+  note_id TEXT NOT NULL,
+  op TEXT NOT NULL CHECK (op IN ('upsert','delete')),
+  at TEXT NOT NULL,
+  -- a deleted trade as it was (the note stays and says so)
+  tombstone_json TEXT
+);
+CREATE INDEX vault_changes_note ON vault_changes(note_id, seq);
+
+-- "## 反思" sections read back from Obsidian. Append-only: every version is kept; '' records a
+-- section cleared in Obsidian (the previous text stays readable).
+CREATE TABLE reflection_versions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  note_kind TEXT NOT NULL CHECK (note_kind IN ('company','research_update','trade')),
+  note_id TEXT NOT NULL,
+  project_id TEXT NOT NULL REFERENCES projects(id),
+  body_md TEXT NOT NULL,
+  body_hash TEXT NOT NULL,
+  source_path TEXT NOT NULL,
+  file_mtime TEXT,
+  received_at TEXT NOT NULL,
+  actor TEXT
+);
+CREATE INDEX reflection_versions_note ON reflection_versions(note_id, id);
+CREATE INDEX reflection_versions_project ON reflection_versions(project_id, id);
+CREATE TRIGGER reflection_versions_no_update BEFORE UPDATE ON reflection_versions
+BEGIN SELECT RAISE(ABORT, 'reflection versions are append-only'); END;
+CREATE TRIGGER reflection_versions_no_delete BEFORE DELETE ON reflection_versions
+BEGIN SELECT RAISE(ABORT, 'reflection versions are append-only'); END;
+
+-- The plugin's last status report per vault.
+CREATE TABLE vault_clients (
+  client TEXT PRIMARY KEY,
+  vault_name TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,
+  plugin_version TEXT NOT NULL DEFAULT '',
+  cursor INTEGER NOT NULL DEFAULT 0,
+  report_json TEXT NOT NULL DEFAULT '{}'
+);
+-- Where each note lives in each vault (for "open in Obsidian").
+CREATE TABLE vault_note_paths (
+  vault_name TEXT NOT NULL,
+  note_id TEXT NOT NULL,
+  path TEXT NOT NULL,
+  seen_at TEXT NOT NULL,
+  PRIMARY KEY (vault_name, note_id)
+);
+
+-- Backfill: every existing note once, before the triggers exist.
+INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'company', id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM projects ORDER BY created_at, id;
+INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'research_update', id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM revisions WHERE kind <> 'initial' ORDER BY committed_at, seq;
+INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'trade', id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM trades ORDER BY created_at, id;
+INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'ai_session', id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM ai_sessions WHERE summary_md IS NOT NULL ORDER BY started_at, id;
+INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('index', 'index-companies', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-trades', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-ai', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+
+-- Companies. commitDraft touches updated_at only, which must not queue anything.
+CREATE TRIGGER vault_projects_ins AFTER INSERT ON projects BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('company', NEW.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-companies', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+END;
+CREATE TRIGGER vault_projects_upd AFTER UPDATE ON projects
+WHEN OLD.name IS NOT NEW.name OR OLD.description IS NOT NEW.description OR OLD.archived_at IS NOT NEW.archived_at BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('company', NEW.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-companies', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+END;
+-- Other notes link to the company by "<ticker> <name>": a new name or ticker re-renders them too.
+CREATE TRIGGER vault_projects_rename AFTER UPDATE OF name ON projects WHEN OLD.name IS NOT NEW.name BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'research_update', id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM revisions WHERE project_id = NEW.id AND kind <> 'initial' ORDER BY seq;
+  INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'trade', id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM trades WHERE project_id = NEW.id ORDER BY created_at, id;
+  INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'ai_session', id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM ai_sessions
+    WHERE summary_md IS NOT NULL AND EXISTS (SELECT 1 FROM json_each(ai_sessions.project_ids_json) WHERE value = NEW.id) ORDER BY started_at, id;
+  INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('index', 'index-trades', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-ai', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+END;
+CREATE TRIGGER vault_securities_upd AFTER UPDATE ON securities
+WHEN OLD.name IS NOT NEW.name OR OLD.ticker IS NOT NEW.ticker OR OLD.exchange IS NOT NEW.exchange OR OLD.currency IS NOT NEW.currency BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('company', NEW.project_id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-companies', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+  INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'research_update', id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM revisions WHERE project_id = NEW.project_id AND kind <> 'initial' ORDER BY seq;
+  INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'trade', id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM trades WHERE project_id = NEW.project_id ORDER BY created_at, id;
+  INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'ai_session', id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM ai_sessions
+    WHERE summary_md IS NOT NULL AND EXISTS (SELECT 1 FROM json_each(ai_sessions.project_ids_json) WHERE value = NEW.project_id) ORDER BY started_at, id;
+  INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('index', 'index-trades', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-ai', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+END;
+
+-- Research Updates (the starting snapshot has no note).
+CREATE TRIGGER vault_revisions_ins AFTER INSERT ON revisions WHEN NEW.kind <> 'initial' BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('research_update', NEW.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('company', NEW.project_id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-companies', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+END;
+-- "Marked wrong" shows on the update and in the company's list.
+CREATE TRIGGER vault_annotations_ins AFTER INSERT ON revision_annotations BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'research_update', id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM revisions WHERE id = NEW.revision_id AND kind <> 'initial';
+  INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('company', NEW.project_id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+END;
+-- Cited evidence is listed by title and link.
+CREATE TRIGGER vault_evidence_upd AFTER UPDATE ON evidence
+WHEN OLD.title IS NOT NEW.title OR OLD.url IS NOT NEW.url OR OLD.published_at IS NOT NEW.published_at BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT DISTINCT 'research_update', r.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM revision_evidence re JOIN revisions r ON r.id = re.revision_id
+    WHERE re.evidence_id = NEW.id AND r.kind <> 'initial';
+END;
+
+-- Trades. A deleted trade keeps its note, rendered from the tombstone.
+CREATE TRIGGER vault_trades_ins AFTER INSERT ON trades BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('trade', NEW.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('company', NEW.project_id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-trades', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-companies', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+END;
+CREATE TRIGGER vault_trades_upd AFTER UPDATE ON trades BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('trade', NEW.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('company', NEW.project_id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-trades', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-companies', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+END;
+CREATE TRIGGER vault_trades_del AFTER DELETE ON trades BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at, tombstone_json) VALUES ('trade', OLD.id, 'delete', strftime('%Y-%m-%dT%H:%M:%fZ','now'), json_object(
+    'id', OLD.id, 'projectId', OLD.project_id, 'securityId', OLD.security_id, 'side', OLD.side, 'entryDate', OLD.entry_date, 'entryPrice', OLD.entry_price,
+    'quantity', OLD.quantity, 'entryReason', OLD.entry_reason, 'targetPriceAtEntry', OLD.target_price_at_entry, 'stopAtEntry', OLD.stop_at_entry,
+    'atrAtEntry', OLD.atr_at_entry, 'atrMultiple', OLD.atr_multiple, 'revisionId', OLD.revision_id, 'exitDate', OLD.exit_date, 'exitPrice', OLD.exit_price,
+    'exitReason', OLD.exit_reason, 'fees', OLD.fees, 'notes', OLD.notes, 'source', OLD.source, 'createdBy', OLD.created_by, 'externalRef', OLD.external_ref,
+    'sourceText', OLD.source_text, 'createdAt', OLD.created_at, 'updatedAt', OLD.updated_at, 'deletedAt', strftime('%Y-%m-%dT%H:%M:%fZ','now')));
+  INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('company', OLD.project_id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-trades', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-companies', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+END;
+
+-- Catalysts are listed on the company note.
+CREATE TRIGGER vault_catalysts_ins AFTER INSERT ON catalysts BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('company', NEW.project_id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+END;
+CREATE TRIGGER vault_catalysts_upd AFTER UPDATE ON catalysts BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('company', NEW.project_id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+END;
+CREATE TRIGGER vault_catalysts_del AFTER DELETE ON catalysts BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('company', OLD.project_id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+END;
+
+-- Reviews of a trade are listed on the trade note (a review of a deleted trade changes nothing).
+CREATE TRIGGER vault_reviews_ins AFTER INSERT ON reviews WHEN NEW.subject_type = 'trade' BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'trade', id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM trades WHERE id = NEW.subject_id;
+END;
+CREATE TRIGGER vault_reviews_upd AFTER UPDATE ON reviews WHEN NEW.subject_type = 'trade' OR OLD.subject_type = 'trade' BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'trade', id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM trades
+    WHERE (NEW.subject_type = 'trade' AND id = NEW.subject_id) OR (OLD.subject_type = 'trade' AND id = OLD.subject_id) ORDER BY id;
+END;
+CREATE TRIGGER vault_reviews_del AFTER DELETE ON reviews WHEN OLD.subject_type = 'trade' BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'trade', id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM trades WHERE id = OLD.subject_id;
+END;
+
+-- AI sessions get a note once they have a summary; recordAiActions updates only last_at,
+-- actions_json and project_ids_json, which the note shows too.
+CREATE TRIGGER vault_ai_sessions_ins AFTER INSERT ON ai_sessions WHEN NEW.summary_md IS NOT NULL BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('ai_session', NEW.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-ai', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+  INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'company', p.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM json_each(NEW.project_ids_json) j JOIN projects p ON p.id = j.value;
+END;
+CREATE TRIGGER vault_ai_sessions_upd AFTER UPDATE OF summary_md, decisions_md, todo_md, last_at, actions_json, project_ids_json ON ai_sessions
+WHEN NEW.summary_md IS NOT NULL BEGIN
+  INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('ai_session', NEW.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-ai', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+  INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'company', p.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM json_each(NEW.project_ids_json) j JOIN projects p ON p.id = j.value;
+END;
 `,
   },
 ];

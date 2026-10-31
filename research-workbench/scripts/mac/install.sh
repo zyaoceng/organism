@@ -23,7 +23,7 @@ main() {
   SUBDIR="research-workbench"
   RAW="https://raw.githubusercontent.com/$REPO"
   # install.mjs imports these (a unit test keeps the list in sync with scripts/mac/lib)
-  LIB_FILES="args.mjs health.mjs launchd.mjs launcher.mjs layout.mjs prune.mjs register.mjs release.mjs report.mjs system.mjs"
+  LIB_FILES="args.mjs health.mjs launchd.mjs launcher.mjs layout.mjs obsidian.mjs prune.mjs register.mjs release.mjs report.mjs system.mjs"
 
   say() { printf '==> %s\n' "$*"; }
   die() {

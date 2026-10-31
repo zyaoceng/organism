@@ -10,6 +10,7 @@ import type {
   NoteDTO,
   ProjectDTO,
   QuoteResponse,
+  ReflectionDTO,
   ReviewDTO,
   RevisionFull,
   RevisionMeta,
@@ -30,8 +31,11 @@ export interface Toast {
   action?: { label: string; run: () => void };
 }
 
-/** Record lists reloaded when the server reports a change (another window or an AI wrote them). */
-export const RECORD_PARTS = ['evidence', 'trades', 'catalysts', 'notes', 'reviews', 'revisions'] as const;
+/**
+ * Record lists reloaded when the server reports a change (another window, an AI or the Obsidian
+ * plugin wrote them; a reflection from Obsidian writes an audit row, which raises auditSeq).
+ */
+export const RECORD_PARTS = ['evidence', 'trades', 'catalysts', 'notes', 'reviews', 'revisions', 'reflections'] as const;
 export type RecordPart = (typeof RECORD_PARTS)[number];
 export type RefreshPart = RecordPart | 'project' | 'quote';
 
@@ -74,6 +78,8 @@ interface WorkspaceStore {
   revisions: RevisionMeta[];
   notes: NoteDTO[];
   reviews: ReviewDTO[];
+  /** `## 反思` sections read back from Obsidian (company, Research Updates, trades). */
+  reflections: ReflectionDTO[];
   quote: QuoteResponse | null;
   /** The last draft known to equal the server's at `draftVersion` (the base for re-applying edits). */
   syncedState: ModelState | null;
@@ -317,6 +323,7 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
     revisions: [],
     notes: [],
     reviews: [],
+    reflections: [],
     quote: null,
     syncedState: null,
     dbGeneration: null,
@@ -340,7 +347,7 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
       if (get().projectId !== projectId) {
         // Save any pending edit of the previously open project before switching.
         await get().flush().catch(() => undefined);
-        set({ projectId, loading: true, loadError: null, project: null, draft: null, head: null, viewing: null, selectedNodeId: null, selectedCell: null, collapsed: loadCollapsed(projectId), quote: null });
+        set({ projectId, loading: true, loadError: null, project: null, draft: null, head: null, viewing: null, selectedNodeId: null, selectedCell: null, collapsed: loadCollapsed(projectId), quote: null, reflections: [] });
       }
       // Undo history refers to the state before this load (e.g. before a conflict reload): drop it.
       set({ undoStack: [], redoStack: [], conflict: null, lastRemote: null, mine: loadMine(projectId) });
@@ -375,6 +382,8 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
           ...(meta ? { auditSeq: meta.auditSeq, lastOp: meta.lastOp, dbGeneration: get().dbGeneration ?? meta.dbGeneration } : { auditSeq: 0 }),
         });
         void get().refresh('quote');
+        // after the rest: a vault problem never keeps the project from opening
+        void get().refresh('reflections');
       } catch (e) {
         set({ loading: false, loadError: (e as Error).message });
       }
@@ -402,6 +411,9 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => {
             break;
           case 'reviews':
             set({ reviews: await api.reviews(pid) });
+            break;
+          case 'reflections':
+            set({ reflections: await api.reflections(pid) });
             break;
           case 'project': {
             const b = await api.project(pid);

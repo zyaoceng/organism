@@ -47,6 +47,7 @@ import {
   formatRefreshStatus,
   formatSession,
   formatTrade,
+  formatTradeRecord,
   formatTradeLog,
   siteUrl,
 } from './format';
@@ -392,7 +393,8 @@ export function registerTools(server: McpServer, http: Http, ctx: ToolContext): 
         '記錄一筆交易（可含出場）。用 company 指定公司，或只給 ticker：會跨公司找持有這個代號的公司。找不到時，先問使用者要不要新建公司，同意後帶 create_company={ name, confirmed_by_user: true }。',
         '數量用股數 quantity_shares；台股 1 張 = 1000 股（3 張寫 3000）。日期不能在未來。',
         '價格超出當天 K 棒高低會被拒絕；和使用者確認價格無誤後才帶 confirm_price=true。',
-        '匯入舊日誌用 source="import" 並附 source_text（原文），只填原文有的數字，不要補停損或目標價；缺日期、數量或價格就問使用者。重複匯入同一段原文會回傳既有那筆；那筆被刪除過時要使用者同意才帶 allow_reimport=true。',
+        '匯入舊日誌用 source="import" 並附 source_text（這筆交易的原文，逐字複製），只填原文有的數字，不要補停損或目標價；缺日期、數量或價格就問使用者。先對每一筆帶 dry_run=true 預覽（不寫入），把清單給使用者確認後再不帶 dry_run 寫入。',
+        '重複匯入同一段原文會回傳既有那筆。兩種 409 都要先問使用者：IMPORT_DELETED（這段原文匯入的交易被刪除過，同意後帶 allow_reimport=true）；PROBABLE_DUPLICATE（同公司已有同一天、同方向、同股數、價格相近的交易，確定是另一筆才帶 allow_duplicate=true）。',
       ].join('\n'),
       annotations: WRITE,
       input: {
@@ -409,11 +411,13 @@ export function registerTools(server: McpServer, http: Http, ctx: ToolContext): 
         notes: z.string().max(10_000).optional(),
         confirm_price: z.boolean().optional().describe('價格超出當天 K 棒範圍、且使用者確認無誤時才帶 true'),
         source: z.enum(['entry', 'import']).default('entry').describe('entry：現在記錄；import：從舊日誌匯入'),
-        source_text: z.string().max(20_000).optional().describe('import 時必填：日誌原文'),
+        source_text: z.string().max(20_000).optional().describe('import 時必填：日誌中這筆交易的原文，逐字複製，不要改寫（10–4000 字）'),
         exit_date: isoDate.optional(),
         exit_price: z.number().positive().optional(),
         exit_reason: z.string().max(10_000).optional(),
         allow_reimport: z.boolean().optional().describe('這段原文匯入的交易被刪除過、而使用者同意再匯入一次時才帶 true'),
+        allow_duplicate: z.boolean().optional().describe('回傳 PROBABLE_DUPLICATE、而使用者確定這是另一筆交易時才帶 true'),
+        dry_run: z.boolean().optional().describe('true：完整檢查並回傳會記錄的內容，不寫入（匯入前先用它給使用者確認）'),
         create_company: z
           .object({ name: z.string().trim().min(1).max(200).describe('公司名稱'), confirmed_by_user: z.literal(true).describe('使用者同意新建這家公司') })
           .optional()
@@ -434,6 +438,9 @@ export function registerTools(server: McpServer, http: Http, ctx: ToolContext): 
         if (pick.length === 1) projectId = pick[0].projectId;
         else if (!a.create_company) {
           throw new ToolError(`研究工作台裡沒有代號 ${a.ticker} 的公司。要新建公司，先問使用者，同意後帶 create_company={ name: "公司名稱", confirmed_by_user: true } 再呼叫一次。`);
+        } else if (a.dry_run) {
+          // a preview must not create the company; its trade can only be checked once the company exists
+          return `預覽（沒有寫入）：研究工作台裡沒有代號 ${a.ticker} 的公司，寫入時會先新建公司「${a.create_company.name}」再記錄這筆交易。價格要等公司建立、有股價後才能檢查。`;
         } else {
           const r = await createCompany(h, a.ticker, a.create_company.name);
           projectId = r.id;
@@ -458,13 +465,11 @@ export function registerTools(server: McpServer, http: Http, ctx: ToolContext): 
         exitPrice: a.exit_price,
         exitReason: a.exit_reason,
         allowReimport: a.allow_reimport,
+        allowDuplicate: a.allow_duplicate,
+        dryRun: a.dry_run,
       });
       if (!r.trade) return r.warnings.join('\n') || '沒有記錄交易。';
-      const heading =
-        r.status === 'existing'
-          ? '這段日誌已存在（之前匯入過），沒有新增；這是既有的那筆：'
-          : `${created ? `已新建公司 ${created}。\n` : ''}已記錄交易${r.trade.source === 'import' ? '（從舊日誌匯入）' : ''}：`;
-      return formatTrade(r.trade, r.warnings, port, heading);
+      return formatTradeRecord(r, port, created);
     },
   );
 

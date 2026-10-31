@@ -27,7 +27,7 @@ export default defineConfig({
   },
   build: { outDir: 'dist/client', emptyOutDir: true, chunkSizeWarningLimit: 1500 },
   test: {
-    include: ['src/**/*.test.ts', 'scripts/**/*.test.mjs'],
+    include: ['src/**/*.test.ts', 'scripts/**/*.test.mjs', 'obsidian-plugin/test/**/*.test.ts'],
     environment: 'node',
   },
 });

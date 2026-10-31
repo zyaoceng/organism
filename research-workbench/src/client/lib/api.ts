@@ -16,6 +16,8 @@ import type {
   ProjectDTO,
   ProjectSummaryDTO,
   ProviderDTO,
+  ReflectionDTO,
+  ReflectionVersionDTO,
   QuoteResponse,
   RefreshRunDTO,
   ReviewDTO,
@@ -30,6 +32,7 @@ import type {
   TemplateDTO,
   TradeDTO,
   TradesJournalDTO,
+  VaultStatusDTO,
 } from '../../shared/api';
 import type { ModelState } from '../../domain/model/types';
 import { t } from './i18n';
@@ -190,5 +193,9 @@ export const api = {
   /** Update all prices: starts a background run, or returns the one already running. */
   startRefresh: () => post<RefreshRunDTO>('/api/market/refresh'),
   refreshStatus: () => get<RefreshRunDTO | null>('/api/market/refresh'),
+  reflections: (id: string) => get<ReflectionDTO[]>(`/api/projects/${id}/reflections`),
+  reflectionVersions: (noteId: string) => get<ReflectionVersionDTO[]>(`/api/reflections/${encodeURIComponent(noteId)}/versions`),
+  vaultStatus: () => get<VaultStatusDTO | null>('/api/vault/status'),
+
   importBars: (sid: string, fd: FormData) => post<{ imported: number; skipped: number; first: string; last: string }>(`/api/securities/${sid}/bars/import`, fd),
 };

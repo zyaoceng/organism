@@ -280,6 +280,7 @@ describe('trade log (list_trades)', () => {
     barsCoverEntry: true,
     research: null,
     reviews: [],
+    reflection: null,
     ...over,
   });
   const usd = { projectId: 'prj_b', securityId: 'sec_b', project: { id: 'prj_b', name: 'Credo', archived: true }, security: { ticker: 'CRDO', exchange: 'NASDAQ', name: 'Credo', currency: 'USD', priceSource: 'demo', synthetic: true } };

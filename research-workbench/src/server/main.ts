@@ -21,7 +21,15 @@ const allowedHosts = [
 let ctx: AppContext;
 try {
   // daily backups start once the port is ours (below), not in an instance that is about to fail
-  ctx = await buildApp({ dataDir, logger, clientDir: path.join(root, 'dist/client'), allowedHosts });
+  ctx = await buildApp({
+    dataDir,
+    logger,
+    clientDir: path.join(root, 'dist/client'),
+    allowedHosts,
+    // Obsidian's requestUrl may send this Origin; the vault routes need the Obsidian token anyway
+    allowedOrigins: ['app://obsidian.md'],
+    publicUrl: `http://127.0.0.1:${port}`,
+  });
 } catch (e) {
   console.error(`Research Workbench could not start: ${e instanceof Error ? e.message : String(e)}`);
   process.exit(1);

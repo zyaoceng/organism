@@ -187,8 +187,31 @@ export function registrationCheck(r, home) {
   return { status: 'warn', label, detail: `${what}，${token}${where}`, lines: [r.detail, rerun].filter(Boolean) };
 }
 
-/** Closing instructions after a successful install (Chinese first, short English hints). `registration` undefined: no AI section. */
-export function finalMessage({ L, port, launcher, launchd, registration }) {
+/** How an obsidian.mjs installPlugin() / obsidianStep status reads in the closing message. */
+export const OBSIDIAN_STATUS_ZH = {
+  installed: '已安裝外掛',
+  updated: '已更新外掛',
+  unchanged: '外掛已是最新',
+  skipped: '略過',
+  declined: '不連接',
+  blocked: '被 macOS 擋下',
+  failed: '沒有安裝',
+};
+
+/**
+ * The Obsidian section: the status, the plugin folder or the reason, then the remaining steps
+ * (enabling the plugin in Obsidian, or the macOS permission hint).
+ * @param {{ status: string, message?: string, lines?: string[] }} obsidian
+ */
+export function obsidianLines(obsidian) {
+  const out = ['Obsidian:'];
+  out.push(`  ${OBSIDIAN_STATUS_ZH[obsidian.status] ?? obsidian.status}${obsidian.message ? `：${obsidian.message}` : ''}`);
+  for (const l of obsidian.lines ?? []) out.push(`  - ${l}`);
+  return out;
+}
+
+/** Closing instructions after a successful install (Chinese first, short English hints). `registration` / `obsidian` undefined: no such section. */
+export function finalMessage({ L, port, launcher, launchd, registration, obsidian }) {
   const t = (p) => tilde(p, L.home);
   const out = ['', '安裝完成 / Installed', ''];
   out.push('怎麼打開 / How to open:');
@@ -205,6 +228,7 @@ export function finalMessage({ L, port, launcher, launchd, registration }) {
   out.push(`記錄 / Logs:     ${t(L.logsDir)}`);
   out.push('');
   if (registration !== undefined) out.push(...registrationLines(registration), '');
+  if (obsidian) out.push(...obsidianLines(obsidian), '');
   out.push('更新 / Update:   在「終端機」再貼一次同一行安裝指令（資料會保留）/ re-run the same one-liner');
   out.push(`  ${ONE_LINER}`);
   out.push('診斷 / Doctor:   同一行指令最後加上 -- --doctor，把結果截圖回報 / append -- --doctor');

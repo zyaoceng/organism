@@ -1,6 +1,7 @@
 # Runs the Mac installer (research-workbench/scripts/mac) for real on GitHub's macOS runners:
 # Node download + checksum, npm ci, build, LaunchAgent bootstrap, launcher app, --doctor, an update to
-# the published commit with a data import, and --uninstall. If the runner does not allow
+# the published commit with a data import, the Obsidian plugin copied into a fake vault (and nothing
+# else in that vault changed), and --uninstall. If the runner does not allow
 # `launchctl bootstrap gui/<uid>`, the installer health-checks the server directly instead and the job
 # reports launchd as SKIPPED (a warning annotation and the step summary), never as verified.
 name: Mac install
@@ -83,6 +84,20 @@ jobs:
           cp "$RUNNER_TEMP/ai-config/claude_desktop_config.json" "$HOME/Library/Application Support/Claude/"
           cp "$RUNNER_TEMP/ai-config/config.toml" "$HOME/.codex/"
 
+      # A vault with the user's own notes and Obsidian settings: the installer may add only its plugin
+      # folder and its id in community-plugins.json. vault-before.txt is the checksum of every other file.
+      - name: Fake Obsidian vault and obsidian.json
+        run: |
+          vault="$RUNNER_TEMP/vault"
+          mkdir -p "$vault/.obsidian/plugins/dataview" "$vault/日記" "$HOME/Library/Application Support/obsidian"
+          printf '[]' > "$vault/.obsidian/community-plugins.json"
+          printf '{"promptDelete":false}' > "$vault/.obsidian/app.json"
+          printf '{"id":"dataview","version":"0.5.0"}' > "$vault/.obsidian/plugins/dataview/manifest.json"
+          printf '# 今天\n我自己寫的筆記，安裝程式不能動它\n' > "$vault/日記/2026-10-30.md"
+          printf '{"vaults":{"0123456789abcdef":{"path":"%s","ts":1761868800000,"open":true}}}' "$vault" > "$HOME/Library/Application Support/obsidian/obsidian.json"
+          cd "$vault" && find . -type f ! -path './.obsidian/plugins/research-workbench-sync/*' ! -path './.obsidian/community-plugins.json' -exec shasum -a 256 {} + | sort > "$RUNNER_TEMP/vault-before.txt"
+          cat "$RUNNER_TEMP/vault-before.txt"
+
       # macOS's own /bin/bash (3.2) in the same `-c "$(…)" -- <args>` form as the one-liner users paste;
       # the runner images put a newer Homebrew bash first on PATH
       - name: Install from this checkout
@@ -91,7 +106,7 @@ jobs:
           WB_SOURCE_DIR: ${{ github.workspace }}/research-workbench
         run: |
           /bin/bash --version | head -1
-          /bin/bash -c "$(cat research-workbench/scripts/mac/install.sh)" -- --yes
+          /bin/bash -c "$(cat research-workbench/scripts/mac/install.sh)" -- --yes --obsidian-vault "$RUNNER_TEMP/vault"
 
       - name: The LaunchAgent serves /api/health
         env:
@@ -171,6 +186,46 @@ jobs:
           EOF
           "$HOME/ResearchWorkbench/runtime/current/bin/node" "$RUNNER_TEMP/check-ai-config.cjs"
 
+      - name: The Obsidian plugin is in the vault with this server's token, and nothing else in the vault changed
+        env:
+          OBSIDIAN: ${{ steps.install.outputs.obsidian }}
+        run: |
+          echo "installer: $OBSIDIAN"
+          test "$OBSIDIAN" = "installed"
+          vault="$RUNNER_TEMP/vault"
+          plugin="$vault/.obsidian/plugins/research-workbench-sync"
+          ls -la "$plugin"
+          cmp "$HOME/ResearchWorkbench/current/dist/obsidian-plugin/main.js" "$plugin/main.js"
+          cmp "$HOME/ResearchWorkbench/current/dist/obsidian-plugin/manifest.json" "$plugin/manifest.json"
+          test "$(ls "$plugin" | tr '\n' ' ')" = "data.json main.js manifest.json "
+          cat > "$RUNNER_TEMP/check-vault.cjs" <<'EOF'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const vault = path.join(process.env.RUNNER_TEMP, 'vault');
+          const plugin = path.join(vault, '.obsidian', 'plugins', 'research-workbench-sync');
+          const tokens = JSON.parse(fs.readFileSync(path.join(process.env.HOME, 'Library', 'Application Support', 'ResearchWorkbench', 'tokens.json'), 'utf8')).tokens;
+          assert.ok(tokens.obsidian, 'tokens.json has obsidian');
+          const data = JSON.parse(fs.readFileSync(path.join(plugin, 'data.json'), 'utf8'));
+          assert.equal(data.token, tokens.obsidian);
+          assert.equal(data.serverUrl, 'http://127.0.0.1:4310');
+          if (process.argv[2] === 'update') {
+            // the state the plugin keeps in data.json (seeded below after the first install) survives an update
+            assert.equal(data.cursor, 42);
+            assert.deepEqual(data.known, ['c:1', 't:2']);
+            assert.equal(data.rootFolder, '我的研究');
+          }
+          assert.deepEqual(JSON.parse(fs.readFileSync(path.join(vault, '.obsidian', 'community-plugins.json'), 'utf8')), ['research-workbench-sync']);
+          console.log('the plugin is installed with the obsidian token');
+          EOF
+          "$HOME/ResearchWorkbench/runtime/current/bin/node" "$RUNNER_TEMP/check-vault.cjs"
+          cd "$vault" && find . -type f ! -path './.obsidian/plugins/research-workbench-sync/*' ! -path './.obsidian/community-plugins.json' -exec shasum -a 256 {} + | sort > "$RUNNER_TEMP/vault-after.txt"
+          diff "$RUNNER_TEMP/vault-before.txt" "$RUNNER_TEMP/vault-after.txt"
+          grep -q '"vault"' "$HOME/ResearchWorkbench/settings.json"
+          # what the plugin itself would save there; the update below must keep it
+          node="$HOME/ResearchWorkbench/runtime/current/bin/node"
+          "$node" -e 'const f=process.argv[1];const fs=require("fs");const j=JSON.parse(fs.readFileSync(f,"utf8"));Object.assign(j,{rootFolder:"我的研究",cursor:42,known:["c:1","t:2"]});fs.writeFileSync(f,JSON.stringify(j,null,2))' "$plugin/data.json"
+
       - name: Doctor
         env:
           WB_SOURCE_DIR: ${{ github.workspace }}/research-workbench
@@ -223,6 +278,17 @@ jobs:
             echo "::warning title=launchd SKIPPED::not verified after the update either"
           fi
 
+      - name: The update re-copied the plugin into the saved vault, kept its state and changed nothing else
+        env:
+          OBSIDIAN: ${{ steps.update.outputs.obsidian }}
+        run: |
+          echo "installer: $OBSIDIAN"
+          case "$OBSIDIAN" in updated | unchanged) ;; *) echo "expected the saved vault to be updated"; exit 1 ;; esac
+          cmp "$HOME/ResearchWorkbench/current/dist/obsidian-plugin/main.js" "$RUNNER_TEMP/vault/.obsidian/plugins/research-workbench-sync/main.js"
+          "$HOME/ResearchWorkbench/runtime/current/bin/node" "$RUNNER_TEMP/check-vault.cjs" update
+          cd "$RUNNER_TEMP/vault" && find . -type f ! -path './.obsidian/plugins/research-workbench-sync/*' ! -path './.obsidian/community-plugins.json' -exec shasum -a 256 {} + | sort > "$RUNNER_TEMP/vault-after.txt"
+          diff "$RUNNER_TEMP/vault-before.txt" "$RUNNER_TEMP/vault-after.txt"
+
       - name: Doctor after the update
         env:
           LAUNCHD: ${{ steps.update.outputs.launchd }}
@@ -254,6 +320,9 @@ jobs:
         env:
           WB_SOURCE_DIR: ${{ github.workspace }}/research-workbench
         run: |
+          plugin="$RUNNER_TEMP/vault/.obsidian/plugins/research-workbench-sync"
+          had_plugin=no
+          if [ -f "$plugin/main.js" ]; then had_plugin=yes; fi
           /bin/bash research-workbench/scripts/mac/install.sh --uninstall --yes
           sleep 2
           test ! -e "$HOME/Library/LaunchAgents/$WB_LABEL.plist"
@@ -261,4 +330,9 @@ jobs:
           test ! -e "$HOME/ResearchWorkbench"
           if launchctl print "gui/$(id -u)/$WB_LABEL" >/dev/null 2>&1; then echo "the job is still loaded"; exit 1; fi
           if curl -fs http://127.0.0.1:4310/api/health; then echo "still serving after uninstall"; exit 1; fi
+          # the vault is the user's: uninstall leaves the plugin folder and every note in place
+          if [ "$had_plugin" = "yes" ]; then
+            test -f "$plugin/main.js"
+            cd "$RUNNER_TEMP/vault" && find . -type f ! -path './.obsidian/plugins/research-workbench-sync/*' ! -path './.obsidian/community-plugins.json' -exec shasum -a 256 {} + | sort | diff "$RUNNER_TEMP/vault-before.txt" -
+          fi
           if [ -d "$HOME/Library/Application Support/ResearchWorkbench" ]; then echo "data kept as intended"; fi

@@ -6,6 +6,7 @@ import { SCALAR_KEY, SCENARIOS, type ThesisStatus } from '../../domain/model/typ
 import type { AiSessionDTO } from '../../shared/api';
 import { basisPeriodId } from '../../domain/revision/impact';
 import { AiSessionList } from '../components/AiSessions';
+import { ReflectionCard } from '../components/ReflectionCard';
 import { AiBadge, Delta, InlineText } from '../components/ui';
 import { api } from '../lib/api';
 import { calcOf } from '../lib/derived';
@@ -187,6 +188,7 @@ export function OverviewPage() {
               </div>
             ))}
           </div>
+          <ReflectionCard noteId={projectId} kind="company" />
           <div className="card">
             <h2>{t('Research coverage')}</h2>
             <div className="small">

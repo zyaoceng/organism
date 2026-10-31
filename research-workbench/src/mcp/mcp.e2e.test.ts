@@ -358,6 +358,14 @@ describe('MCP adapter over stdio', () => {
       // an old journal entry, found by ticker across companies
       const journal = { ticker: '2301.TW', side: 'long', entry_date: bars.at(-20)!.date, entry_price: bars.at(-20)!.close, quantity_shares: 2000, source: 'import' };
       const sourceText = `${bars.at(-20)!.date} 買進光寶科 2 張 @ ${bars.at(-20)!.close}\n理由：AI 伺服器電源`;
+      // the import workflow previews every entry first: checked in full, nothing written
+      const before = (await user<TradeDTO[]>('GET', `/api/projects/${pid}/trades`)).length;
+      const preview = await ok('record_trade', { ...journal, source_text: sourceText, dry_run: true });
+      expect(preview).toMatch(/^預覽（沒有寫入）：會記錄這筆交易（從舊日誌匯入）：\n交易 買進/);
+      expect(preview).toContain('不帶 dry_run 再呼叫一次');
+      expect(preview).toContain(`⟦使用者資料開始：日誌原文⟧\n${sourceText}\n⟦使用者資料結束⟧`);
+      expect(await refused('record_trade', { ...journal, source_text: 'x'.repeat(4001), dry_run: true })).toContain('SOURCE_TEXT_TOO_LONG');
+      expect(await user<TradeDTO[]>('GET', `/api/projects/${pid}/trades`)).toHaveLength(before);
       const imported = await ok('record_trade', { ...journal, source_text: sourceText });
       expect(imported).toContain('已記錄交易（從舊日誌匯入）');
       expect(imported).toContain('沒有自動補停損與目標價');
@@ -370,10 +378,18 @@ describe('MCP adapter over stdio', () => {
       await user('DELETE', `/api/trades/${first.id}`);
       expect(await refused('record_trade', { ...journal, source_text: sourceText })).toMatch(/IMPORT_DELETED[\s\S]*allow_reimport=true[\s\S]*被刪除的交易：/);
       expect(await ok('record_trade', { ...journal, source_text: sourceText, allow_reimport: true })).toContain('已記錄交易（從舊日誌匯入）');
+      // the same trade written up again elsewhere in the journal: another excerpt, so the user decides
+      const retold = { ...journal, source_text: `光寶科 ${bars.at(-20)!.date} 進場兩張，成本 ${bars.at(-20)!.close}`, dry_run: true };
+      const dup = await refused('record_trade', retold);
+      expect(dup).toMatch(/PROBABLE_DUPLICATE[\s\S]*可能重複的交易：trd_\S+（[\s\S]*匯入舊日誌，記錄者：Claude 桌面版）[\s\S]*allow_duplicate=true/);
+      expect(await ok('record_trade', { ...retold, allow_duplicate: true })).toContain('預覽（沒有寫入）');
+      expect((await user<TradeDTO[]>('GET', `/api/projects/${pid}/trades`)).filter((t) => t.source === 'import')).toHaveLength(1);
 
       // a ticker no company holds: only after the user agreed to create one
       const other = { ticker: '7899', side: 'long', entry_date: bar.date, entry_price: 30, quantity_shares: 1000 };
       expect(await refused('record_trade', other)).toContain('create_company');
+      expect(await ok('record_trade', { ...other, dry_run: true, create_company: { name: '景美', confirmed_by_user: true } })).toContain('寫入時會先新建公司「景美」');
+      expect((await user<ProjectSummaryDTO[]>('GET', '/api/projects')).some((p) => p.name === '景美')).toBe(false);
       const created = await ok('record_trade', { ...other, create_company: { name: '景美', confirmed_by_user: true } });
       expect(created).toMatch(/已新建公司 景美（7899/);
       const companies = await user<ProjectSummaryDTO[]>('GET', '/api/projects');

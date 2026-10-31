@@ -504,6 +504,103 @@ Rules that go with these tables:
   opened before the database was replaced is refused (409 `DB_GENERATION`) and
   the page reloads.
 
+## 2b. Migration v3: Obsidian sync
+
+The server renders notes; the Obsidian plugin merges them into the vault and
+sends the `## 反思` sections back. The server never touches the vault.
+
+**Actor.** The plugin has its own token (`obsidian` in `tokens.json`; the
+server adds it to existing files at startup) and is recorded as `obsidian`
+(no prefix). It may call only `/api/vault/*` (anything else: 403
+`OBSIDIAN_SCOPE`); the plugin routes answer 401 to an unknown caller and 403
+to any other actor.
+
+```sql
+CREATE TABLE vault_changes (              -- notes to (re)write, in order; filled by triggers
+  seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  note_kind TEXT NOT NULL CHECK (note_kind IN ('company','research_update','trade','ai_session','index')),
+  note_id TEXT NOT NULL,                  -- = wb_id: prj_…, rev_…, trd_…, ais_…, index-companies|index-trades|index-ai
+  op TEXT NOT NULL CHECK (op IN ('upsert','delete')),
+  at TEXT NOT NULL,
+  tombstone_json TEXT                     -- a deleted trade as it was (TradeDTO fields + deletedAt)
+);
+CREATE INDEX vault_changes_note ON vault_changes(note_id, seq);
+
+CREATE TABLE reflection_versions (        -- append-only (reflection_versions_no_update / _no_delete)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  note_kind TEXT NOT NULL CHECK (note_kind IN ('company','research_update','trade')),
+  note_id TEXT NOT NULL,
+  project_id TEXT NOT NULL REFERENCES projects(id),
+  body_md TEXT NOT NULL,                  -- LF, NFC, outer blank lines and trailing whitespace removed (first-line indent kept); '' = the section was emptied in Obsidian
+  body_hash TEXT NOT NULL,                -- reflectionHash (src/domain/vault/hash.ts)
+  source_path TEXT NOT NULL,              -- vault-relative file it was read from
+  file_mtime TEXT,
+  received_at TEXT NOT NULL,
+  actor TEXT                              -- 'obsidian'
+);
+
+CREATE TABLE vault_clients (              -- the plugin's last status report, per vault
+  client TEXT PRIMARY KEY,                -- 'obsidian:<vaultName>'
+  vault_name TEXT NOT NULL, last_seen_at TEXT NOT NULL, plugin_version TEXT NOT NULL DEFAULT '',
+  cursor INTEGER NOT NULL DEFAULT 0, report_json TEXT NOT NULL DEFAULT '{}'
+);
+CREATE TABLE vault_note_paths (           -- where each note lives in each vault ("open in Obsidian")
+  vault_name TEXT NOT NULL, note_id TEXT NOT NULL, path TEXT NOT NULL, seen_at TEXT NOT NULL,
+  PRIMARY KEY (vault_name, note_id)
+);
+```
+
+**Backfill.** Before the triggers are created, v3 queues every existing note
+once: companies, Research Updates (not the starting snapshot), trades, AI
+sessions that have a summary, then the three index notes. The data-import CLI
+migrates imported files too, so they are backfilled the same way.
+
+**Triggers: which writes queue which notes** (`upsert` unless noted). They run
+in the same transaction as the write, so every path (browser, AI, seeding,
+import) is covered. A future migration that rebuilds one of these tables must
+create its triggers again.
+
+| Trigger | Fires on | Queues |
+|---|---|---|
+| `vault_projects_ins` | INSERT projects | company, index-companies |
+| `vault_projects_upd` | UPDATE projects when name, description or archived_at changed (not `updated_at` alone, which every commit touches) | company, index-companies |
+| `vault_projects_rename` | UPDATE OF name on projects, when it changed | the project's Research Updates, trades and summarised AI sessions; index-trades, index-ai |
+| `vault_securities_upd` | UPDATE securities when name, ticker, exchange or currency changed | company, index-companies, the project's Research Updates, trades and summarised AI sessions, index-trades, index-ai |
+| `vault_revisions_ins` | INSERT revisions, kind ≠ initial | research_update, company, index-companies |
+| `vault_annotations_ins` | INSERT revision_annotations | research_update (if not initial), company (`NEW.project_id`) |
+| `vault_evidence_upd` | UPDATE evidence when title, url or published_at changed | every non-initial Research Update that links or cites it |
+| `vault_trades_ins` / `_upd` | INSERT / UPDATE trades | trade, company, index-trades, index-companies |
+| `vault_trades_del` | DELETE trades | trade with **op `delete`** and the tombstone; company, index-trades, index-companies |
+| `vault_catalysts_ins` / `_upd` / `_del` | INSERT / UPDATE / DELETE catalysts | company |
+| `vault_reviews_ins` / `_upd` / `_del` | reviews with subject_type `trade` (NEW or OLD) | that trade, if it still exists |
+| `vault_ai_sessions_ins` | INSERT ai_sessions with a summary | ai_session, index-ai, each existing company in `project_ids_json` |
+| `vault_ai_sessions_upd` | UPDATE OF summary_md, decisions_md, todo_md, last_at, actions_json, project_ids_json, when it has a summary | the same |
+
+Nothing else queues a note: drafts, draft_ops, quotes, price bars, notes,
+evidence inserts, the audit log and reflections themselves.
+
+**Reading the queue.** `GET /api/vault/notes?after=<seq>&limit=<1–500>` (or
+`?ids=<wb_id,…>`, at most 200) returns `VaultNotesResponse`
+(`src/domain/vault/types.ts`): the latest rendering of each note named by the
+page (once, in the order of its latest change), `nextAfter` (the page's last
+seq), `more`, `latestSeq`, `generation` (`dbGeneration`, read per request) and
+`names` (default paths of linked notes not in the page). A note whose entity is
+gone and left no tombstone is listed in `missing`. A deleted trade is rendered
+from its latest tombstone with `wb_status: "deleted"`.
+
+**Reflections.** `POST /api/vault/reflections` stores a version only when
+`shouldStoreReflection` says so: never an empty first version (the template),
+never the same text as the latest version or as the latest version read from
+the same file (a stale conflict copy cannot flip the value back), so X→Y→X from
+one file records X again. A cleared section is stored as `''`; the UI keeps
+showing the last non-empty text with a “cleared” badge. Each stored version
+writes an audit row (`entity 'reflection'`, action `create`, actor `obsidian`).
+A reflection on a deleted trade is still accepted (the project comes from the
+tombstone).
+A note the plugin creates for an id that already has a non-empty reflection (a
+note the user deleted and re-created, a second vault) starts with that text under
+the heading, so reading it back is not recorded as cleared.
+
 ---
 
 ## 3. Point-in-time queries
@@ -528,9 +625,14 @@ Rules that go with these tables:
   "exportedAt": "…",
   "project": {}, "securities": [], "draft": {}, "revisions": [],
   "evidence": [], "attachments": [], "catalysts": [], "trades": [],
-  "notes": [], "reviews": [], "auditLog": []
+  "notes": [], "reviews": [], "auditLog": [],
+  "reflections": []
 }
 ```
+
+`reflections` (v3) lists every version of the project's `## 反思` sections
+(`ReflectionVersionDTO` plus `noteId` and `kind`), oldest first; the field is
+additive, so `formatVersion` stays 1.
 
 Attachment rows include `sha256` and `original_filename`; the files
 themselves are in `data/attachments/` and can be bundled separately.

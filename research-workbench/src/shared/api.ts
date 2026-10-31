@@ -5,6 +5,7 @@ import type { ModelChange } from '../domain/revision/diff';
 import type { Impact, KeyOutputs } from '../domain/revision/impact';
 import type { TradeMetrics } from '../domain/trade/metrics';
 import type { Unit } from '../domain/units';
+import type { ConflictReason, ReflectionKind } from '../domain/vault/types';
 import type { Actor, AgentClient } from './actors';
 
 export interface ProjectDTO {
@@ -525,6 +526,8 @@ export interface DiagnosticsDTO {
   backups: { lastBackupAt: string | null; count: number; dir: string; lastError: string | null };
   uptimeSec: number;
   clients: AiClientStatusDTO[];
+  /** The Obsidian plugin's last report (null until it has synced once). */
+  vault: VaultStatusDTO | null;
 }
 
 /** GET /api/securities/lookup?ticker= : the same security across all companies. */
@@ -656,6 +659,8 @@ export interface JournalTradeDTO extends TradeDTO {
     categories: string[];
     createdAt: string;
   }[];
+  /** The trade note's latest non-empty `## 反思` from Obsidian; `excerpt` holds at most 1,000 characters. */
+  reflection: { excerpt: string; receivedAt: string; cleared: boolean } | null;
 }
 
 /** GET /api/trades?status=&projectId=&from=&to= */
@@ -704,4 +709,55 @@ export interface RefreshRunDTO {
   pending: number;
   providers: RefreshProviderDTO[];
   items: RefreshItemDTO[];
+}
+
+// ---------------------------------------------------------------- Obsidian
+
+/**
+ * The `## 反思` section of one note, read back from Obsidian (GET /api/projects/:id/reflections).
+ * `text` is the latest non-empty version; `cleared` is set when the newest version is empty (the
+ * section was emptied in Obsidian), and then `text` still shows the version before it.
+ */
+export interface ReflectionDTO {
+  noteId: string;
+  kind: ReflectionKind;
+  projectId: string;
+  text: string;
+  /** When `text` was received; null when there is none yet. */
+  receivedAt: string | null;
+  versionCount: number;
+  cleared: { at: string } | null;
+  /** obsidian://open link to the note, from the plugin's last path report. */
+  obsidianUrl: string | null;
+  /** The plugin could not update this note (latest status report). */
+  conflict: ConflictReason | null;
+}
+
+/** GET /api/reflections/:noteId/versions, newest first. `text` '' = cleared in Obsidian. */
+export interface ReflectionVersionDTO {
+  id: number;
+  text: string;
+  hash: string;
+  sourcePath: string;
+  fileMtime: string | null;
+  receivedAt: string;
+  actor: string | null;
+}
+
+/** GET /api/vault/status and diagnostics `vault`: the most recently seen vault. */
+export interface VaultStatusDTO {
+  /** Reported within the last 3 minutes. */
+  connected: boolean;
+  lastSeenAt: string;
+  pluginVersion: string;
+  vaultName: string;
+  cursor: number;
+  latestSeq: number;
+  /** Changes the plugin has not fetched yet. */
+  behind: number;
+  pending: number;
+  skippedOpen: number;
+  missing: number;
+  conflicts: { wbId: string; reason: ConflictReason; paths: string[]; title: string }[];
+  errors: string[];
 }

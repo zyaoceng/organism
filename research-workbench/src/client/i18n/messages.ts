@@ -158,6 +158,12 @@ const P: [RegExp, string][] = [
   [/^The starting snapshot has no estimates to exclude$/, '起始快照沒有預估值可以排除'],
   [/^Cross-site request refused$/, '拒絕來自其他網站的請求'],
   [/^Only an AI client can call this$/, '只有 AI 用戶端可以使用這個功能'],
+  [/^Obsidian token required$/, '需要 Obsidian 外掛的連線憑證'],
+  [/^Only the Obsidian plugin can call this$/, '只有 Obsidian 外掛可以使用這個功能'],
+  [/^The Obsidian plugin may only call \/api\/vault\/\*$/, 'Obsidian 外掛只能使用同步相關的功能'],
+  [/^Reload the page to download the Obsidian plugin$/, '請重新載入頁面，再下載 Obsidian 外掛'],
+  [/^Only the browser user can download the Obsidian plugin$/, '只有在瀏覽器裡的使用者可以下載 Obsidian 外掛'],
+  [/^The Obsidian plugin is not built \(npm run build\)$/, 'Obsidian 外掛還沒有建置（npm run build）'],
   [/^(evidenceIds|projectIds) must be a list of ids$/, '$1 必須是 id 清單'],
 
   // Market data

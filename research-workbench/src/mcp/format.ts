@@ -34,6 +34,7 @@ import type {
   RevisionFull,
   RevisionMeta,
   TradeDTO,
+  TradeRecordResponse,
 } from '../shared/api';
 import { ApiErr, TokenError, ToolError, WorkbenchDownError } from './http';
 
@@ -547,7 +548,8 @@ export function formatCommitted(rev: RevisionFull, port: number): string {
 // ---------------------------------------------------------------- trades and sessions
 
 function tradeLine(t: TradeDTO): string {
-  const parts = [`‹${t.id}› ${SIDE_ZH[t.side] ?? t.side} ${t.quantity.toLocaleString('en-US')} 股 @ ${num(t.entryPrice)}（${t.entryDate}）`];
+  // a dry run's trade has no id: it was never stored
+  const parts = [`${t.id ? `‹${t.id}› ` : ''}${SIDE_ZH[t.side] ?? t.side} ${t.quantity.toLocaleString('en-US')} 股 @ ${num(t.entryPrice)}（${t.entryDate}）`];
   // stop and target may be computed defaults (ATR, the model's target price): two decimals
   if (t.stopAtEntry !== null) parts.push(`停損 ${num(t.stopAtEntry, 2)}`);
   if (t.targetPriceAtEntry !== null) parts.push(`目標價 ${num(t.targetPriceAtEntry, 2)}`);
@@ -568,6 +570,17 @@ export function formatTrade(t: TradeDTO, warnings: readonly string[], port: numb
   if (warnings.length) lines.push('提醒：', ...warnings.map((w) => `- ${w}`));
   lines.push(`網站：${siteUrl(port, t.projectId, 'trades')}`);
   return lines.join('\n');
+}
+
+/** The result of record_trade: recorded, already imported, or (dry run) what would be recorded. */
+export function formatTradeRecord(r: TradeRecordResponse, port: number, createdCompany: string | null = null): string {
+  if (!r.trade) return r.warnings.join('\n') || '沒有記錄交易。';
+  if (r.status === 'existing') return formatTrade(r.trade, r.warnings, port, '這段日誌已存在（之前匯入過），沒有新增；這是既有的那筆：');
+  if (r.status === 'would-create') {
+    const text = formatTrade(r.trade, r.warnings, port, `預覽（沒有寫入）：會記錄這筆交易${r.trade.source === 'import' ? '（從舊日誌匯入）' : ''}：`);
+    return r.trade.sourceText ? `${text}\n${untrusted('日誌原文', r.trade.sourceText)}` : text;
+  }
+  return formatTrade(r.trade, r.warnings, port, `${createdCompany ? `已新建公司 ${createdCompany}。\n` : ''}已記錄交易${r.trade.source === 'import' ? '（從舊日誌匯入）' : ''}：`);
 }
 
 export function formatSession(s: AiSessionDTO, port: number): string {
@@ -751,6 +764,10 @@ export function errorText(e: unknown, port: number): string {
       if (Array.isArray(d.matches)) lines.push(...(d.matches as { projectName: string; ticker: string; projectId: string }[]).map((m) => `- ${m.projectName}（${m.ticker}，id: ${m.projectId}）`));
       if (Array.isArray(d.missing)) lines.push(...bullets(d.missing));
       if (e.code === 'IMPORT_DELETED') lines.push(`被刪除的交易：${String(d.tradeId)}（${localTime(d.deletedAt as string)}）`);
+      if (e.code === 'PROBABLE_DUPLICATE') {
+        lines.push(`可能重複的交易：${String(d.duplicateOf)}（${String(d.entryDate)} ${SIDE_ZH[String(d.side)] ?? String(d.side)} ${num(d.quantity as number)} 股 @ ${num(d.entryPrice as number)}，${d.source === 'import' ? '匯入舊日誌' : '手動記錄'}，記錄者：${zh(String(d.createdBy))}）`);
+        lines.push('把兩筆給使用者看並問是不是同一筆；使用者確定是另一筆交易才帶 allow_duplicate=true 重試，否則不要匯入。');
+      }
     }
     return lines.join('\n');
   }

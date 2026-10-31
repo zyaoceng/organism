@@ -5,6 +5,7 @@ import { entryBarIndex, tradeMetrics } from '../../domain/trade/metrics';
 import { actorLabel, isAgentActor } from '../../shared/actors';
 import type { ProviderDTO, TradeDTO } from '../../shared/api';
 import { QuoteCard, RANGES, SecurityCard } from '../components/MarketCards';
+import { ReflectionCard } from '../components/ReflectionCard';
 import { PriceChart, type ChartMarker, type ChartPriceLine, type Overlay } from '../components/PriceChart';
 import { Advanced, AiBadge, Field } from '../components/ui';
 import { api } from '../lib/api';
@@ -474,6 +475,7 @@ function TradeDetail({ t: tr, bars, quote }: { t: TradeDTO; bars: Bar[]; quote: 
             </Advanced>
           </div>
         </div>
+        <ReflectionCard noteId={tr.id} kind="trade" />
         <Advanced>
           <button
             className="btn danger"
