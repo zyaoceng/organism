@@ -1,0 +1,9 @@
+{
+  "id": "research-workbench-sync",
+  "name": "Research Workbench Sync",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "把研究工作台的公司、研究更新與交易寫成筆記，並把「## 反思」送回（只在這台 Mac）。",
+  "author": "Research Workbench",
+  "isDesktopOnly": true
+}

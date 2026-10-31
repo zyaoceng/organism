@@ -1,0 +1,15 @@
+{
+  "globalShortcut": "Alt+Space",
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/王小明/Desktop"]
+    },
+    "research-workbench": {
+      "command": "/usr/local/bin/node",
+      "args": ["/old/place/research-workbench-mcp.mjs", "--client=claude-desktop", "--port=4311"]
+    },
+    "weather": { "command": "uvx", "args": ["weather-mcp"], "env": { "API_KEY": "abc" } }
+  },
+  "preferences": { "quickEntry": true }
+}

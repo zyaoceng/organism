@@ -1,0 +1,246 @@
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { formatValue, parseValueInput, editText } from '../../domain/format';
+import type { Unit } from '../../domain/units';
+import { cls } from '../lib/util';
+import { actorLabel, isAgentActor } from '../../shared/actors';
+import { getLang, LANGS, setLang, t, tm, useLang } from '../lib/i18n';
+import { setAdvanced, useAdvanced } from '../lib/prefs';
+
+/**
+ * Whether a closing editor writes what it holds: only after the user typed. The value can change
+ * underneath an open editor (an AI client or another window wrote the draft); writing the untouched
+ * old text back would silently undo that change.
+ */
+export function editorWrites<T>(typed: boolean, held: T, current: T): boolean {
+  return typed && held !== current;
+}
+
+/** Text that becomes an input on click; commits on blur/Enter, cancels on Escape. */
+export function InlineText(props: {
+  value: string;
+  onCommit: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+  multiline?: boolean;
+  readOnly?: boolean;
+  rows?: number;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(props.value);
+  const typed = useRef(false);
+  // follow the stored value, but never replace what the user is typing
+  useEffect(() => {
+    if (!editing) setDraft(props.value);
+  }, [props.value, editing]);
+  if (!editing || props.readOnly) {
+    return (
+      <div
+        className={cls(props.className, 'inline-text', !props.value && 'faint')}
+        style={{ cursor: props.readOnly ? 'default' : 'text', whiteSpace: props.multiline ? 'pre-wrap' : undefined, minHeight: 18 }}
+        onClick={() => {
+          if (props.readOnly) return;
+          typed.current = false;
+          setEditing(true);
+        }}
+        title={props.readOnly ? undefined : t('Click to edit')}
+      >
+        {props.value || props.placeholder || '—'}
+      </div>
+    );
+  }
+  const commit = () => {
+    setEditing(false);
+    if (editorWrites(typed.current, draft, props.value)) props.onCommit(draft);
+  };
+  const common = {
+    autoFocus: true,
+    value: draft,
+    placeholder: props.placeholder,
+    onChange: (e: { target: { value: string } }) => {
+      typed.current = true;
+      setDraft(e.target.value);
+    },
+    onBlur: commit,
+    style: { width: '100%' },
+  };
+  return props.multiline ? (
+    <textarea
+      {...common}
+      rows={props.rows ?? 4}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          setDraft(props.value);
+          setEditing(false);
+        }
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) commit();
+      }}
+    />
+  ) : (
+    <input
+      {...common}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit();
+        if (e.key === 'Escape') {
+          setDraft(props.value);
+          setEditing(false);
+        }
+      }}
+    />
+  );
+}
+
+/** Numeric input that understands units (percent typed as 40 = 40%). */
+export function NumberField(props: {
+  value: number | null | undefined;
+  unit: Unit | null;
+  onCommit: (v: number | null) => void;
+  placeholder?: string;
+  className?: string;
+  autoFocus?: boolean;
+  onDone?: (how: 'enter' | 'tab' | 'escape' | 'blur', shift: boolean) => void;
+  initialText?: string;
+}) {
+  const [text, setText] = useState(props.initialText ?? editText(props.value, props.unit));
+  const [error, setError] = useState<string | null>(null);
+  const done = useRef(false);
+  // opened by typing a character: that is typing too
+  const typed = useRef(props.initialText !== undefined);
+  const finish = (how: 'enter' | 'tab' | 'escape' | 'blur', shift = false) => {
+    if (done.current) return;
+    if (how !== 'escape') {
+      const r = parseValueInput(text, props.unit);
+      if (!r.ok) {
+        setError(tm(r.message));
+        if (how === 'blur') {
+          done.current = true;
+          props.onDone?.(how, shift);
+        }
+        return;
+      }
+      if (editorWrites(typed.current, r.value, props.value ?? null)) props.onCommit(r.value);
+    }
+    done.current = true;
+    props.onDone?.(how, shift);
+  };
+  return (
+    <input
+      className={cls(props.className, error && 'err')}
+      title={error ?? undefined}
+      autoFocus={props.autoFocus}
+      value={text}
+      placeholder={props.placeholder}
+      style={error ? { borderColor: 'var(--err)' } : undefined}
+      onChange={(e) => {
+        typed.current = true;
+        setText(e.target.value);
+        setError(null);
+      }}
+      onFocus={(e) => props.initialText === undefined && e.target.select()}
+      onBlur={() => finish('blur')}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          finish('enter', e.shiftKey);
+        } else if (e.key === 'Tab') {
+          e.preventDefault();
+          finish('tab', e.shiftKey);
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          finish('escape');
+        }
+        e.stopPropagation();
+      }}
+    />
+  );
+}
+
+export function Value({ v, unit, withUnit }: { v: number | null | undefined; unit: Unit | null | undefined; withUnit?: boolean }) {
+  return <span className="num">{formatValue(v, unit, { withUnit })}</span>;
+}
+
+export function Delta({ before, after, unit }: { before: number | null | undefined; after: number | null | undefined; unit?: Unit | null }) {
+  if (before === null || before === undefined || after === null || after === undefined) return <span className="faint">—</span>;
+  const d = after - before;
+  if (Math.abs(d) < 1e-12) return <span className="faint">0</span>;
+  let txt: string;
+  if (unit?.kind === 'percent') txt = `${d >= 0 ? '+' : ''}${(d * 100).toFixed(1)} pp`;
+  else if (before !== 0) txt = `${d >= 0 ? '+' : ''}${((d / Math.abs(before)) * 100).toFixed(1)}%`;
+  else txt = `${d >= 0 ? '+' : ''}${formatValue(d, unit ?? null)}`;
+  return <span className={cls('num', d > 0 ? 'pos' : 'neg')}>{txt}</span>;
+}
+
+export function Section(props: { title: string; right?: ReactNode; children: ReactNode; id?: string }) {
+  return (
+    <div className="section" id={props.id}>
+      <div className="shead">
+        <h3>{props.title}</h3>
+        <div className="right row">{props.right}</div>
+      </div>
+      {props.children}
+    </div>
+  );
+}
+
+export function Field(props: { label: string; children: ReactNode; style?: React.CSSProperties }) {
+  return (
+    <label className="field" style={props.style}>
+      {props.label}
+      {props.children}
+    </label>
+  );
+}
+
+export function ScenarioSwitch(props: { value: string; onChange: (s: 'bear' | 'base' | 'bull') => void }) {
+  return (
+    <div className="seg" role="group" aria-label={t('Scenario')}>
+      {(['bear', 'base', 'bull'] as const).map((s, i) => {
+        const name = t(s[0].toUpperCase() + s.slice(1));
+        return (
+          <button key={s} className={cls(props.value === s && `on ${s}`)} onClick={() => props.onChange(s)} title={t('{name} scenario ({n})', { name, n: i + 1 })}>
+            {name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Renders its children only in advanced mode. The hook lives here, so wrapping JSX never changes the caller's hooks. */
+export function Advanced({ children }: { children: ReactNode }) {
+  return useAdvanced() ? <>{children}</> : null;
+}
+
+/** Basic / advanced switch. The choice is remembered in this browser. */
+export function AdvancedToggle(props: { dark?: boolean }) {
+  const adv = useAdvanced();
+  return (
+    <label className={cls('adv-toggle', props.dark && 'dark')} title={t('Show every page and tool')}>
+      <input type="checkbox" data-testid="advanced-toggle" checked={adv} onChange={(e) => setAdvanced(e.target.checked)} />
+      {t('Advanced mode')}
+    </label>
+  );
+}
+
+/** 中文 / English switch. The choice is remembered in this browser. */
+export function LangToggle(props: { dark?: boolean }) {
+  const lang = useLang();
+  return (
+    <div className={cls('seg', 'lang-toggle', props.dark && 'dark')} role="group" aria-label="Language / 語言" data-testid="lang-toggle">
+      {LANGS.map((l) => (
+        <button key={l.value} className={cls(lang === l.value && 'on')} onClick={() => setLang(l.value)} lang={l.value}>
+          {l.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** "AI" next to a record an AI client created; the tooltip names which one. */
+export function AiBadge({ actor, label }: { actor: string | null | undefined; label?: string }) {
+  if (!isAgentActor(actor)) return null;
+  return (
+    <span className="badge ai" title={t('Recorded by {who}', { who: actorLabel(actor, getLang()) })} data-testid="ai-badge">
+      {label ?? t('AI')}
+    </span>
+  );
+}

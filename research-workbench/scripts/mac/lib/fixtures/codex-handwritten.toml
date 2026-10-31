@@ -1,0 +1,13 @@
+model = "gpt-5"
+
+# research workbench, added by hand before the installer could do it
+[mcp_servers.research_workbench]
+command = "node"
+args = ["/somewhere/else/research-workbench-mcp.mjs"]
+
+[mcp_servers.research_workbench.tools.record_trade]
+approval_mode = "approve"
+
+# the GitHub server
+[mcp_servers.github]
+command = "npx"

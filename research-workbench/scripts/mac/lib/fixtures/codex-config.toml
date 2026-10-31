@@ -1,0 +1,21 @@
+# Codex settings, written by hand. Every line outside the managed block must survive.
+model = "gpt-5" # the default model
+approval_policy = "on-request"
+started = 2026-01-15
+
+# a server of someone else
+[mcp_servers.github]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-github"]   # keep this comment
+env = { GITHUB_TOKEN = "ghp_example" }
+
+[mcp_servers.github.tools.create_issue]
+approval_mode = "prompt"
+
+# profiles
+[profiles.x]
+model = "o3"
+model_reasoning_effort = "high"
+
+[[notes]]
+text = "array of tables, after everything"
