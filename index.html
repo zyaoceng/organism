@@ -3,348 +3,337 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>有機體｜研究報告集</title>
+<title>有機體 ORGANISM｜台大控股研究</title>
+<meta name="description" content="台大控股產業研究與個股深度研究">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Bodoni+Moda:opsz,wght@6..96,400..700&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@400;700&family=Shippori+Mincho+B1:wght@800&family=Zen+Antique&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#EAE7E1; --card:#F7F5F1; --card2:#F1EEE8;
-  --ink:#3E3A36; --sub:#7E786F; --line:#DCD6CC; --line2:#CBC3B6;
-  --mu:#B4735A; --sn:#5B7FA3; --ph:#849A5C;
-  --sand:#C0A170; --rose:#B08079; --slate:#8C8880;
+  /* Indigo-black night (60) · concrete grey type & blocks (30) · periwinkle signal (<5%) */
+  --night:#0D0B24;
+  --night-2:#15123A;
+  --indigo:#2A2390;
+  --concrete:#B8B7AF;
+  --paper:#ECEBE7;
+  --mute:#8C8B96;
+  --signal:#A3A9FF;
+  --display:"Archivo","Noto Sans TC",sans-serif;
+  --serif:"Zen Antique","Noto Serif TC","Songti TC",serif;
+  --poster:"Shippori Mincho B1","Noto Serif TC","Songti TC",serif;
+  --sans:"Noto Sans TC","PingFang TC",sans-serif;
+  --numeral:"Bodoni Moda","Didot",serif;
+  /* layout: dark field, generative striped organism in the hero, research as a tile wall */
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);
- font-family:"Noto Serif TC","Songti TC","PingFang TC",serif;
- font-size:15.5px;line-height:1.82;padding-bottom:70px}
-.wrap{max-width:820px;margin:0 auto;padding:0 20px}
-.slide{background:var(--card);border:1px solid var(--line);border-radius:12px;
- padding:28px 30px;margin:22px 0;box-shadow:0 1px 2px rgba(62,58,54,.05)}
-.kick{font-size:11px;letter-spacing:.22em;color:var(--sub);font-weight:700;text-transform:uppercase}
-h1{font-size:33px;line-height:1.22;margin:10px 0 8px;font-weight:800;letter-spacing:-.01em}
-.sub{color:var(--sub);font-size:13px;line-height:1.7}
-p{margin:0 0 11px}
+html{color-scheme:dark}
+body{margin:0;background:var(--night);color:var(--paper);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;opacity:.22;mix-blend-mode:screen;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .6 0 0 0 .35 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 a{color:inherit;text-decoration:none}
-.toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
-.toc a{font-size:12.5px;padding:4px 12px;border:1px solid var(--line2);border-radius:14px;color:var(--sub);background:var(--card2)}
-.toc a:hover{border-color:var(--ink);color:var(--ink)}
-.toc a b{color:var(--ink);font-weight:700;margin-right:4px}
-.toc a.tools{margin-left:auto;border-color:var(--sn);color:var(--sn);background:transparent}
-.toc a.tools:hover{background:var(--sn);color:#fff}
-.list{display:flex;flex-direction:column;gap:14px;margin-top:6px}
-.item{display:block;background:var(--card2);border:1px solid var(--line);border-radius:10px;
- padding:18px 20px;transition:border-color .15s}
-.item:hover{border-color:var(--line2)}
-.item .tag{display:inline-block;font-size:11px;padding:2px 9px;border-radius:11px;
- border:1px solid var(--line2);color:var(--sub);margin-bottom:8px}
-.item .tag.mu{border-color:var(--mu);color:var(--mu)}
-.item .tag.sn{border-color:var(--sn);color:var(--sn)}
-.item .tag.ph{border-color:var(--ph);color:var(--ph)}
-.item .tag.sand{border-color:var(--sand);color:var(--sand)}
-.item .tag.slate{border-color:var(--line2);color:var(--slate)}
-.item h3{font-size:17.5px;margin:0 0 5px;font-weight:700;color:var(--ink)}
-.item p.desc{font-size:13.5px;color:var(--sub);margin:0 0 6px;line-height:1.7}
-.item .meta{font-size:11.5px;color:var(--sub);font-family:ui-monospace,Menlo,monospace}
-.section-h{display:flex;align-items:baseline;gap:10px;margin:0 0 6px;flex-wrap:wrap}
-.section-h .num{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--sub);letter-spacing:.08em}
-.section-h h2{font-size:19px;margin:0;font-weight:800}
-.section-h span.en{font-size:11.5px;color:var(--sub);letter-spacing:.05em}
-.section-h span.date{margin-left:auto;font-size:11.5px;color:var(--sub);font-family:ui-monospace,Menlo,monospace}
-.blurb{font-size:13.5px;color:var(--sub);margin:0 0 14px;line-height:1.7}
-.ballots{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line2)}
-.ballots .lab{font-size:11.5px;color:var(--sub);letter-spacing:.06em;margin-bottom:8px}
-.ballots .grid{display:flex;flex-wrap:wrap;gap:8px}
-.ballots a{font-size:12.5px;padding:5px 12px;border:1px solid var(--line2);border-radius:8px;background:var(--card2);color:var(--ink)}
-.ballots a:hover{border-color:var(--sand)}
-.slide + .slide{margin-top:18px}
-footer{color:var(--sub);font-size:11.5px;max-width:820px;margin:34px auto 0;
- padding:18px 20px;border-top:2px solid var(--ink);line-height:1.85}
-footer a{color:var(--sn)}
-@media(max-width:680px){
-  h1{font-size:26px}
-  .slide{padding:20px 17px}
-  .section-h span.date{margin-left:0;width:100%}
+a:focus-visible,button:focus-visible{outline:2px solid var(--signal);outline-offset:3px}
+.wrap{max-width:1440px;margin:0 auto;padding-inline:clamp(16px,3vw,40px)}
+
+/* loader (short, URBANEX-style percentage) */
+.loader{position:fixed;inset:0;z-index:100;background:var(--indigo);display:flex;flex-direction:column;justify-content:space-between;transition:transform .9s cubic-bezier(.7,0,.2,1)}
+.loader.done{transform:translateY(-100%)}
+.loader .mq{overflow:hidden;white-space:nowrap;font-family:var(--display);font-size:clamp(16px,1.6vw,22px);letter-spacing:.04em;color:var(--paper);padding:10px 0}
+.loader .mq span{display:inline-block;animation:slide 18s linear infinite}
+.loader .pct{font-family:var(--numeral);font-size:clamp(90px,16vw,240px);line-height:1;color:var(--paper);padding:0 clamp(16px,3vw,40px)}
+
+.top{display:grid;grid-template-columns:1fr auto clamp(110px,10vw,140px);gap:clamp(16px,3vw,48px);align-items:start;padding-top:clamp(18px,2.4vw,32px)}
+.wordmark{font-family:var(--display);font-stretch:125%;font-weight:800;font-size:clamp(44px,9.2vw,138px);line-height:.86;letter-spacing:.12em;color:var(--paper);margin:0}
+.social{display:flex;gap:18px;align-items:flex-start;font-family:var(--display);color:var(--concrete)}
+.social small{font-size:11px;line-height:1.1;letter-spacing:.04em}
+.social b{font-size:clamp(16px,1.8vw,26px);font-weight:500}
+.nav{position:fixed;top:clamp(14px,2vw,28px);right:clamp(16px,3vw,40px);z-index:60;background:rgba(13,11,36,.82);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);padding:8px 10px;display:flex;flex-direction:column;align-items:flex-end;font-family:var(--display);font-weight:500;font-size:clamp(13px,1.15vw,17px);line-height:1.05;color:var(--concrete);text-transform:uppercase}
+.nav a{padding:0 3px;transition:background .25s,color .25s}
+.nav a[aria-current],.nav a:hover{background:var(--paper);color:var(--night)}
+.nav sup{font-size:.55em;margin-left:2px}
+
+/* hero: generative organism made of horizontal stripes */
+.hero{position:relative;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:24px;align-items:end;padding-block:clamp(40px,5vw,72px) clamp(40px,5vw,72px)}
+.hero canvas{grid-column:6/13;grid-row:1;width:100%;height:clamp(320px,42vw,600px);display:block}
+.hero .copy{grid-column:1/8;grid-row:1;position:relative;z-index:1;display:flex;flex-direction:column;gap:28px;padding-bottom:12px}
+.hero h1{margin:0;font-family:var(--poster);font-weight:800;font-size:clamp(36px,5.6vw,88px);line-height:1.16;letter-spacing:.05em;text-wrap:balance}
+.hero h1{color:var(--paper);text-shadow:none}.hero h1 span{color:var(--paper)}.hero h1 span+br+span{color:var(--signal)}
+.hero p{margin:0;font-family:var(--display);font-stretch:110%;font-size:clamp(13px,1.1vw,16px);line-height:1.7;letter-spacing:.08em;color:var(--concrete);text-transform:uppercase}
+.hero p i{font-style:normal;color:var(--signal)}
+.cta{display:flex;flex-wrap:wrap;gap:12px}
+.btn{display:inline-flex;align-items:center;gap:10px;font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.1em;text-transform:uppercase;padding:14px 22px;border:1px solid var(--paper);transition:background .25s,color .25s,transform .25s}
+.btn.solid{background:var(--paper);color:var(--night)}
+.btn:hover{transform:translateY(-2px);background:var(--signal);border-color:var(--signal);color:var(--night)}
+
+.marquee{border-top:1px solid rgba(236,235,231,.3);border-bottom:1px solid rgba(236,235,231,.3);overflow:hidden;white-space:nowrap;color:var(--concrete);font-family:var(--display);font-stretch:85%;font-weight:600;font-size:13px;letter-spacing:.06em;padding:7px 0}
+.marquee div{display:inline-block;animation:slide 52s linear infinite}
+@keyframes slide{to{transform:translateX(-50%)}}
+
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:1px solid rgba(236,235,231,.3)}
+.stat{padding:clamp(24px,3vw,44px) clamp(16px,3vw,40px);border-right:1px solid rgba(236,235,231,.3);display:flex;align-items:baseline;gap:18px}
+.stat:last-child{border-right:0}
+.stat b{font-family:var(--numeral);font-weight:500;font-size:clamp(64px,7vw,112px);line-height:1;color:var(--paper);font-variant-numeric:lining-nums tabular-nums}
+.stat span{font-size:14px;line-height:1.6;color:var(--concrete)}
+.stat span em{display:block;font-style:normal;font-family:var(--display);font-size:11px;letter-spacing:.16em;color:var(--signal)}
+
+.stripe{color:transparent;-webkit-background-clip:text;background-clip:text;background-image:repeating-linear-gradient(to bottom,var(--c) 0 var(--t),transparent var(--t) calc(var(--t) + var(--gap)))}
+.shead{margin-bottom:clamp(28px,3vw,44px)!important;font-family:var(--display);font-stretch:125%;font-weight:900;font-size:clamp(72px,14.5vw,220px);line-height:.82;margin:0;letter-spacing:.02em;--c:rgba(184,183,175,.55);--t:3px;--gap:2px}
+.subhead{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:24px;align-items:end;padding-block:clamp(28px,3vw,44px) clamp(24px,2.4vw,36px)}
+.subhead h3{grid-column:1/8;margin:0;font-family:var(--serif);font-weight:300;font-size:clamp(26px,3.4vw,50px);line-height:1.28;color:var(--night)}
+.subhead h3 span{background:var(--concrete);box-decoration-break:clone;-webkit-box-decoration-break:clone;padding:0 .12em}
+.subhead p{grid-column:9/13;margin:0;font-size:15px;line-height:1.9;color:var(--concrete)}
+
+/* tile wall */
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:rgba(236,235,231,.22);border-block:1px solid rgba(236,235,231,.22)}
+.tile{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:28px;min-height:clamp(280px,24vw,360px);padding:clamp(22px,2.4vw,34px);background:var(--night);overflow:hidden;transition:transform .45s cubic-bezier(.2,.7,.1,1),background .45s;z-index:0}
+.tile::before{content:"";position:absolute;inset:0;z-index:-1;opacity:0;transition:opacity .45s;background:repeating-linear-gradient(to bottom,rgba(163,169,255,.16) 0 2px,transparent 2px 7px)}
+.tile:hover{transform:scale(1.035);background:var(--night-2);z-index:2;box-shadow:0 24px 60px -28px rgba(0,0,0,.8)}
+.tile:hover::before{opacity:1}
+.tile .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.tile .num{font-family:var(--numeral);font-weight:500;font-size:clamp(64px,6.4vw,104px);line-height:.9;color:var(--paper);font-variant-numeric:lining-nums}
+.tile .fmt{font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.06em;border:1px solid rgba(236,235,231,.5);padding:4px 10px;color:var(--concrete);transition:background .3s,color .3s}
+.tile:hover .fmt{background:var(--signal);color:var(--night);border-color:var(--signal)}
+.tile h3{margin:0;font-family:var(--serif);font-weight:400;font-size:clamp(24px,2.3vw,34px);line-height:1.25}
+.tile p{margin:8px 0 0;font-size:14px;line-height:1.75;color:var(--concrete)}
+.tile .foot{display:flex;justify-content:space-between;font-family:var(--display);font-size:11px;letter-spacing:.16em;color:var(--mute)}
+.tile .foot .go{color:var(--paper);transition:transform .3s}
+.tile:hover .go{transform:translateX(6px);color:var(--signal)}
+.tile.lit{background:var(--concrete);color:var(--night)}
+.tile.lit p,.tile.lit .foot{color:#3B3A44}.tile.lit .num{color:var(--indigo)}.tile.lit .fmt{color:var(--night);border-color:var(--night)}
+.tile.lit:hover{background:var(--paper)}
+
+
+/* research: light concrete reading room, list scales to any count */
+.light{background:var(--paper);color:var(--night);padding-block:clamp(64px,8vw,120px) clamp(48px,6vw,96px)}
+.light .shead{--c:rgba(42,35,144,.55)}
+.rows{border-top:1px solid var(--night)}
+.row{display:grid;grid-template-columns:minmax(120px,1.4fr) 4fr 2fr auto;gap:clamp(16px,2.4vw,40px);align-items:center;padding:clamp(18px,2vw,28px) clamp(16px,3vw,40px);border-bottom:1px solid rgba(13,11,36,.35);transition:background .35s,transform .35s cubic-bezier(.2,.7,.1,1)}
+.row .num{justify-self:start;font-family:var(--numeral);font-weight:500;font-size:clamp(52px,6vw,92px);line-height:.92;color:var(--indigo);padding:0 .06em;transition:background .3s,color .3s;font-variant-numeric:lining-nums}
+.row h3{margin:0;font-family:var(--serif);font-weight:400;font-size:clamp(22px,2.4vw,34px);line-height:1.25;color:var(--night)}
+.row p{margin:6px 0 0;font-size:14px;line-height:1.7;color:#3B3A44}
+.row .en{font-family:var(--display);font-size:11px;letter-spacing:.16em;color:#5A5966}
+.row .meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-family:var(--display);font-size:12px;letter-spacing:.06em;color:var(--indigo)}
+.row .fmt{border:1px solid var(--indigo);padding:3px 9px;font-weight:600}
+.row .go{transition:transform .3s}
+.row:hover{background:rgba(42,35,144,.07);transform:scale(1.012)}
+.row:hover .num{background:var(--indigo);color:var(--paper)}
+.row:hover .go{transform:translateX(6px)}
+@media (max-width:860px){.row{grid-template-columns:auto 1fr}.row .en{display:none}.row .meta{grid-column:2;flex-direction:row;align-items:center}}
+
+/* living hover: membrane blooms from the cursor, a striped cell grows inside */
+#research,#deep{position:relative;isolation:isolate}
+.bgcells{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
+.row{position:relative;overflow:hidden;isolation:isolate}
+.row::before{content:"";position:absolute;inset:0;z-index:-2;background:var(--indigo);clip-path:circle(0% at var(--x,50%) var(--y,50%));transition:clip-path .75s cubic-bezier(.2,.7,.1,1)}
+.cell{position:absolute;z-index:-1;pointer-events:none;aspect-ratio:1;transform:translate(-50%,-50%) scale(0);transition:transform .9s cubic-bezier(.3,1.35,.4,1);
+  background:repeating-linear-gradient(to bottom,var(--cc,rgba(163,169,255,.6)) 0 3px,transparent 3px 7px);animation:morph 7s ease-in-out infinite}
+.cell.a{left:52%;top:50%;width:clamp(150px,16vw,240px)}
+.cell.b{left:63%;top:26%;width:clamp(60px,6vw,96px);--cc:rgba(236,235,231,.55);transition-delay:.12s;animation-duration:5s}
+.cell.c{left:43%;top:80%;width:clamp(40px,4vw,64px);--cc:rgba(184,183,175,.6);transition-delay:.2s;animation-duration:6s}
+@keyframes morph{0%,100%{border-radius:42% 58% 63% 37%/45% 41% 59% 55%}33%{border-radius:58% 42% 38% 62%/55% 61% 39% 45%}66%{border-radius:50% 50% 56% 44%/38% 52% 48% 62%}}
+.row:hover{transform:translateY(-8px) scale(1.018);background:transparent;box-shadow:0 26px 60px -28px rgba(13,11,36,.7);z-index:3}
+.row:hover::before{clip-path:circle(150% at var(--x,50%) var(--y,50%))}
+.row:hover .cell{transform:translate(-50%,-50%) scale(1)}
+.row:hover .num{background:transparent;color:var(--signal)}
+.row:hover h3{color:var(--paper)}
+.row:hover p{color:var(--concrete)}
+.row:hover .en{color:var(--concrete)}
+.row:hover .meta{color:var(--paper)}
+.row:hover .fmt{border-color:var(--paper)}
+.row h3,.row p,.row .en,.row .meta,.row .num{transition:color .4s .05s,background .3s}
+.go{display:inline-flex;align-items:center;gap:6px}
+.go b{font-weight:600;letter-spacing:.14em;max-width:0;overflow:hidden;white-space:nowrap;transition:max-width .5s cubic-bezier(.2,.7,.1,1)}
+.row:hover .go b{max-width:6em}
+.card{isolation:isolate}
+.card .cell.a{left:82%;top:70%;width:clamp(180px,18vw,280px)}
+.card .cell.b{left:92%;top:40%}
+.card:hover .cell{transform:translate(-50%,-50%) scale(1)}
+.card:hover{transform:translateY(-8px) scale(1.02)}
+
+.item summary{list-style:none;cursor:pointer}
+.item summary::-webkit-details-marker{display:none}
+.arr{display:inline-block;transition:transform .35s}.item[open] .arr{transform:rotate(90deg)}
+.item[open] .row{background:rgba(42,35,144,.06)}
+.files{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0;background:var(--paper);border-bottom:1px solid rgba(13,11,36,.35);animation:unfold .5s cubic-bezier(.2,.7,.1,1)}
+@keyframes unfold{from{opacity:0;transform:translateY(-10px)}}
+.files a{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:16px clamp(16px,3vw,40px);background:var(--paper);color:var(--night);border-right:1px solid rgba(13,11,36,.15);border-bottom:1px solid rgba(13,11,36,.15);transition:background .25s,color .25s}
+.files a:hover{background:var(--indigo);color:var(--paper)}
+.files .tag{font-size:12px;letter-spacing:.06em;border:1px solid currentColor;padding:2px 8px;white-space:nowrap}
+.files .ft{font-family:var(--serif);font-size:17px}
+.files .ff{font-family:var(--display);font-size:11px;letter-spacing:.14em;opacity:.7}
+.disclaimer{opacity:.6}
+.deep{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:clamp(16px,2vw,28px);padding-bottom:clamp(64px,8vw,120px)}
+.card{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:28px;min-height:420px;padding:clamp(24px,2.6vw,40px);border:1px solid rgba(236,235,231,.3);overflow:hidden;transition:transform .45s cubic-bezier(.2,.7,.1,1),border-color .45s}
+.card:hover{transform:scale(1.02);border-color:var(--signal)}
+.card.big{grid-column:1/8;background:var(--indigo)}
+.card.small{grid-column:8/13;background:var(--night-2)}
+.card .kicker{display:flex;justify-content:space-between;gap:12px;font-family:var(--display);font-size:11px;letter-spacing:.18em;color:var(--concrete)}
+.card h3{margin:0;font-family:var(--poster);font-weight:800;letter-spacing:.03em;font-size:clamp(28px,3.2vw,48px);line-height:1.25}
+.card p{margin:0;font-size:15px;line-height:1.85;max-width:34em;color:#D6D5DE}
+.card .figs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid rgba(236,235,231,.4)}
+.card .figs div{padding:14px 0 0;display:flex;flex-direction:column;gap:6px}
+.card .figs b{font-family:var(--numeral);font-weight:500;font-size:clamp(34px,3.4vw,52px);line-height:1}
+.card .figs span{font-size:12px;letter-spacing:.06em;color:var(--concrete)}
+.lock{display:inline-flex;align-items:center;gap:6px;font-size:12px;letter-spacing:.08em;border:1px solid var(--signal);color:var(--signal);padding:4px 10px;border-radius:999px}
+
+.method{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-block:1px solid rgba(236,235,231,.3);margin-bottom:clamp(64px,8vw,120px)}
+.step{padding:clamp(20px,2.4vw,36px) clamp(16px,2vw,28px) clamp(28px,3vw,44px);border-right:1px solid rgba(236,235,231,.3);display:flex;flex-direction:column;gap:14px;transition:background .3s}
+.step:last-child{border-right:0}
+.step:hover{background:var(--night-2)}
+.step b{font-family:var(--numeral);font-weight:500;font-size:56px;line-height:1;color:var(--signal)}
+.step h4{margin:0;font-family:var(--serif);font-weight:600;font-size:22px}
+.step p{margin:0;font-size:14px;line-height:1.85;color:var(--concrete)}
+
+footer{margin-top:clamp(32px,4vw,64px);color:var(--concrete);border-top:1px solid rgba(236,235,231,.22)}
+footer canvas{display:block;width:100%;height:clamp(240px,26vw,380px)}
+.foot-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;padding:28px clamp(16px,3vw,40px) 36px;border-top:1px solid rgba(236,235,231,.22);font-size:13px;letter-spacing:.04em}
+.foot-row nav{display:flex;gap:24px;font-family:var(--display);text-transform:uppercase}
+.foot-row a:hover{text-decoration:underline;text-underline-offset:4px}
+
+.rise{transition:transform .9s cubic-bezier(.2,.7,.1,1),opacity .9s}
+.rise.pre{transform:translateY(28px);opacity:.25}
+
+@media (max-width:860px){
+  .top{grid-template-columns:1fr auto}.social{display:none}
+  .hero canvas,.hero .copy{grid-column:1/-1}.hero canvas{grid-row:1;opacity:.55}.hero .copy{grid-row:1}
+  .stats{grid-template-columns:1fr}.stat{border-right:0;border-bottom:1px solid rgba(236,235,231,.3)}
+  .subhead h3,.subhead p{grid-column:1/-1}
+  .tiles{grid-template-columns:1fr}
+  .card.big,.card.small{grid-column:1/-1}
+  .method{grid-template-columns:repeat(2,minmax(0,1fr))}.step:nth-child(2){border-right:0}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .rise.pre{transform:none;opacity:1}.loader{display:none}
 }
 </style>
 </head>
 <body>
-<div class="wrap">
 
-<div class="slide" style="border-top:5px solid var(--mu)">
-  <div class="kick">有機體・研究報告集</div>
-  <h1>有機體</h1>
-  <p class="sub">台大控股同學間定期線上交流會的講義與產業研究，一個主題一個資料夾，持續更新。<br>HTML 與 PDF 點了直接看；標「下載」的是原始檔。自己做的小工具與網站另外放在<a href="./tools/" style="color:var(--sn)">工具頁</a>。</p>
-  <div class="toc">
-    <a href="#power"><b>01</b>功率半導體</a>
-    <a href="#asic"><b>02</b>ASIC</a>
-    <a href="#optical"><b>03</b>光通訊</a>
-    <a href="#memory"><b>04</b>記憶體</a>
-    <a href="#800vdc"><b>05</b>800VDC 供電架構</a>
-    <a href="#substrate"><b>06</b>IC 載板</a>
-    <a href="#cpu"><b>07</b>CPU</a>
-    <a href="#cooling"><b>08</b>資料中心散熱</a>
-    <a href="#avgo"><b>09</b>AVGO 博通</a>
-    <a class="tools" href="./tools/">小工具與網站 →</a>
-  </div>
+<div class="loader" id="loader" aria-hidden="true">
+  <div class="mq"><span>ORGANISM RESEARCH　　NTU 台大控股　　ORGANISM RESEARCH　　NTU 台大控股　　ORGANISM RESEARCH　　NTU 台大控股　　ORGANISM RESEARCH　　NTU 台大控股　　</span></div>
+  <div class="pct" id="pct">0%</div>
 </div>
 
-<!-- ══════ 01 功率半導體 ══════ -->
-<div class="slide" id="power">
-  <div class="section-h"><span class="num">01</span><h2>功率半導體</h2><span class="en">POWER SEMI</span><span class="date">2026-07-11</span></div>
-  <p class="blurb">AI 時代的電力生意：第一場交流會的講義。</p>
-  <div class="list">
+<header class="wrap top">
+  <p class="wordmark">ORGANISM</p>
+  <div class="social"><small>（NTU<br>台大控股）</small><a href="https://github.com/zyaoceng/organism"><b>GitHub</b></a></div>
+  <nav class="nav" aria-label="主選單">
+    <a href="#top" aria-current="page">Home</a>
+    <a href="#research">Research<sup>(09)</sup></a>
+    <a href="#deep">Deep dive</a>
+    <a href="./tools/">Tools</a>
+  </nav>
+</header>
 
-    <a class="item" href="./01_%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94/%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94_%E7%A4%BE%E5%9C%98%E6%8A%95%E5%BD%B1%E7%89%88_2026-07-11.html">
-      <span class="tag sand">投影版</span>
-      <h3>功率半導體：AI 時代的電力生意（社團投影版）</h3>
-      <p class="desc">交流會投影用版本</p>
-      <span class="meta">2026-07-11 · HTML</span>
-    </a>
-
-    <a class="item" href="./01_%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94/%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94_%E8%AC%9B%E8%80%85%E5%AE%8C%E6%95%B4%E7%89%88_2026-07-11.html">
-      <span class="tag sand">完整版</span>
-      <h3>功率半導體 講者完整版</h3>
-      <p class="desc">含講者口述與補充資料</p>
-      <span class="meta">2026-07-11 · HTML</span>
-    </a>
-
-    <a class="item" href="./01_%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94/%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94_%E9%80%B2%E9%9A%8EQA%E5%9B%9B%E9%A1%8C_2026-07-11.html">
-      <span class="tag sand">QA</span>
-      <h3>功率半導體 進階 QA 四題</h3>
-      <p class="desc">四題進階問答，完整語句版</p>
-      <span class="meta">2026-07-11 · HTML</span>
-    </a>
-
+<section class="wrap hero" id="top">
+  <canvas id="org" aria-hidden="true"></canvas>
+  <div class="copy">
+    <h1><span>像生命一樣成長，</span><br><span>像系統一樣決策。</span></h1>
+    <div class="cta"><a class="btn solid" href="#research">Research →</a><a class="btn" href="#deep">Deep dive</a></div>
   </div>
-</div>
+</section>
 
-<!-- ══════ 02 ASIC ══════ -->
-<div class="slide" id="asic">
-  <div class="section-h"><span class="num">02</span><h2>ASIC</h2><span class="en">CUSTOM SILICON</span><span class="date">2026-07-19</span></div>
-  <p class="blurb">從通用 GPU 到客戶自研晶片的結構性轉變：Broadcom、Marvell、世芯、創意。</p>
-  <div class="list">
 
-    <a class="item" href="./02_ASIC/ASIC%20%E7%94%A2%E6%A5%AD%E8%AC%9B%E8%A7%A3.pdf">
-      <span class="tag sn">投影片</span>
-      <h3>ASIC 產業講解（60 分鐘討論會投影片）</h3>
-      <p class="desc">ASIC 是什麼、產業怎麼賺錢、現況與趨勢、四家公司深度分析、估值與目標價、風險</p>
-      <span class="meta">2026-07-19 · PDF 43 頁</span>
+
+<section id="research" class="light"><canvas class="bgcells" id="bg1" aria-hidden="true"></canvas>
+  <h2 class="shead stripe wrap rise">RESEARCH</h2>
+  <div class="rows" id="rows"></div>
+</section>
+
+<section id="deep" style="padding-top:clamp(64px,8vw,120px)"><canvas class="bgcells" id="bg2" aria-hidden="true"></canvas>
+  <h2 class="shead stripe wrap rise">DEEP DIVE</h2>
+  <div class="wrap deep">
+    <a class="card big rise" href="./liteon-2028-scenarios-v2_1.html"><i class="cell a"></i><i class="cell b"></i>
+      <div class="kicker"><span>LATEST · 2026.09.14</span><span>05 · DATA CENTER POWER</span></div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <h3>光寶科 2028<br>三情境估值</h3>
+        <p>800VDC 供電架構 · 三情境營收、EPS 與估值</p>
+      </div>
+      <div class="figs"><div><b>3</b><span>估值情境</span></div><div><b>7</b><span>檔採信度盤</span></div><div><b>2028</b><span>估值年度</span></div></div>
     </a>
-
-    <a class="item" href="./02_ASIC/ASIC%20%E4%B8%BB%E8%AC%9B%E8%80%85%E8%AC%9B%E7%A8%BF.pdf">
-      <span class="tag sn">講稿</span>
-      <h3>ASIC 主講者講稿</h3>
-      <p class="desc">對應 43 頁投影片的逐頁口述稿，含轉場句與時間提示</p>
-      <span class="meta">2026-07-19 · PDF 21 頁</span>
+    <a class="card small rise" href="./09_AVGO/AVGO_Broadcom%E5%80%8B%E8%82%A1%E7%A0%94%E7%A9%B6%E5%A0%B1%E5%91%8A_%E5%AE%8C%E6%95%B4%E7%89%88_2026-08-22.pdf"><i class="cell a"></i><i class="cell b"></i>
+      <div class="kicker"><span>2026.08.22</span><span>09 · SINGLE STOCK</span></div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <h3>AVGO 博通</h3>
+        <p>客製化晶片 · 網通</p>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
+        <span class="lock">PDF</span>
+        <span style="font-family:var(--numeral);font-size:64px;line-height:1">45<small style="font-family:var(--sans);font-size:14px;margin-left:4px">頁</small></span>
+      </div>
     </a>
-
-    <a class="item" href="./02_ASIC/ASIC%20%E7%94%A2%E6%A5%AD%E8%AC%9B%E8%A7%A3.pptx">
-      <span class="tag slate">下載</span>
-      <h3>ASIC 產業講解 原始 PowerPoint</h3>
-      <p class="desc">同一份投影片的 .pptx 原檔，點了會下載</p>
-      <span class="meta">2026-07-19 · PPTX</span>
-    </a>
-
   </div>
-</div>
+</section>
 
-<!-- ══════ 03 光通訊 ══════ -->
-<div class="slide" id="optical">
-  <div class="section-h"><span class="num">03</span><h2>光通訊</h2><span class="en">OPTICAL / InP</span><span class="date">2026-07-25 → 07-31</span></div>
-  <p class="blurb">從「銦」到 GPU：AI 瓶頸往光移動，InP 基板與雷射產能是這一輪的 CoWoS。</p>
-  <div class="list">
-
-    <a class="item" href="./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A%E7%94%A2%E6%A5%AD%E6%B7%B1%E5%BA%A6%E5%A0%B1%E5%91%8A_2026-07-31.pdf">
-      <span class="tag ph">報告</span>
-      <h3>光通訊產業深度報告</h3>
-      <p class="desc">第一性原理、10 大技術瓶頸、全鏈玩家市佔、技術面與籌碼、循環時差模型、Channel Check｜LITE・COHR・AAOI・AXTI・VECO・AIXTRON・聯亞・穎崴</p>
-      <span class="meta">2026-07-31 · PDF 37 頁</span>
-    </a>
-
-    <a class="item" href="./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A_%E5%B0%8D%E5%85%A7%E5%AE%8C%E6%95%B4%E7%89%88v2_2026-07-30.html">
-      <span class="tag ph">講義</span>
-      <h3>光通訊產業深度研究與投資策略報告 v2（對內完整版）</h3>
-      <p class="desc">壹 第一性與 10 大瓶頸｜貳 供應鏈全景｜參 七檔兩軸＋財報週觀戰｜肆 技術面指引｜伍 循環時差模型｜陸 蒸餾賭注｜柒 Channel Check｜v2.1 增補 AIXTRON、穎崴</p>
-      <span class="meta">2026-07-30 · HTML</span>
-    </a>
-
-    <a class="item" href="./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A%E7%94%A2%E6%A5%AD_%E6%95%85%E4%BA%8B%E7%B7%9A_2026-07-26.html">
-      <span class="tag ph">故事線</span>
-      <h3>光通訊產業全景故事線：從「銦」到 GPU</h3>
-      <p class="desc">一條供應鏈，六個標的，一個瓶頸｜AAOI、AXTI、LITE、COHR、VECO、AIXTRON</p>
-      <span class="meta">2026-07-26 · HTML</span>
-    </a>
-
-    <a class="item" href="./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A_%E5%B0%8D%E5%85%A7%E5%AE%8C%E6%95%B4%E7%89%88_2026-07-25.html">
-      <span class="tag slate">前一版</span>
-      <h3>光通訊產業報告 對內完整版 v1</h3>
-      <p class="desc">v2 的前一版，保留供對照</p>
-      <span class="meta">2026-07-25 · HTML</span>
-    </a>
-
-  </div>
-</div>
-
-<!-- ══════ 04 記憶體 ══════ -->
-<div class="slide" id="memory">
-  <div class="section-h"><span class="num">04</span><h2>記憶體</h2><span class="en">MEMORY / STORAGE</span><span class="date">2026-08-15 → 08-16</span></div>
-  <p class="blurb">AI 時代的儲存生意：缺貨走到哪、市佔格局、共識每股盈餘與目標價區間。</p>
-  <div class="list">
-
-    <a class="item" href="./04_%E8%A8%98%E6%86%B6%E9%AB%94/%E8%A8%98%E6%86%B6%E9%AB%94_%E7%A4%BE%E5%9C%98%E7%89%88_2026-08-16.html">
-      <span class="tag mu">最新</span>
-      <h3>記憶體產業分析：美光・SanDisk・群聯（社團版）</h3>
-      <p class="desc">美光 MU・SanDisk SNDK・群聯 8299｜產業定義、缺貨週期、市佔、共識 EPS、目標價區間</p>
-      <span class="meta">2026-08-16 · HTML</span>
-    </a>
-
-    <a class="item" href="./04_%E8%A8%98%E6%86%B6%E9%AB%94/%E8%A8%98%E6%86%B6%E9%AB%94_%E7%A4%BE%E5%9C%98%E7%89%88_2026-08-15.html">
-      <span class="tag slate">前一版</span>
-      <h3>記憶體：AI 時代的儲存生意（社團版 08-15）</h3>
-      <p class="desc">先學三個詞、鏈上怎麼分錢、美光・SanDisk・群聯初版判斷</p>
-      <span class="meta">2026-08-15 · HTML</span>
-    </a>
-
-  </div>
-</div>
-
-<!-- ══════ 05 800VDC 供電架構 ══════ -->
-<div class="slide" id="800vdc">
-  <div class="section-h"><span class="num">05</span><h2>800VDC 供電架構</h2><span class="en">DATA CENTER POWER</span><span class="date">2026-08-16 → 09-14</span></div>
-  <p class="blurb">資料中心供電從 54V 走向 800V 直流：台達電、光寶科、Vertiv、MPWR，第二批英飛凌、Navitas、onsemi。</p>
-  <div class="list">
-    <a class="item" href="./liteon-2028-scenarios-v2_1.html">
-      <span class="tag sand">情境研究</span>
-      <h3>光寶科 2028 情境估值研究 v2.1</h3>
-      <p class="desc">2028 三情境估值、條件檢查與計算底稿，保留原始互動研究內容</p>
-      <span class="meta">2026-09-14 · HTML 互動網頁</span>
-    </a>
-
-    <a class="item" href="./800vdc-presentation-2026-09-14.pdf">
-      <span class="tag sn">投影片</span>
-      <h3>800VDC 簡報（Presentation.pdf）</h3>
-      <p class="desc">點擊直接開啟 PDF 簡報</p>
-      <span class="meta">PDF</span>
-    </a>
-
-
-    <a class="item" href="./05_800VDC/800VDC_%E7%A4%BE%E5%9C%98%E7%89%88_2026-08-18.html">
-      <span class="tag sand">最新</span>
-      <h3>800VDC 電源革命：台達電・光寶科・Vertiv・MPWR（社團版）</h3>
-      <p class="desc">800V 是什麼、這一輪走到哪、錢在鏈上怎麼分｜四張採信度盤：Vertiv・MPWR・光寶科・台達電，每個判斷都有開獎日</p>
-      <span class="meta">2026-08-18 · HTML</span>
-    </a>
-
-    <a class="item" href="./05_800VDC/800VDC_%E7%AC%AC%E4%BA%8C%E6%89%B9_IFX_NVTS_ON_2026-08-20.html">
-      <span class="tag sand">第二批</span>
-      <h3>800VDC 第二批個股：英飛凌・Navitas・onsemi</h3>
-      <p class="desc">七張採信度盤全景｜IFX、NVTS、ON 三檔並排、四層判定、估值判定表</p>
-      <span class="meta">2026-08-20 · HTML</span>
-    </a>
-
-    <a class="item" href="./05_800VDC/800VDC_%E4%B8%83%E6%AA%94%E6%95%B4%E5%90%88%E5%B0%8D%E5%85%A7%E5%A0%B1%E5%91%8A_2026-08-20.html">
-      <span class="tag slate">對內</span>
-      <h3>800VDC 七檔整合對內報告</h3>
-      <p class="desc">三天內被改掉的六件事、族群層判定、七檔總表、執行層與心法層、組合層分開評合併算</p>
-      <span class="meta">2026-08-20 · HTML</span>
-    </a>
-
-    <a class="item" href="./05_800VDC/800VDC%E5%B0%8D%E5%85%A7%E5%A0%B1%E5%91%8A_2026-08-17.html">
-      <span class="tag slate">對內</span>
-      <h3>800VDC 電源革命 對內報告</h3>
-      <p class="desc">從功率半導體到整條電力路徑：社團版背後的完整推導</p>
-      <span class="meta">2026-08-17 · HTML</span>
-    </a>
-
-    <a class="item" href="./05_800VDC/800VDC_%E7%A4%BE%E5%9C%98%E7%89%88_2026-08-17.html">
-      <span class="tag slate">前一版</span>
-      <h3>800VDC 電源革命（社團版 08-17）</h3>
-      <p class="desc">08-18 版的前一版，保留供對照</p>
-      <span class="meta">2026-08-17 · HTML</span>
-    </a>
-
-  </div>
-
-  <div class="ballots">
-    <div class="lab">採信度盤（互動頁，每檔 4 條賭注，拉滑桿評分）</div>
-    <div class="grid">
-      <a href="./05_800VDC/2301_ballot_20260816.html">光寶科 2301</a>
-      <a href="./05_800VDC/2308_ballot_20260816.html">台達電 2308</a>
-      <a href="./05_800VDC/MPWR_ballot_20260816.html">MPWR</a>
-      <a href="./05_800VDC/VRT_ballot_20260816.html">Vertiv VRT</a>
-      <a href="./05_800VDC/IFX_ballot_20260819.html">英飛凌 IFX</a>
-      <a href="./05_800VDC/NVTS_ballot_20260819.html">Navitas NVTS</a>
-      <a href="./05_800VDC/ON_ballot_20260819.html">onsemi ON</a>
-    </div>
-  </div>
-</div>
-
-<!-- ══════ 06 IC 載板 ══════ -->
-<div class="slide" id="substrate">
-  <div class="section-h"><span class="num">06</span><h2>IC 載板</h2><span class="en">IC SUBSTRATE</span><span class="date">2026-07</span></div>
-  <p class="blurb">欣興、景碩、南電、臻鼎-KY 四雄解析，含 2026／2027 三情境目標價。</p>
-  <div class="list">
-
-    <a class="item" href="./06_IC%E8%BC%89%E6%9D%BF/IC%E8%BC%89%E6%9D%BF%E7%94%A2%E6%A5%AD%E5%88%86%E6%9E%90_%E6%AC%A3%E8%88%88-%E6%99%AF%E7%A2%A9-%E5%8D%97%E9%9B%BB-%E8%87%BB%E9%BC%8EKY_2026-07.pdf">
-      <span class="tag mu">報告</span>
-      <h3>IC 載板產業分析：欣興・景碩・南電・臻鼎-KY</h3>
-      <p class="desc">載板是什麼、AI 晶片放大如何驅動缺產能、內埋式／EMIB-T／玻璃核心三大新戰場、四雄解析、2026／2027 悲觀・中性・樂觀目標價</p>
-      <span class="meta">2026-07 · PDF 20 頁</span>
-    </a>
-
-  </div>
-</div>
-
-<!-- ══════ 07 CPU ══════ -->
-<div class="slide" id="cpu">
-  <div class="section-h"><span class="num">07</span><h2>CPU</h2><span class="en">INTEL / AMD / QUALCOMM / ARM</span><span class="date">2026-08-08</span></div>
-  <p class="blurb">五家一次看：Intel、AMD、Qualcomm、Arm、嘉澤，25 頁。</p>
-  <div class="list">
-
-    <a class="item" href="./07_CPU/CPU%E7%94%A2%E6%A5%AD%E5%88%86%E6%9E%90_Intel-AMD-Qualcomm-Arm-%E5%98%89%E6%BE%A4_2026-08-08.pdf">
-      <span class="tag sn">報告</span>
-      <h3>CPU 產業分析：Intel・AMD・Qualcomm・Arm・嘉澤</h3>
-      <p class="desc">市場規模、產業鏈、競爭格局、技術趨勢、Agentic AI 供應鏈效應｜美股 Intel・AMD・Qualcomm・Arm，台股嘉澤</p>
-      <span class="meta">2026-08-08 · PDF 25 頁</span>
-    </a>
-
-  </div>
-</div>
-
-<!-- ══════ 08 資料中心散熱 ══════ -->
-<div class="slide" id="cooling">
-  <div class="section-h"><span class="num">08</span><h2>資料中心散熱</h2><span class="en">THERMAL MANAGEMENT</span><span class="date">2026-07</span></div>
-  <p class="blurb">AI 資本支出下的散熱投資機會：從一個 GB300 機櫃拆到冷卻塔，三段成熟度框架與 5+1 檔個股定位。</p>
-  <div class="list">
-
-    <a class="item" href="./08_%E8%B3%87%E6%96%99%E4%B8%AD%E5%BF%83%E6%95%A3%E7%86%B1/%E8%B3%87%E6%96%99%E4%B8%AD%E5%BF%83%E6%95%A3%E7%86%B1_%E4%B8%BB%E9%A1%8C%E6%8A%95%E8%B3%87%E6%8A%95%E5%BD%B1%E7%89%87_2026-07.pdf">
-      <span class="tag ph">投影片</span>
-      <h3>資料中心散熱：三段成熟度框架與 5+1 檔個股定位</h3>
-      <p class="desc">氣冷→冷板→浸沒式技術樹、GB300 機櫃供應鏈拆解、TDP 進化與市場規模｜奇鋐 3017・雙鴻 3324・高力 8996・Vertiv・Trane，快閃邁科 6831｜風險情境與個人排序</p>
-      <span class="meta">2026-07 · PDF 33 頁</span>
-    </a>
-
-  </div>
-</div>
-
-<!-- ══════ 09 AVGO 博通 ══════ -->
-<div class="slide" id="avgo">
-  <div class="section-h"><span class="num">09</span><h2>AVGO 博通</h2><span class="en">BROADCOM · SINGLE STOCK</span><span class="date">2026-08-22</span></div>
-  <p class="blurb">個股研究報告：宋分《分析師底層系統》＋分部拆解預測法，FY2023 至 FY2026 H1 實際、Q3／Q4 預估。</p>
-  <div class="list">
-
-    <a class="item" href="./09_AVGO/AVGO_Broadcom%E5%80%8B%E8%82%A1%E7%A0%94%E7%A9%B6%E5%A0%B1%E5%91%8A_%E5%AE%8C%E6%95%B4%E7%89%88_2026-08-22.pdf">
-      <span class="tag sn">個股</span>
-      <h3>Broadcom Inc.（AVGO）個股研究報告 完整版</h3>
-      <p class="desc">投資結論、護城河與上下游、五大產品線、財務、成長空間、Q3／Q4 FY2026 預測、估值與目標價、風險｜補充篇：SemiAnalysis CoWoS 下修事件的新中性情境重算</p>
-      <span class="meta">2026-08-22 · PDF 45 頁</span>
-    </a>
-
-  </div>
-</div>
-
-</div>
 
 <footer>
-  <div class="wrap" style="padding:0">研究與判斷：祖曜筬　·　原始檔案：<a href="https://github.com/zyaoceng/organism">github.com/zyaoceng/organism</a></div>
+  <canvas id="dish" aria-hidden="true"></canvas>
+  <div class="foot-row">
+    <span>© 2026 ORGANISM　<span class="disclaimer">研究紀錄與教材，非投資建議</span></span>
+    <nav aria-label="頁尾"><a href="#research">Research</a><a href="#deep">Deep dive</a><a href="./tools/">Tools</a><a href="https://github.com/zyaoceng/organism">GitHub</a></nav>
+  </div>
 </footer>
+
+<script>
+const T=[{"no": "01", "zh": "功率半導體", "en": "POWER SEMI", "desc": "AI 時代的電力生意", "date": "2026.07.11", "files": [{"tag": "投影版", "title": "社團投影版", "href": "./01_%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94/%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94_%E7%A4%BE%E5%9C%98%E6%8A%95%E5%BD%B1%E7%89%88_2026-07-11.html", "fmt": "HTML"}, {"tag": "完整版", "title": "講者完整版", "href": "./01_%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94/%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94_%E8%AC%9B%E8%80%85%E5%AE%8C%E6%95%B4%E7%89%88_2026-07-11.html", "fmt": "HTML"}, {"tag": "QA", "title": "進階 QA 四題", "href": "./01_%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94/%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94_%E9%80%B2%E9%9A%8EQA%E5%9B%9B%E9%A1%8C_2026-07-11.html", "fmt": "HTML"}]}, {"no": "02", "zh": "ASIC", "en": "CUSTOM SILICON", "desc": "60 分鐘討論會投影片與逐頁講稿", "date": "2026.07.19", "files": [{"tag": "投影片", "title": "ASIC 產業講解", "href": "./02_ASIC/ASIC%20%E7%94%A2%E6%A5%AD%E8%AC%9B%E8%A7%A3.pdf", "fmt": "PDF"}, {"tag": "講稿", "title": "主講者講稿", "href": "./02_ASIC/ASIC%20%E4%B8%BB%E8%AC%9B%E8%80%85%E8%AC%9B%E7%A8%BF.pdf", "fmt": "PDF"}, {"tag": "原檔", "title": "PowerPoint 原檔", "href": "./02_ASIC/ASIC%20%E7%94%A2%E6%A5%AD%E8%AC%9B%E8%A7%A3.pptx", "fmt": "PPTX"}]}, {"no": "03", "zh": "光通訊", "en": "OPTICAL / InP", "desc": "從「銦」到 GPU 的整條供應鏈", "date": "2026.07.31", "files": [{"tag": "報告", "title": "光通訊產業深度報告", "href": "./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A%E7%94%A2%E6%A5%AD%E6%B7%B1%E5%BA%A6%E5%A0%B1%E5%91%8A_2026-07-31.pdf", "fmt": "PDF"}, {"tag": "講義", "title": "對內完整版 v2", "href": "./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A_%E5%B0%8D%E5%85%A7%E5%AE%8C%E6%95%B4%E7%89%88v2_2026-07-30.html", "fmt": "HTML"}, {"tag": "故事線", "title": "產業全景故事線", "href": "./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A%E7%94%A2%E6%A5%AD_%E6%95%85%E4%BA%8B%E7%B7%9A_2026-07-26.html", "fmt": "HTML"}, {"tag": "前一版", "title": "對內完整版 v1", "href": "./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A_%E5%B0%8D%E5%85%A7%E5%AE%8C%E6%95%B4%E7%89%88_2026-07-25.html", "fmt": "HTML"}]}, {"no": "04", "zh": "記憶體", "en": "MEMORY / STORAGE", "desc": "美光・SanDisk・群聯", "date": "2026.08.16", "files": [{"tag": "最新", "title": "記憶體產業分析（社團版）", "href": "./04_%E8%A8%98%E6%86%B6%E9%AB%94/%E8%A8%98%E6%86%B6%E9%AB%94_%E7%A4%BE%E5%9C%98%E7%89%88_2026-08-16.html", "fmt": "HTML"}, {"tag": "前一版", "title": "社團版 08-15", "href": "./04_%E8%A8%98%E6%86%B6%E9%AB%94/%E8%A8%98%E6%86%B6%E9%AB%94_%E7%A4%BE%E5%9C%98%E7%89%88_2026-08-15.html", "fmt": "HTML"}]}, {"no": "05", "zh": "800VDC 供電架構", "en": "DATA CENTER POWER", "desc": "台達電・光寶科・Vertiv・MPWR 與七檔採信度盤", "date": "2026.09.14", "files": [{"tag": "情境研究", "title": "光寶科 2028 三情境估值", "href": "./liteon-2028-scenarios-v2_1.html", "fmt": "HTML"}, {"tag": "投影片", "title": "800VDC 簡報", "href": "./800vdc-presentation-2026-09-14.pdf", "fmt": "PDF"}, {"tag": "最新", "title": "800VDC 電源革命（社團版）", "href": "./05_800VDC/800VDC_%E7%A4%BE%E5%9C%98%E7%89%88_2026-08-18.html", "fmt": "HTML"}, {"tag": "第二批", "title": "英飛凌・Navitas・onsemi", "href": "./05_800VDC/800VDC_%E7%AC%AC%E4%BA%8C%E6%89%B9_IFX_NVTS_ON_2026-08-20.html", "fmt": "HTML"}, {"tag": "對內", "title": "七檔整合對內報告", "href": "./05_800VDC/800VDC_%E4%B8%83%E6%AA%94%E6%95%B4%E5%90%88%E5%B0%8D%E5%85%A7%E5%A0%B1%E5%91%8A_2026-08-20.html", "fmt": "HTML"}, {"tag": "對內", "title": "800VDC 對內報告", "href": "./05_800VDC/800VDC%E5%B0%8D%E5%85%A7%E5%A0%B1%E5%91%8A_2026-08-17.html", "fmt": "HTML"}, {"tag": "前一版", "title": "社團版 08-17", "href": "./05_800VDC/800VDC_%E7%A4%BE%E5%9C%98%E7%89%88_2026-08-17.html", "fmt": "HTML"}, {"tag": "採信度盤", "title": "光寶科 2301", "href": "./05_800VDC/2301_ballot_20260816.html", "fmt": "HTML"}, {"tag": "採信度盤", "title": "台達電 2308", "href": "./05_800VDC/2308_ballot_20260816.html", "fmt": "HTML"}, {"tag": "採信度盤", "title": "MPWR", "href": "./05_800VDC/MPWR_ballot_20260816.html", "fmt": "HTML"}, {"tag": "採信度盤", "title": "Vertiv VRT", "href": "./05_800VDC/VRT_ballot_20260816.html", "fmt": "HTML"}, {"tag": "採信度盤", "title": "英飛凌 IFX", "href": "./05_800VDC/IFX_ballot_20260819.html", "fmt": "HTML"}, {"tag": "採信度盤", "title": "Navitas NVTS", "href": "./05_800VDC/NVTS_ballot_20260819.html", "fmt": "HTML"}, {"tag": "採信度盤", "title": "onsemi ON", "href": "./05_800VDC/ON_ballot_20260819.html", "fmt": "HTML"}]}, {"no": "06", "zh": "IC 載板", "en": "IC SUBSTRATE", "desc": "欣興・景碩・南電・臻鼎-KY", "date": "2026.07", "files": [{"tag": "報告", "title": "IC 載板產業分析", "href": "./06_IC%E8%BC%89%E6%9D%BF/IC%E8%BC%89%E6%9D%BF%E7%94%A2%E6%A5%AD%E5%88%86%E6%9E%90_%E6%AC%A3%E8%88%88-%E6%99%AF%E7%A2%A9-%E5%8D%97%E9%9B%BB-%E8%87%BB%E9%BC%8EKY_2026-07.pdf", "fmt": "PDF"}]}, {"no": "07", "zh": "CPU", "en": "INTEL / AMD / ARM", "desc": "Intel・AMD・Qualcomm・Arm・嘉澤", "date": "2026.08.08", "files": [{"tag": "報告", "title": "CPU 產業分析", "href": "./07_CPU/CPU%E7%94%A2%E6%A5%AD%E5%88%86%E6%9E%90_Intel-AMD-Qualcomm-Arm-%E5%98%89%E6%BE%A4_2026-08-08.pdf", "fmt": "PDF"}]}, {"no": "08", "zh": "資料中心散熱", "en": "THERMAL MANAGEMENT", "desc": "三段成熟度框架與 5+1 檔個股定位", "date": "2026.07", "files": [{"tag": "投影片", "title": "主題投資投影片", "href": "./08_%E8%B3%87%E6%96%99%E4%B8%AD%E5%BF%83%E6%95%A3%E7%86%B1/%E8%B3%87%E6%96%99%E4%B8%AD%E5%BF%83%E6%95%A3%E7%86%B1_%E4%B8%BB%E9%A1%8C%E6%8A%95%E8%B3%87%E6%8A%95%E5%BD%B1%E7%89%87_2026-07.pdf", "fmt": "PDF"}]}, {"no": "09", "zh": "AVGO 博通", "en": "BROADCOM · SINGLE STOCK", "desc": "個股研究報告完整版", "date": "2026.08.22", "files": [{"tag": "個股", "title": "AVGO 個股研究報告", "href": "./09_AVGO/AVGO_Broadcom%E5%80%8B%E8%82%A1%E7%A0%94%E7%A9%B6%E5%A0%B1%E5%91%8A_%E5%AE%8C%E6%95%B4%E7%89%88_2026-08-22.pdf", "fmt": "PDF"}]}];
+document.getElementById('rows').innerHTML=T.map(t=>`
+<details class="item rise">
+<summary class="row">
+  <i class="cell a"></i><i class="cell b"></i><i class="cell c"></i>
+  <span class="num">${t.no}</span>
+  <div><h3>${t.zh}</h3><p>${t.desc}</p></div>
+  <span class="en">${t.en}</span>
+  <div class="meta"><span class="fmt">${t.files.length} 份</span><span>${t.date}</span><span class="go"><b>OPEN</b><span class="arr">→</span></span></div>
+</summary>
+<div class="files">${t.files.map(f=>`<a href="${f.href}"><span class="tag">${f.tag}</span><span class="ft">${f.title}</span><span class="ff">${f.fmt}</span></a>`).join('')}</div>
+</details>`).join('');
+
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* loader: 0→100% in ~0.9s, then slides away */
+(function(){const L=document.getElementById('loader'),p=document.getElementById('pct');if(reduce){L.remove();return}
+  const t0=performance.now();const f=now=>{const k=Math.min(1,(now-t0)/900);p.textContent=Math.round(k*100)+'%';if(k<1)requestAnimationFrame(f);else{L.classList.add('done');setTimeout(()=>L.remove(),1000)}};requestAnimationFrame(f);
+  setTimeout(()=>{L.classList.add('done');setTimeout(()=>L.remove(),1000)},2500);})();
+
+/* cells: horizontal stripes clipped by slowly breathing membranes */
+function cells(c,blobs,opt){
+  const x=c.getContext('2d');let W,H,mx=.5,my=.5,tmx=.5,tmy=.5,vis=true;
+  function size(){const d=Math.min(2,devicePixelRatio||1);W=c.clientWidth;H=c.clientHeight;c.width=W*d;c.height=H*d;x.setTransform(d,0,0,d,0,0)}
+  size();addEventListener('resize',size);
+  c.parentElement.addEventListener('pointermove',e=>{const r=c.getBoundingClientRect();tmx=(e.clientX-r.left)/r.width;tmy=(e.clientY-r.top)/r.height});
+  if('IntersectionObserver' in window)new IntersectionObserver(es=>{vis=es[0].isIntersecting;if(vis&&!reduce)requestAnimationFrame(draw)}).observe(c);
+  const R=(b,a,t)=>b.r*(1+.07*Math.sin(3*a+t*.5+b.ph)+.05*Math.sin(5*a-t*.35+b.ph*1.7)+.03*Math.sin(2*a+t*.8));
+  function draw(t){
+    t/=1000;mx+=(tmx-mx)*.04;my+=(tmy-my)*.04;x.clearRect(0,0,W,H);
+    const S=opt.scale==='h'?H:Math.min(W,H),gap=opt.gap||6;
+    for(const b of blobs){
+      let cx=(b.cx+(mx-.5)*.03+(b.dx||0)*Math.sin(t*.12+b.ph))*W,cy=(b.cy+(my-.5)*.03+(b.dy||0)*Math.cos(t*.1+b.ph))*H;
+      let k=1;if(opt.hover){const d=Math.hypot(cx-mx*W,cy-my*H)/S;k=1+.12*Math.max(0,1-d/ (b.r*2.2));}
+      x.fillStyle=b.col;
+      for(let y=0;y<H;y+=gap){const dy=(y-cy)/S;let l=null,r=null;
+        for(let i=0;i<=72;i++){const a=i/72*Math.PI*2,rr=R(b,a,t)*k,py=Math.sin(a)*rr;
+          if(Math.abs(py-dy)<rr*.06+.004){const X=cx+Math.cos(a)*rr*S;l=l===null?X:Math.min(l,X);r=r===null?X:Math.max(r,X)}}
+        if(l!==null&&r-l>2)x.fillRect(l,y,r-l,Math.max(.8,1+2.2*(1-Math.abs(dy)/(b.r*k*1.1))))}
+    }
+    if(opt.grid){x.fillStyle='rgba(236,235,231,.16)';for(let y=0;y<H;y+=gap*3)x.fillRect(0,y,W,.6)}
+    if(!reduce&&vis)requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+}
+cells(document.getElementById('org'),[{cx:.56,cy:.5,r:.36,ph:0,col:'rgba(236,235,231,.82)'},{cx:.34,cy:.62,r:.22,ph:2,col:'rgba(42,35,144,1)'},{cx:.78,cy:.3,r:.15,ph:4,col:'rgba(163,169,255,.9)'}],{grid:true});
+(function(){const C=['rgba(184,183,175,.75)','rgba(42,35,144,1)','rgba(163,169,255,.85)','rgba(236,235,231,.6)'];const B=[];let seed=7;const rnd=()=>(seed=(seed*9301+49297)%233280)/233280;
+  for(let i=0;i<10;i++){B.push({cx:.06+i/9*.88+(rnd()-.5)*.03,cy:.35+rnd()*.3,r:.08+rnd()*.12,ph:rnd()*6,col:C[i%4],dx:.01,dy:.04})}
+  cells(document.getElementById('dish'),B,{scale:'h',hover:true,gap:5});})();
+
+cells(document.getElementById('bg1'),[{cx:.9,cy:.12,r:.14,ph:1,col:'rgba(42,35,144,.10)',dx:.03,dy:.03},{cx:.08,cy:.42,r:.1,ph:3,col:'rgba(42,35,144,.08)',dx:.03,dy:.04},{cx:.95,cy:.62,r:.08,ph:5,col:'rgba(42,35,144,.09)',dx:.02,dy:.05},{cx:.3,cy:.95,r:.12,ph:2,col:'rgba(42,35,144,.07)',dx:.04,dy:.02}],{gap:6});
+cells(document.getElementById('bg2'),[{cx:.12,cy:.2,r:.09,ph:1,col:'rgba(163,169,255,.10)',dx:.03,dy:.04},{cx:.88,cy:.9,r:.12,ph:4,col:'rgba(163,169,255,.08)',dx:.03,dy:.03}],{gap:6});
+document.querySelectorAll('.row,.card').forEach(el=>el.addEventListener('pointermove',e=>{const r=el.getBoundingClientRect();el.style.setProperty('--x',(e.clientX-r.left)+'px');el.style.setProperty('--y',(e.clientY-r.top)+'px')}));
+
+if(!reduce&&'IntersectionObserver' in window){
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.remove('pre');io.unobserve(e.target)}}),{threshold:.12});
+  document.querySelectorAll('.rise').forEach(el=>{if(el.getBoundingClientRect().top>innerHeight){el.classList.add('pre');io.observe(el)}});
+  setTimeout(()=>document.querySelectorAll('.rise.pre').forEach(el=>el.classList.remove('pre')),12000);
+}
+</script>
 </body>
 </html>
