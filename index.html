@@ -205,6 +205,40 @@ footer canvas{display:block;width:100%;height:clamp(240px,26vw,380px)}
   *,*::before,*::after{animation:none!important;transition:none!important}
   .rise.pre{transform:none;opacity:1}.loader{display:none}
 }
+
+/* phone layout */
+html,body{overflow-x:clip}
+@media (max-width:860px){
+  .top{grid-template-columns:1fr;padding-top:64px}
+  .wordmark{font-size:12.5vw;letter-spacing:.06em}
+  .nav{top:0;right:0;left:0;flex-direction:row;justify-content:flex-end;gap:14px;padding:12px 16px;font-size:12px}
+  .nav sup{display:none}
+  .hero{grid-template-columns:1fr;padding-block:16px 48px;gap:8px}
+  .hero canvas{grid-column:1;grid-row:1;height:240px;opacity:1}
+  .hero .copy{grid-column:1;grid-row:2;gap:22px}
+  .hero h1{font-size:9.4vw}
+  .shead{font-size:12.6vw;letter-spacing:0}
+  .row{padding:20px 16px;gap:4px 16px}
+  .row .num{font-size:48px;grid-row:span 2;align-self:start}
+  .row .meta{gap:12px}
+  .files{grid-template-columns:1fr}
+  .files a{padding:14px 16px}
+  .card{min-height:0;gap:22px}
+  .foot-row{flex-direction:column}
+}
+
+@media (hover:none){
+  .row:hover{transform:none;box-shadow:none}
+  .row:hover::before{clip-path:circle(0% at 50% 50%)}
+  .row:hover .cell{transform:translate(-50%,-50%) scale(0)}
+  .row:hover h3{color:var(--night)}.row:hover p{color:#3B3A44}.row:hover .num{color:var(--indigo)}.row:hover .meta{color:var(--indigo)}.row:hover .fmt{border-color:var(--indigo)}.row:hover .en{color:#5A5966}
+  .item[open]>.row::before{clip-path:circle(150% at 50% 50%)}
+  .item[open]>.row .cell{transform:translate(-50%,-50%) scale(1)}
+  .item[open]>.row h3,.item[open]>.row .meta{color:var(--paper)}
+  .item[open]>.row p,.item[open]>.row .en{color:var(--concrete)}
+  .item[open]>.row .num{color:var(--signal)}
+  .item[open]>.row .fmt{border-color:var(--paper)}
+}
 </style>
 </head>
 <body>
