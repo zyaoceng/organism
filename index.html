@@ -161,6 +161,50 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--signal);outline-off
 .files .ft{font-family:var(--serif);font-size:17px}
 .files .ff{font-family:var(--display);font-size:11px;letter-spacing:.14em;opacity:.7}
 .disclaimer{opacity:.6}
+
+/* report list: type · title · tickers · date */
+.bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px;padding-bottom:18px}
+.tabs{display:flex;flex-wrap:wrap;gap:4px}
+.tabs button{font:inherit;font-family:var(--display);font-size:14px;letter-spacing:.04em;background:none;border:0;border-bottom:2px solid transparent;color:#5A5966;padding:10px 12px;cursor:pointer;transition:color .2s,border-color .2s}
+.tabs button sup{font-size:10px;margin-left:3px;opacity:.7}
+.tabs button:hover{color:var(--night)}
+.tabs button[aria-pressed="true"]{color:var(--indigo);border-color:var(--indigo)}
+.tools{display:flex;gap:10px;flex-wrap:wrap}
+.tools select,.tools input{font:inherit;font-size:14px;color:var(--night);background:transparent;border:1px solid rgba(13,11,36,.35);padding:9px 12px;min-height:42px}
+.tools input{width:220px}.tools select{max-width:220px}
+.tools select:focus,.tools input:focus{outline:2px solid var(--indigo);outline-offset:1px}
+.tkhead{display:flex;align-items:baseline;gap:18px;padding-bottom:16px;font-family:var(--serif);font-size:clamp(24px,2.6vw,36px);color:var(--indigo)}
+.tkhead[hidden]{display:none}
+.tkhead button{white-space:nowrap;font:inherit;font-family:var(--sans);font-size:13px;background:none;border:1px solid var(--indigo);color:var(--indigo);padding:4px 10px;cursor:pointer}
+.list{border-top:1px solid var(--night)}
+.rep{position:relative;overflow:hidden;isolation:isolate;display:grid;grid-template-columns:120px 1fr auto 120px;gap:clamp(12px,2vw,32px);align-items:center;padding:20px clamp(16px,3vw,40px);border-bottom:1px solid rgba(13,11,36,.22);transition:transform .4s cubic-bezier(.2,.7,.1,1),box-shadow .4s}
+.rep::before{content:"";position:absolute;inset:0;z-index:-2;background:var(--indigo);clip-path:circle(0% at var(--x,50%) var(--y,50%));transition:clip-path .7s cubic-bezier(.2,.7,.1,1)}
+.rep .cell.a{left:62%;top:50%;width:clamp(110px,10vw,150px)}
+.rep .cell.b{left:72%;top:30%;width:clamp(44px,4vw,60px)}
+.rep .ty{font-family:var(--display);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--indigo)}
+.rep .ttl{font-family:var(--serif);font-size:clamp(17px,1.5vw,21px);line-height:1.45;color:var(--night)}
+.rep .ttl::after{content:"";position:absolute;inset:0;z-index:1}
+.rep .tks{position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:4px 10px;justify-content:flex-end;max-width:280px}
+.rep .tk{font:inherit;font-family:var(--display);font-size:13px;letter-spacing:.02em;background:none;border:0;padding:4px 2px;color:#2A2390;cursor:pointer;border-bottom:1px solid transparent}
+.rep .tk:hover{border-bottom-color:currentColor}
+.rep time{justify-self:end;font-family:var(--display);font-size:13px;letter-spacing:.06em;color:#5A5966;font-variant-numeric:tabular-nums}
+.rep,.rep .ty,.rep .ttl,.rep .tk,.rep time{transition:color .35s}
+@media (hover:hover){
+  .rep:hover{transform:translateY(-4px) scale(1.01);box-shadow:0 22px 50px -26px rgba(13,11,36,.7);z-index:3}
+  .rep:hover::before{clip-path:circle(150% at var(--x,50%) var(--y,50%))}
+  .rep:hover .cell{transform:translate(-50%,-50%) scale(1)}
+  .rep:hover .ty,.rep:hover .tk{color:var(--signal)}
+  .rep:hover .ttl{color:var(--paper)}
+  .rep:hover time{color:var(--concrete)}
+}
+.empty{padding-block:40px;color:#5A5966;font-size:15px}
+@media (max-width:860px){
+  .bar{flex-direction:column;align-items:stretch}.tools input{flex:1;width:auto}
+  .tkhead{font-size:22px;flex-wrap:wrap;gap:10px}.tools select{max-width:none;flex:1}
+  .rep{grid-template-columns:1fr auto;gap:6px 12px;padding:16px}
+  .rep .ty{grid-column:1}.rep time{grid-column:2;grid-row:1}
+  .rep .ttl{grid-column:1/-1}.rep .tks{grid-column:1/-1;justify-content:flex-start;max-width:none}
+}
 .deep{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:clamp(16px,2vw,28px);padding-bottom:clamp(64px,8vw,120px)}
 .card{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:28px;min-height:420px;padding:clamp(24px,2.6vw,40px);border:1px solid rgba(236,235,231,.3);overflow:hidden;transition:transform .45s cubic-bezier(.2,.7,.1,1),border-color .45s}
 .card:hover{transform:scale(1.02);border-color:var(--signal)}
@@ -253,7 +297,7 @@ html,body{overflow-x:clip}
   <div class="social"><small>（NTU<br>台大控股）</small><a href="https://github.com/zyaoceng/organism"><b>GitHub</b></a></div>
   <nav class="nav" aria-label="主選單">
     <a href="#top" aria-current="page">Home</a>
-    <a href="#research">Research<sup>(09)</sup></a>
+    <a href="#research">Research</a>
     <a href="#deep">Deep dive</a>
     <a href="./tools/">Tools</a>
   </nav>
@@ -271,7 +315,16 @@ html,body{overflow-x:clip}
 
 <section id="research" class="light"><canvas class="bgcells" id="bg1" aria-hidden="true"></canvas>
   <h2 class="shead stripe wrap rise">RESEARCH</h2>
-  <div class="rows" id="rows"></div>
+  <div class="wrap bar">
+    <div class="tabs" id="tabs" role="group" aria-label="文章類型"></div>
+    <div class="tools">
+      <select id="tk" aria-label="依標的篩選"><option value="">所有標的</option></select>
+      <input id="q" type="search" placeholder="搜尋文章…" aria-label="搜尋文章">
+    </div>
+  </div>
+  <div class="wrap tkhead" id="tkhead" hidden><span id="tkname"></span><button type="button" id="clr">清除標的 ×</button></div>
+  <div class="list" id="list"></div>
+  <p class="wrap empty" id="empty" hidden>這個分類目前還沒有文章，之後會陸續更新。</p>
 </section>
 
 <section id="deep" style="padding-top:clamp(64px,8vw,120px)"><canvas class="bgcells" id="bg2" aria-hidden="true"></canvas>
@@ -308,19 +361,8 @@ html,body{overflow-x:clip}
   </div>
 </footer>
 
+<script src="./reports.js"></script>
 <script>
-const T=[{"no": "01", "zh": "功率半導體", "en": "POWER SEMI", "desc": "AI 時代的電力生意", "date": "2026.07.11", "files": [{"tag": "投影版", "title": "社團投影版", "href": "./01_%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94/%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94_%E7%A4%BE%E5%9C%98%E6%8A%95%E5%BD%B1%E7%89%88_2026-07-11.html", "fmt": "HTML"}, {"tag": "完整版", "title": "講者完整版", "href": "./01_%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94/%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94_%E8%AC%9B%E8%80%85%E5%AE%8C%E6%95%B4%E7%89%88_2026-07-11.html", "fmt": "HTML"}, {"tag": "QA", "title": "進階 QA 四題", "href": "./01_%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94/%E5%8A%9F%E7%8E%87%E5%8D%8A%E5%B0%8E%E9%AB%94_%E9%80%B2%E9%9A%8EQA%E5%9B%9B%E9%A1%8C_2026-07-11.html", "fmt": "HTML"}]}, {"no": "02", "zh": "ASIC", "en": "CUSTOM SILICON", "desc": "60 分鐘討論會投影片與逐頁講稿", "date": "2026.07.19", "files": [{"tag": "投影片", "title": "ASIC 產業講解", "href": "./02_ASIC/ASIC%20%E7%94%A2%E6%A5%AD%E8%AC%9B%E8%A7%A3.pdf", "fmt": "PDF"}, {"tag": "講稿", "title": "主講者講稿", "href": "./02_ASIC/ASIC%20%E4%B8%BB%E8%AC%9B%E8%80%85%E8%AC%9B%E7%A8%BF.pdf", "fmt": "PDF"}, {"tag": "原檔", "title": "PowerPoint 原檔", "href": "./02_ASIC/ASIC%20%E7%94%A2%E6%A5%AD%E8%AC%9B%E8%A7%A3.pptx", "fmt": "PPTX"}]}, {"no": "03", "zh": "光通訊", "en": "OPTICAL / InP", "desc": "從「銦」到 GPU 的整條供應鏈", "date": "2026.07.31", "files": [{"tag": "報告", "title": "光通訊產業深度報告", "href": "./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A%E7%94%A2%E6%A5%AD%E6%B7%B1%E5%BA%A6%E5%A0%B1%E5%91%8A_2026-07-31.pdf", "fmt": "PDF"}, {"tag": "講義", "title": "對內完整版 v2", "href": "./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A_%E5%B0%8D%E5%85%A7%E5%AE%8C%E6%95%B4%E7%89%88v2_2026-07-30.html", "fmt": "HTML"}, {"tag": "故事線", "title": "產業全景故事線", "href": "./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A%E7%94%A2%E6%A5%AD_%E6%95%85%E4%BA%8B%E7%B7%9A_2026-07-26.html", "fmt": "HTML"}, {"tag": "前一版", "title": "對內完整版 v1", "href": "./03_%E5%85%89%E9%80%9A%E8%A8%8A/%E8%AC%9B%E7%BE%A9/%E5%85%89%E9%80%9A%E8%A8%8A_%E5%B0%8D%E5%85%A7%E5%AE%8C%E6%95%B4%E7%89%88_2026-07-25.html", "fmt": "HTML"}]}, {"no": "04", "zh": "記憶體", "en": "MEMORY / STORAGE", "desc": "美光・SanDisk・群聯", "date": "2026.08.16", "files": [{"tag": "最新", "title": "記憶體產業分析（社團版）", "href": "./04_%E8%A8%98%E6%86%B6%E9%AB%94/%E8%A8%98%E6%86%B6%E9%AB%94_%E7%A4%BE%E5%9C%98%E7%89%88_2026-08-16.html", "fmt": "HTML"}, {"tag": "前一版", "title": "社團版 08-15", "href": "./04_%E8%A8%98%E6%86%B6%E9%AB%94/%E8%A8%98%E6%86%B6%E9%AB%94_%E7%A4%BE%E5%9C%98%E7%89%88_2026-08-15.html", "fmt": "HTML"}]}, {"no": "05", "zh": "800VDC 供電架構", "en": "DATA CENTER POWER", "desc": "台達電・光寶科・Vertiv・MPWR 與七檔採信度盤", "date": "2026.09.14", "files": [{"tag": "情境研究", "title": "光寶科 2028 三情境估值", "href": "./liteon-2028-scenarios-v2_1.html", "fmt": "HTML"}, {"tag": "投影片", "title": "800VDC 簡報", "href": "./800vdc-presentation-2026-09-14.pdf", "fmt": "PDF"}, {"tag": "最新", "title": "800VDC 電源革命（社團版）", "href": "./05_800VDC/800VDC_%E7%A4%BE%E5%9C%98%E7%89%88_2026-08-18.html", "fmt": "HTML"}, {"tag": "第二批", "title": "英飛凌・Navitas・onsemi", "href": "./05_800VDC/800VDC_%E7%AC%AC%E4%BA%8C%E6%89%B9_IFX_NVTS_ON_2026-08-20.html", "fmt": "HTML"}, {"tag": "對內", "title": "七檔整合對內報告", "href": "./05_800VDC/800VDC_%E4%B8%83%E6%AA%94%E6%95%B4%E5%90%88%E5%B0%8D%E5%85%A7%E5%A0%B1%E5%91%8A_2026-08-20.html", "fmt": "HTML"}, {"tag": "對內", "title": "800VDC 對內報告", "href": "./05_800VDC/800VDC%E5%B0%8D%E5%85%A7%E5%A0%B1%E5%91%8A_2026-08-17.html", "fmt": "HTML"}, {"tag": "前一版", "title": "社團版 08-17", "href": "./05_800VDC/800VDC_%E7%A4%BE%E5%9C%98%E7%89%88_2026-08-17.html", "fmt": "HTML"}, {"tag": "採信度盤", "title": "光寶科 2301", "href": "./05_800VDC/2301_ballot_20260816.html", "fmt": "HTML"}, {"tag": "採信度盤", "title": "台達電 2308", "href": "./05_800VDC/2308_ballot_20260816.html", "fmt": "HTML"}, {"tag": "採信度盤", "title": "MPWR", "href": "./05_800VDC/MPWR_ballot_20260816.html", "fmt": "HTML"}, {"tag": "採信度盤", "title": "Vertiv VRT", "href": "./05_800VDC/VRT_ballot_20260816.html", "fmt": "HTML"}, {"tag": "採信度盤", "title": "英飛凌 IFX", "href": "./05_800VDC/IFX_ballot_20260819.html", "fmt": "HTML"}, {"tag": "採信度盤", "title": "Navitas NVTS", "href": "./05_800VDC/NVTS_ballot_20260819.html", "fmt": "HTML"}, {"tag": "採信度盤", "title": "onsemi ON", "href": "./05_800VDC/ON_ballot_20260819.html", "fmt": "HTML"}]}, {"no": "06", "zh": "IC 載板", "en": "IC SUBSTRATE", "desc": "欣興・景碩・南電・臻鼎-KY", "date": "2026.07", "files": [{"tag": "報告", "title": "IC 載板產業分析", "href": "./06_IC%E8%BC%89%E6%9D%BF/IC%E8%BC%89%E6%9D%BF%E7%94%A2%E6%A5%AD%E5%88%86%E6%9E%90_%E6%AC%A3%E8%88%88-%E6%99%AF%E7%A2%A9-%E5%8D%97%E9%9B%BB-%E8%87%BB%E9%BC%8EKY_2026-07.pdf", "fmt": "PDF"}]}, {"no": "07", "zh": "CPU", "en": "INTEL / AMD / ARM", "desc": "Intel・AMD・Qualcomm・Arm・嘉澤", "date": "2026.08.08", "files": [{"tag": "報告", "title": "CPU 產業分析", "href": "./07_CPU/CPU%E7%94%A2%E6%A5%AD%E5%88%86%E6%9E%90_Intel-AMD-Qualcomm-Arm-%E5%98%89%E6%BE%A4_2026-08-08.pdf", "fmt": "PDF"}]}, {"no": "08", "zh": "資料中心散熱", "en": "THERMAL MANAGEMENT", "desc": "三段成熟度框架與 5+1 檔個股定位", "date": "2026.07", "files": [{"tag": "投影片", "title": "主題投資投影片", "href": "./08_%E8%B3%87%E6%96%99%E4%B8%AD%E5%BF%83%E6%95%A3%E7%86%B1/%E8%B3%87%E6%96%99%E4%B8%AD%E5%BF%83%E6%95%A3%E7%86%B1_%E4%B8%BB%E9%A1%8C%E6%8A%95%E8%B3%87%E6%8A%95%E5%BD%B1%E7%89%87_2026-07.pdf", "fmt": "PDF"}]}, {"no": "09", "zh": "AVGO 博通", "en": "BROADCOM · SINGLE STOCK", "desc": "個股研究報告完整版", "date": "2026.08.22", "files": [{"tag": "個股", "title": "AVGO 個股研究報告", "href": "./09_AVGO/AVGO_Broadcom%E5%80%8B%E8%82%A1%E7%A0%94%E7%A9%B6%E5%A0%B1%E5%91%8A_%E5%AE%8C%E6%95%B4%E7%89%88_2026-08-22.pdf", "fmt": "PDF"}]}];
-document.getElementById('rows').innerHTML=T.map(t=>`
-<details class="item rise">
-<summary class="row">
-  <i class="cell a"></i><i class="cell b"></i><i class="cell c"></i>
-  <span class="num">${t.no}</span>
-  <div><h3>${t.zh}</h3><p>${t.desc}</p></div>
-  <span class="en">${t.en}</span>
-  <div class="meta"><span class="fmt">${t.files.length} 份</span><span>${t.date}</span><span class="go"><b>OPEN</b><span class="arr">→</span></span></div>
-</summary>
-<div class="files">${t.files.map(f=>`<a href="${f.href}"><span class="tag">${f.tag}</span><span class="ft">${f.title}</span><span class="ff">${f.fmt}</span></a>`).join('')}</div>
-</details>`).join('');
 
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -358,6 +400,40 @@ cells(document.getElementById('org'),[{cx:.56,cy:.5,r:.36,ph:0,col:'rgba(236,235
 (function(){const C=['rgba(184,183,175,.75)','rgba(42,35,144,1)','rgba(163,169,255,.85)','rgba(236,235,231,.6)'];const B=[];let seed=7;const rnd=()=>(seed=(seed*9301+49297)%233280)/233280;
   for(let i=0;i<10;i++){B.push({cx:.06+i/9*.88+(rnd()-.5)*.03,cy:.35+rnd()*.3,r:.08+rnd()*.12,ph:rnd()*6,col:C[i%4],dx:.01,dy:.04})}
   cells(document.getElementById('dish'),B,{scale:'h',hover:true,gap:5});})();
+
+/* report list */
+(function(){
+  const TYPES=['All','Deep','Preview','Review','Industry','Deck','Scorecard'];
+  const ZH={All:'全部',Deep:'個股深度',Preview:'財報前瞻',Review:'財報檢討',Industry:'產業研究',Deck:'簡報',Scorecard:'採信度盤'};
+  const list=document.getElementById('list'),tabs=document.getElementById('tabs'),sel=document.getElementById('tk'),q=document.getElementById('q'),
+        head=document.getElementById('tkhead'),name=document.getElementById('tkname'),empty=document.getElementById('empty');
+  let type='All';
+  const R=[...REPORTS].sort((a,b)=>b.date.localeCompare(a.date));
+  const enc=p=>'./'+p.split('/').map(encodeURIComponent).join('/');
+  const fmtDate=d=>d.replace(/-/g,'.');
+  const used=[...new Set(R.flatMap(r=>r.tickers))].sort();
+  used.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t+'　'+(TICKERS[t]||'');sel.appendChild(o)});
+  function ticker(){const m=location.hash.match(/^#t-(.+)$/);return m?decodeURIComponent(m[1]):''}
+  function counts(t){const c={};TYPES.forEach(k=>c[k]=0);R.forEach(r=>{if(t&&!r.tickers.includes(t))return;c.All++;c[r.type]++});return c}
+  function render(){
+    const t=ticker(),kw=q.value.trim().toLowerCase(),c=counts(t);
+    tabs.innerHTML=TYPES.map(k=>`<button type="button" data-k="${k}" aria-pressed="${k===type}" title="${ZH[k]}">${k}<sup>${c[k]}</sup></button>`).join('');
+    sel.value=t;head.hidden=!t;if(t)name.textContent='#'+t+'　'+(TICKERS[t]||'')+'　·　'+c.All+' 篇';
+    const rows=R.filter(r=>(type==='All'||r.type===type)&&(!t||r.tickers.includes(t))&&(!kw||(r.title+' '+r.tickers.join(' ')+' '+r.tickers.map(x=>TICKERS[x]||'').join(' ')).toLowerCase().includes(kw)));
+    list.innerHTML=rows.map(r=>`<div class="rep"><i class="cell a"></i><i class="cell b"></i>
+      <span class="ty">${r.type}</span>
+      <a class="ttl" href="${enc(r.href)}">${r.title}</a>
+      <span class="tks">${r.tickers.map(x=>`<button type="button" class="tk" data-t="${x}" title="${TICKERS[x]||x}">#${x}</button>`).join('')}</span>
+      <time>${fmtDate(r.date)}</time></div>`).join('');
+    empty.hidden=rows.length>0;
+  }
+  tabs.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;type=b.dataset.k;render()});
+  list.addEventListener('click',e=>{const b=e.target.closest('.tk');if(!b)return;location.hash='t-'+b.dataset.t;document.getElementById('research').scrollIntoView({behavior:'smooth'})});
+  list.addEventListener('pointermove',e=>{const el=e.target.closest('.rep');if(!el)return;const r=el.getBoundingClientRect();el.style.setProperty('--x',(e.clientX-r.left)+'px');el.style.setProperty('--y',(e.clientY-r.top)+'px')});
+  sel.addEventListener('change',()=>{location.hash=sel.value?'t-'+sel.value:'research'});
+  document.getElementById('clr').addEventListener('click',()=>{location.hash='research'});
+  q.addEventListener('input',render);addEventListener('hashchange',render);render();
+})();
 
 cells(document.getElementById('bg1'),[{cx:.9,cy:.12,r:.14,ph:1,col:'rgba(42,35,144,.10)',dx:.03,dy:.03},{cx:.08,cy:.42,r:.1,ph:3,col:'rgba(42,35,144,.08)',dx:.03,dy:.04},{cx:.95,cy:.62,r:.08,ph:5,col:'rgba(42,35,144,.09)',dx:.02,dy:.05},{cx:.3,cy:.95,r:.12,ph:2,col:'rgba(42,35,144,.07)',dx:.04,dy:.02}],{gap:6});
 cells(document.getElementById('bg2'),[{cx:.12,cy:.2,r:.09,ph:1,col:'rgba(163,169,255,.10)',dx:.03,dy:.04},{cx:.88,cy:.9,r:.12,ph:4,col:'rgba(163,169,255,.08)',dx:.03,dy:.03}],{gap:6});
