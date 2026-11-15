@@ -422,7 +422,7 @@ CREATE TABLE draft_ops (                  -- every write to a draft
   version_after INTEGER NOT NULL,          -- drafts.version after the write
   actor TEXT NOT NULL,
   at TEXT NOT NULL,
-  kind TEXT NOT NULL,                      -- save | ops | discard | restore | recover | commit
+  kind TEXT NOT NULL CHECK (kind IN ('save','ops','discard','restore','recover','commit')),
   op_json TEXT NOT NULL,                   -- AI ops and rationale, or {type, revisionId|opId}
   changes_json TEXT NOT NULL DEFAULT '[]', -- ModelChange[] of this write
   before_json TEXT,                        -- full draft state before it (recovery)
@@ -454,7 +454,7 @@ CREATE TABLE revision_annotations (       -- insert-only marks on committed upda
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   revision_id TEXT NOT NULL REFERENCES revisions(id),
   project_id TEXT NOT NULL REFERENCES projects(id),
-  kind TEXT NOT NULL,                      -- excluded | included | note
+  kind TEXT NOT NULL CHECK (kind IN ('excluded','included','note')),
   note TEXT NOT NULL DEFAULT '',
   actor TEXT NOT NULL,
   at TEXT NOT NULL
@@ -538,6 +538,8 @@ CREATE TABLE reflection_versions (        -- append-only (reflection_versions_no
   received_at TEXT NOT NULL,
   actor TEXT                              -- 'obsidian'
 );
+CREATE INDEX reflection_versions_note ON reflection_versions(note_id, id);
+CREATE INDEX reflection_versions_project ON reflection_versions(project_id, id);
 
 CREATE TABLE vault_clients (              -- the plugin's last status report, per vault
   client TEXT PRIMARY KEY,                -- 'obsidian:<vaultName>'

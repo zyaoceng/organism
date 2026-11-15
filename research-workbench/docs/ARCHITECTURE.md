@@ -1,10 +1,23 @@
 # Research Workbench — Architecture
 
 This document records the architecture review that preceded the build, the
-self-critique of the first proposal, and the resulting (revised) design.
-Sections 1–20 describe the **revised** design; §21 is the critique log that
-explains what changed from the first proposal and why; §22 separates verified
-facts from engineering assumptions and product decisions.
+self-critique of the first proposal, the resulting (revised) design, and what
+was added afterwards to run the workbench on a Mac, use it from AI assistants
+and sync it with Obsidian.
+
+How to read it:
+
+| Sections | Content |
+|---|---|
+| §1–§4 | The old prototype: what was kept, removed and rebuilt |
+| §5–§19 | The core design: architecture, data, tree, formulas, scenarios, evidence, revisions, snapshots, valuation, market data, trades, UI (incl. the home dashboard and trade log) |
+| §20–§22 | The original development plan, the self-critique log (what changed from the first proposal and why), and verified facts vs assumptions vs product decisions |
+| §23 | Implementation status and verification |
+| §24–§26 | Running on a Mac: installer, LaunchAgent and launcher, backups and data import |
+| §27–§30 | AI connection: actors and tokens, AI write guards and draft ops, the MCP adapter and its tools, browser sync |
+| §31 | Dashboard, trade log and "update all prices" (pointers into §17–§19) |
+| §32 | Obsidian vault sync and plugin |
+| §33 | What cannot be verified in a Linux container, and known limits of the Mac / AI / Obsidian parts |
 
 Keep this file in sync with `PRODUCT_SPEC.md` and `DATA_MODEL.md`.
 
@@ -79,18 +92,30 @@ directory. No microservices.
 
 ```
 research-workbench/
-  src/domain/   Pure TypeScript. No I/O. Shared by client and server.
+  src/domain/   Pure TypeScript. No I/O. Shared by client, server, MCP adapter
+                and (vault/ only) the Obsidian plugin.
     model/      Model state types, zod schema, pure edit operations, tree helpers
     formula/    Lexer, parser (AST), name↔ID references, evaluator, unit inference
     calc/       Dependency graph (DAG, cycles), calculation engine
-    revision/   Diff, downstream impact, marginal attribution, change descriptions
+    revision/   Diff, downstream impact, marginal attribution, change descriptions,
+                change keys, rebase, large-move guards
     templates/  Standard Equity Research Template
     market/     Bar types, SMA/EMA/ATR, trailing stop
-    trade/      Trade metrics (P&L, R, MFE/MAE)
+    trade/      Trade metrics (P&L, R, MFE/MAE), per-currency summary
+    valuation/  Frozen targets, probability-weighted target, upside
+    portfolio/  Dashboard flags (quote freshness, catalysts, theses)
+    agent/      AI draft operations: schema, name resolution, unit parsing
+    vault/      Obsidian notes: render, generated block, merge, frontmatter,
+                file names, reflections
   src/server/   Fastify HTTP API, SQLite (better-sqlite3), migrations,
-                repositories, commit service, attachment store,
+                repositories, commit service, actors and tokens, backups,
+                data import, vault routes, attachment store,
                 market-data providers + cache
   src/client/   React UI (Vite), zustand store, pages and components
+  src/mcp/      MCP adapter (stdio) started by the AI apps; HTTP client only
+  src/shared/   API types, actors, AI instructions
+  obsidian-plugin/  Obsidian plugin "Research Workbench Sync"
+  scripts/mac/  Mac installer: install.sh (starter), install.mjs, lib/
   docs/         This documentation
   e2e/          Browser walkthrough of the acceptance tests
 ```
@@ -156,14 +181,20 @@ Entity mapping against the suggested list:
 - **Migrations**: ordered SQL scripts in `src/server/db/migrations.ts`,
   recorded in `schema_migrations`; applied at startup inside a transaction;
   idempotent.
-- **Data directory** (`WORKBENCH_DATA_DIR`, default `./data`): `workbench.db`
-  and `attachments/<aa>/<sha256>`. Git-ignored. Back up by copying the folder.
+- **Data directory** (`WORKBENCH_DATA_DIR`, default `./data`; on a Mac
+  install `~/Library/Application Support/ResearchWorkbench/`): `workbench.db`,
+  `attachments/<aa>/<sha256>`, `tokens.json` (§27) and `backups/` (§26).
+  Git-ignored. Back up by copying the folder.
+- A database written by a newer schema is refused at startup (`migrate()`
+  throws); before pending migrations run on an existing file it is copied to
+  `backups/pre-v<N>-<time>.db` with `VACUUM INTO`.
 - **Research state** stored as JSON text (`drafts.state_json`,
   `revisions.state_json`), validated with a zod schema on every write.
 - **Immutability**: `revisions` rows are insert-only (no update/delete code
   path exists). Evidence referenced by revisions cannot be deleted.
-- **Audit log**: updates/deletes of evidence, catalysts, trades, notes,
-  reviews store `before`/`after` JSON.
+- **Audit log**: creates, updates and deletes of evidence, catalysts, trades,
+  notes, reviews store `before`/`after` JSON and, since schema v2, the actor
+  (§27); draft writes and commits add `draft_op` / `commit` rows.
 - **Draft concurrency**: `drafts.version` is an optimistic-lock counter; a
   stale write returns HTTP 409 (e.g. two browser tabs).
 
@@ -542,6 +573,11 @@ the same tab) and, with nothing typed, the most recent ones.
 | M6 Pages | Evidence, valuation, catalysts, market chart, trades, history, overview, search | browser walkthrough |
 | M7 Acceptance | `e2e/acceptance.mjs` for tests 1–18, docs sync | all tests green |
 
+The second round (Mac, AI, Obsidian) was built as M1 Mac installer, backups
+and data import; M2 basic / advanced mode; M3 AI connection through MCP; M4
+cross-company dashboard and trade log; M5 Obsidian plugin and journal import.
+Its design is §24–§33.
+
 ---
 
 ## 21. Self-critique of the first proposal and corrections
@@ -651,12 +687,12 @@ Known V1 limitations (accepted, documented):
 - Missing inputs are errors, not zero.
 - Knowledge dates are non-decreasing.
 - Evidence links are versioned with the model.
-- UI language is English; node names, notes and evidence may be in any
-  language (CJK tested).
+- The UI opens in Traditional Chinese on the first visit and switches to
+  English; node names, notes and evidence may be in any language (CJK tested).
 - The default target-price basis is the FY two years ahead (the prototype's
   2028 convention); changing it is an ordinary formula edit.
 
-## 23. Implementation status and verification (V1 prototype)
+## 23. Implementation status and verification
 
 Built as designed above; deviations are listed at the end of this section.
 
@@ -666,14 +702,24 @@ Built as designed above; deviations are listed at the end of this section.
 | Dependency DAG, cycles, calculation, scenarios, model checks | `src/domain/calc/` | `engine.test.ts` |
 | Tree operations, periods, units, schema invariants | `src/domain/model/` | `ops.test.ts` |
 | Diff, impact, attribution | `src/domain/revision/` | `revision.test.ts` |
-| Indicators, trade metrics | `src/domain/market/`, `src/domain/trade/` | `indicators.test.ts` |
+| Indicators, trade metrics | `src/domain/market/`, `src/domain/trade/` | `indicators.test.ts`, `metrics.test.ts` |
 | Persistence, commit service, evidence/attachments, trades, market cache, export, migrations | `src/server/` | `server.test.ts` (Fastify inject, temp data dir) |
 | Interface language (English / Traditional Chinese) | `src/client/i18n/`, `src/client/lib/i18n.ts` | `i18n.test.ts` (every `t('…')` literal has a Chinese entry, placeholders match, runtime message patterns), `standard.test.ts` (Chinese template computes like the English one) |
 | Basic / advanced mode | `src/client/lib/prefs.ts` (`useAdvanced`, `issueVisible`, `providerVisible`), `<Advanced>` and `AdvancedToggle` in `components/ui.tsx` | `prefs.test.ts`; e2e check 21 |
-| UI and end-to-end workflow | `src/client/` | `e2e/acceptance.mjs` — 21 checks: acceptance tests 1–18 through the real UI in English and advanced mode, the language switch, and basic mode, against a production build on a throwaway data directory |
+| Mac installer helpers (layout, plist, launcher, release, prune, AI registration, Obsidian install, report) | `scripts/mac/lib/` | `*.test.mjs` next to each (fixtures for Claude and Codex configs); `.github/workflows/mac-install.yml` at the repository root installs on `macos-15` and `macos-15-intel` |
+| Backups, pre-migration copies, newer-schema refusal, data import | `src/server/services/backup.ts`, `db/connection.ts`, `services/dataImport.ts` | `backup.test.ts`, `dataImport.test.ts`, `server.test.ts` |
+| Actors, tokens, cookie, Host/Origin check | `src/server/actor.ts`, `tokens.ts`, `app.ts` | `agent.test.ts`, `server.test.ts` |
+| Schema v2 upgrade of a v1 database | `src/server/db/migrations.ts` | `migrationV2.test.ts` |
+| AI draft operations, units, commit preview and guards, trades, evidence dates | `src/domain/agent/`, `src/server/services/` | `agent.test.ts` (domain), `src/server/agent.test.ts` |
+| MCP adapter | `src/mcp/` | `format.test.ts`; `mcp.e2e.test.ts` starts the app and calls every tool through the SDK client over stdio |
+| Browser sync and conflict rebase | `src/client/lib/store.ts`, `useDraftSync.ts`, `src/domain/revision/rebase.ts` | `store.test.ts`, `rebase.test.ts`; e2e check 22 |
+| Dashboard, trade log, update all prices | `src/server/repos/portfolio.ts`, `market/refreshAll.ts`, `src/domain/valuation/`, `src/domain/portfolio/` | `targets.test.ts`, `flags.test.ts`, `summary.test.ts`, `refreshAll.test.ts`; e2e checks 23–24 |
+| Obsidian sync (server, shared logic, plugin) | `src/server/vault/`, `src/domain/vault/`, `obsidian-plugin/` | `vault.test.ts`, `core/merge/render/reflection/filename.test.ts`, `obsidian-plugin/test/*` (fake vault and server, round trip); e2e check 25 |
+| UI and end-to-end workflow | `src/client/` | `e2e/acceptance.mjs` — 25 checks: acceptance tests 1–18 and the valuation / catalysts / overview / search pages (check 19) through the real UI in English and advanced mode, the language switch, basic mode, an AI edit picked up by the open page, the dashboard, the trade log and an Obsidian round trip, against a production build on a throwaway data directory |
 
-Results at the time of writing: `npm run typecheck` clean, `npm test` 189 passed (1 macOS-only test skipped on Linux),
-`npm run e2e` 21/21.
+Results at the time of writing (release `df5cde6`, M1–M5): `npm run typecheck`
+clean, `npm test` 562 passed (1 macOS-only test skipped on Linux), `npm run e2e`
+25/25; the Mac install workflow passed on `macos-15` and `macos-15-intel`.
 
 Basic / advanced mode is UI-only: no schema, server or domain change. The
 choice is a per-browser preference (`workbench.advanced` = `'1'`/`'0'`).
@@ -684,8 +730,9 @@ Basic mode shows four sidebar pages (a deep link into a hidden page still
 renders it and shows it under More), hides info notes and the
 `ROLE_DUPLICATE` / `OVERRIDE_ON_ACTUAL` warnings, lists only real price
 sources (plus the current one), draws a fixed chart (MA 20/50, ATR 14, one
-year widened to the selected trade), and on commit prefills the title and
-cites exactly the evidence linked in the draft. The Market page was merged
+year widened to the selected trade), and on commit cites exactly the evidence
+linked in the draft (no checklist). In both modes the commit title is
+prefilled from the first change until the user types one. The Market page was merged
 into Trades (one `useBars()`, one chart); `#/p/<id>/market` is an alias.
 
 Language: UI strings are keyed by their English text (`t('Model')`), so a
@@ -718,3 +765,460 @@ Deviations and notes:
 - The UI edits one (primary) security per project; the schema allows more.
 - The Yahoo provider remains unverified here (see §22); the demo provider and
   CSV import are fully exercised by tests.
+
+---
+
+## 24. Mac installer
+
+The user pastes one line into Terminal; re-running it is the update:
+
+```
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/zyaoceng/organism/claude/vibrant-thompson-s3npyj/research-workbench/scripts/mac/install.sh)"
+```
+
+Options go after ` -- ` (`… -- --doctor`). Two stages:
+
+1. **`scripts/mac/install.sh`** (bash 3.2 and the BSD tools of macOS; the
+   whole body is inside `main()` so a partly downloaded script never runs).
+   It picks Node 24.22.2 on macOS ≥ 13.5 and Node 22.23.4 on macOS 11–13.4
+   (`sysctl hw.optional.arm64` for the chip, `sw_vers` for the version;
+   older than 11 is refused), downloads the official nodejs.org tarball,
+   compares it with the SHA-256 **written in the script**, and installs it in
+   `~/ResearchWorkbench/runtime/node-v…` with `runtime/current` pointing at it.
+   It then reads `release.json` on the branch, downloads `install.mjs` and
+   `lib/*.mjs` **of that commit** from `raw.githubusercontent.com`, and runs
+   them with the bundled Node, passing every argument through. `--doctor`,
+   `--dry-run` and `--uninstall` never change `runtime/`; `--doctor` and
+   `--uninstall` use the installed copy of `install.mjs` and work offline.
+   Linux x64 is accepted for CI and dry runs only.
+2. **`scripts/mac/install.mjs`** (Node, built-ins only, because it runs before
+   `npm ci`; the pure parts live in `scripts/mac/lib/` and are unit-tested on
+   Linux):
+   - **Version.** The commit in `release.json` (`WB_RELEASE_COMMIT` pins one;
+     `"pending"` is refused), downloaded as a tarball of that commit, so a
+     later push to the branch never changes what is installed. `release.json`
+     is updated only after the Mac install workflow passed.
+   - **Build.** Into `~/ResearchWorkbench/app-<sha7>.partial/`: extract only
+     `research-workbench/`, write `version.json`, `npm ci`, `npm run build`,
+     check that `better-sqlite3` loads, write a marker (commit, Node ABI,
+     arch), rename to `app-<sha7>/`. A finished folder with the same marker is
+     reused. Output goes to `~/Library/Logs/ResearchWorkbench/install.log`.
+   - **Layout** (`lib/layout.mjs`): `~/ResearchWorkbench/{runtime/, app-<sha7>/,
+     current → app-<sha7>, settings.json, .install.lock}`, data in
+     `~/Library/Application Support/ResearchWorkbench/`, logs in
+     `~/Library/Logs/ResearchWorkbench/` (`server.out.log`, `server.err.log`,
+     `install.log`). `settings.json` remembers the port and the Obsidian vault.
+   - **Order:** version → build → folders → data import (§26) → switch and
+     start (§25) → launcher app → AI registration (§29) → Obsidian plugin
+     (§32) → a final message. A lock directory stops two installers at once.
+   - **Switch and roll back.** With the service stopped, the database files are
+     copied aside (APFS clone), `current` is repointed and the LaunchAgent
+     started. If `/api/health` does not answer within 60 seconds, `current`
+     goes back to the previous version, the old plist and the database copy
+     are put back (a new version may already have migrated the file, and the
+     old one refuses a newer schema), and the old version is started again.
+   - **Prune** (`lib/prune.mjs`): keep the running version and the one before
+     it; delete other `app-*` folders and interrupted `.partial` ones.
+   - **Modes:** `--doctor` prints a check list (macOS, chip, bundled Node, app
+     version, better-sqlite3, launchd state, port, `/api/health`, diagnostics
+     and backups, AI registration, Obsidian plugin, data size, launcher, log
+     tail) for the user to screenshot; `--dry-run` checks and prints the plan;
+     `--uninstall` boots out the LaunchAgent and removes the plist, the
+     launcher and `~/ResearchWorkbench`, keeping data unless `--purge` (typed
+     confirmation). The Obsidian plugin folder in the vault is never removed.
+     `--source-dir` installs from a checkout and `--no-launchd` skips the
+     LaunchAgent and launcher (both for CI); `--port`, `--yes`,
+     `--no-register`, `--import`, `--obsidian`, `--obsidian-vault`,
+     `--no-obsidian` as in `lib/args.mjs`.
+   - Prompts always read `/dev/tty` (stdin may be the piped script).
+- **CI:** `.github/workflows/mac-install.yml` (repository root) runs the
+  installer on `macos-15` (arm64) and `macos-15-intel`. A runner that refuses
+  `launchctl bootstrap gui/<uid>` makes the installer fall back to starting
+  the server directly and print a warning that launchd was not verified.
+
+## 25. LaunchAgent and launcher
+
+- `~/Library/LaunchAgents/com.researchworkbench.plist` (`lib/launchd.mjs`):
+  `ProgramArguments = [<runtime/current/bin/node>, --import, tsx,
+  src/server/main.ts]`, `WorkingDirectory = ~/ResearchWorkbench/current`
+  (absolute; launchd does not expand `~`), environment `PATH` (bundled Node
+  first), `WORKBENCH_DATA_DIR`, `WORKBENCH_PORT`, `WORKBENCH_LOG_LEVEL=warn`;
+  `RunAtLoad`, `KeepAlive = {SuccessfulExit: false}`, `ThrottleInterval = 10`,
+  stdout/stderr to the log folder. Checked with `plutil -lint` when available.
+- Start: `launchctl enable` + `bootstrap gui/<uid>`, one retry after a
+  `bootout`. Stop: `bootout`, wait for the job to go, then 2 s. Before the
+  switch the installer checks that port 4310 (or `--port`) is free or held by
+  our own job (`lsof`), and names the program that holds it otherwise.
+- Server side (`src/server/main.ts`): SIGTERM/SIGINT wait for a backup in
+  progress, close Fastify and the database, and exit; after 10 s it gives up
+  (launchd kills after 20 s). Daily backups start only once the port is bound.
+- `~/Applications/研究工作台.app` (`lib/launcher.mjs`, built with `osacompile`):
+  opens `http://127.0.0.1:<port>/` when `/api/health` answers; otherwise
+  `launchctl kickstart`s the job and waits up to 20 s, and explains in Chinese
+  how to turn the job back on in System Settings → General → Login Items &
+  Extensions when it is missing or disabled. Nothing is put on the Desktop.
+- `GET /api/diagnostics`: version, Node, platform, data folder, database file,
+  schema version, backup status, uptime, each AI client's last connection and
+  the Obsidian plugin's last report. The Settings page (`#/settings`) shows it.
+
+## 26. Backups and data import
+
+**Backups** (`src/server/services/backup.ts`, `BackupService`):
+
+- Checked at startup and every hour; a copy is written when the newest is 24
+  hours old, to `backups/daily/workbench-YYYYMMDD-HHmmss.db`.
+- Each copy: SQLite online backup to `<file>.tmp`, switched out of WAL mode,
+  `PRAGMA quick_check` on a read-only connection, then renamed. A failure
+  leaves nothing behind and is shown on the Settings page.
+- Retention: the newest copy of each of the last 14 days and of each of the
+  last 8 ISO weeks. `backups/pre-v<N>-<time>.db` (before a migration,
+  `src/server/db/connection.ts`) and `backups/pre-import-<time>.db` (before a
+  data import) are never rotated.
+- The copies are on the same disk; the user guide recommends Time Machine.
+
+**Data import** (`src/server/services/dataImport.ts`, CLI
+`src/server/cli/import-data.ts --archive <tgz> --data-dir <dir> [--force]
+[--summary-only]`), for moving the Codespaces data to the Mac. The archive is
+what the user guide's one-liner produces (`wb.db`, an online backup, plus
+`data/attachments`); a raw `workbench.db` with its `-wal` also works.
+
+1. Extract with the system `tar` into a staging folder; find exactly one
+   `wb.db` (preferred) or `workbench.db`.
+2. Open it (a `-wal` next to it is replayed), `quick_check`, make sure it is a
+   workbench database, `VACUUM INTO` a clean single file.
+3. On the clean copy: run migrations (a newer schema is refused), rotate
+   `db_generation` (open tabs reload), `integrity_check`,
+   `foreign_key_check`, and recompute the sha256 of every attachment row's
+   file.
+4. `--summary-only` stops here and prints the summary (per company: Research
+   Updates, last commit and knowledge date, trades, evidence; attachments;
+   schema version; whether a WAL was applied).
+5. Otherwise: a target that already has companies needs `--force` (exit code
+   2 without it) and is first saved as `pre-import-<time>.db`; attachments are
+   copied (existing files kept); the target's old `-wal`/`-shm` are removed
+   before the new file takes its name.
+
+The installer's import step finds `--import <file>` or
+`~/Downloads/wb-data.tgz`, stops the service, prints the summary and asks;
+replacing existing companies needs a second, typed `yes` (never with
+`--yes`). After a successful import the archive is renamed
+`wb-data.imported-<date>.tgz` so a re-run does not import it again. When macOS
+denies Terminal access to Downloads it says where to allow it.
+
+## 27. Actors, tokens and the browser cookie
+
+Every write records **who** made it. This is attribution, not security: any
+program of the same macOS user can read the tokens.
+
+- **Actors** (`src/shared/actors.ts`): `user`, `system`, `obsidian` and
+  `agent:<client>` for the clients `claude-desktop`, `claude-code`,
+  `chatgpt`. Stored in `audit_log.actor`, every `*.created_by`,
+  `draft_ops.actor`, `revision_annotations.actor` (`DATA_MODEL.md` §2a).
+- **Tokens** (`src/server/tokens.ts`): `<dataDir>/tokens.json`, mode 0600,
+  one random token per name in `TOKEN_NAMES` (`user`, the three AI clients,
+  `obsidian`). The server creates the file and adds missing keys at startup,
+  so tests, dev mode and Linux need no installer; a file it cannot parse is
+  kept as `tokens.json.corrupt-<time>` and a new one written.
+- **Resolution** (`src/server/actor.ts`, a Fastify `onRequest` hook that
+  runs after the Host/Origin check): `Authorization: Bearer <token>` → that
+  token's actor; otherwise the `wb_session` cookie → `user`; otherwise
+  `unknown`. The actor travels with the request through `AsyncLocalStorage`,
+  so repositories call `currentActor()` without new parameters; code outside
+  a request (seeding, CLIs, the price refresher via `runAs('system', …)`) is
+  `system`. An `unknown` caller may read but any POST/PUT/PATCH/DELETE gets
+  401 `NO_ACTOR` (never recorded as the user). A lost actor context on a
+  write is a 500, not a silent misattribution. The `obsidian` token may call
+  only routes under `/api/vault/` (403 `OBSIDIAN_SCOPE`).
+- **Browser cookie:** `GET /api/session` sets `wb_session=<user token>;
+  HttpOnly; SameSite=Strict; Max-Age=31536000`, only for a same-origin (or
+  direct) request without an `Authorization` header, and returns the actor and
+  `dbGeneration`.
+- **Host / Origin check** (`buildApp({ allowedHosts })`, set only in
+  `main.ts`): the Host must be `127.0.0.1:<port>`, `localhost:<port>`,
+  `WORKBENCH_HOST:<port>` or a `WORKBENCH_ALLOWED_HOSTS` entry, and an Origin,
+  when present, must be one of those or `app://obsidian.md`. This blocks other
+  web pages and DNS rebinding. Tests (`app.inject`) skip it. The Vite dev
+  proxy sets `changeOrigin` and rewrites the dev server's own Origin.
+- **AI clients seen:** a request from an AI client updates `ai_clients`
+  (at most once a minute); the adapter's `POST /api/ai/heartbeat` adds the
+  app's name and version and the adapter version.
+
+## 28. AI write guards and draft ops
+
+The server enforces every rule; the MCP tools only call the HTTP API, so an
+AI cannot skip a check by calling the API another way.
+
+**Draft ops log** (`draft_ops`, `src/server/repos/draftOps.ts`): every
+write to a draft — browser autosaves, AI operations, discard, restore,
+recover, the rebase after a commit — with the actor, the changes and the full
+state before it. Browser saves by the same person within 10 minutes share one
+row; the `before_json` of save and ops rows is dropped after 90 days, while
+discard / restore / recover rows keep theirs, so a discarded draft can be
+brought back (`POST /api/projects/:id/draft/recover`). Each pending change is
+attributed to the last row that touched the same field
+(`src/domain/revision/changeKey.ts`); changes with no row count as the
+user's. `saveDraft` writes `WHERE version = ?`.
+
+**Draft edits** (`POST /api/projects/:id/draft/ops`,
+`src/server/services/draftOps.ts`, operations in `src/domain/agent/`): an AI
+may not `PUT` a whole draft (403 `USE_DRAFT_OPS`). Operations: `set_value`,
+`set_values`, `set_formula`, `add_node`, `rename_node`, `move_node`,
+`delete_node`, `set_notes`, `link_evidence`, `add_thesis`, `update_thesis`,
+`set_rationale`, `add_peer` (1–100 per request, one transaction).
+
+- Nodes by name, path (`父/子`) or id; ambiguous names return candidates.
+  Periods by id or label (`2026`, `2026E`).
+- Values carry their unit (`src/domain/agent/units.ts`): `"18.5%"` (a bare
+  0.185 for a percent cell is an error), amounts in 億 / 百萬 / 仟元 / 元 or
+  `US$… bn` converted by the server into the node's scale, `25x`, `12.3 元`,
+  `3,000 股`.
+- Actual periods are shared: only `scenario=base` may change them. A node
+  with a formula is not overwritten without `allow_override_formula`.
+  Formulas go through the normal parser and cycle check.
+- `dryRun` computes everything and writes nothing; it returns the version and
+  a `previewHash`. A real AI write must send `expectedVersion` (400
+  `EXPECTED_VERSION_REQUIRED`; 409 `VERSION_MISMATCH` with the ops made since);
+  a `previewHash` that no longer matches is refused. Each response lists per
+  operation the before/after value and unit, EPS and target price before and
+  after, new model issues and a link to the model page.
+- Discard, restore and recover by an AI need the draft version and are
+  refused (409 `USER_CHANGES`) while the draft holds changes the user has not
+  committed.
+
+**Commits.** An AI first calls `POST /api/projects/:id/revisions/preview`
+(changes, EPS/target before and after, cited evidence, large moves, the
+price that would be recorded). The preview is kept in memory for 15 minutes
+for that AI client (`src/server/services/commitPreviews.ts`); the commit
+(`POST /api/projects/:id/revisions` with `previewId`) commits exactly the
+previewed draft version, knowledge date, kind and evidence. Rules
+(`src/server/services/commit.ts`):
+
+- knowledge date not after today (400 `FUTURE_DATE`); kind `update` or
+  `checkpoint` only; a backdated update must cite evidence published on or
+  before its knowledge date (`BACKDATED_NEEDS_EVIDENCE`);
+- refused while the draft holds the user's uncommitted changes (409
+  `USER_CHANGES`);
+- EPS or target price (any scenario) moving by more than 30 %, appearing for
+  the first time or being cleared, or any value changing by a factor of 20
+  or more (`src/domain/revision/guards.ts`), needs `confirmedByUser`
+  (409 `NEEDS_CONFIRMATION`); the tool text tells the AI to ask in the chat
+  first;
+- the recorded price is the latest quote for a knowledge date of today, the
+  close of the last daily bar at most 7 days before a backdated one (bars are
+  fetched first if none are cached), otherwise none — never today's price for
+  an old date.
+
+**Trades by an AI** (`src/server/services/agentRecords.ts`): quantity in
+shares (`quantityShares`; `quantity` is refused; the response restates 張 for
+TWD); no future dates; entry and exit prices outside that day's bar (±0.2 %)
+need `confirmPrice` (409 `PRICE_OUT_OF_RANGE`). An AI's `PATCH` of a trade
+can only set the exit (other fields: 400 `AGENT_FIELDS`). `source: "import"` needs the journal excerpt `sourceText`; its hash is
+the unique `external_ref`, so the same excerpt returns the existing trade;
+an excerpt whose trade was deleted needs `allowReimport` (409
+`IMPORT_DELETED`); a trade on the same day, side and quantity at a similar
+price needs `allowDuplicate` (409 `PROBABLE_DUPLICATE`). Imports store only
+the journal's numbers. A company is created for a trade only with
+`confirmedByUser`, and not when another company already uses the ticker.
+
+**Evidence by an AI** must have a publication date, not in the future; it is
+stored as `published_at_source = 'agent-asserted'` and shown with a badge.
+
+**Marked wrong.** `POST /api/projects/:id/revisions/:rid/annotations`
+(`excluded` / `included` / `note`) adds an insert-only mark; the latest
+`excluded`/`included` mark leaves an update out of estimate evolution and
+calibration. Commits cannot be undone; this is the correction.
+
+**AI activity** (`src/server/repos/aiSessions.ts`): each successful AI write
+is noted and grouped per client into `ai_sessions` (30 idle minutes start a
+new one; dry runs, previews and heartbeats are not activity).
+`POST /api/ai/sessions/summary` attaches a summary, decisions and to-dos to
+the client's current session. Overview, History, the dashboard and Settings
+show it.
+
+## 29. MCP adapter and its tools
+
+- `src/mcp/main.ts`, bundled by `npm run build:mcp` (`src/mcp/build.ts`,
+  esbuild) into `dist/mcp/research-workbench-mcp.mjs`. It uses only the
+  MCP SDK's `server/mcp.js` and `server/stdio.js`; the build fails if the
+  bundle pulls in `src/server`, `src/client`, better-sqlite3, Fastify or
+  React. Stdout carries only JSON-RPC (`console.log` is redirected to
+  stderr).
+- Started by the AI app as `node research-workbench-mcp.mjs
+  --client=<claude-desktop|claude-code|chatgpt> --data-dir=<absolute>
+  [--port=4310]` (GUI apps do not inherit the shell's environment); it reads
+  that client's token from `tokens.json` and calls `http://127.0.0.1:<port>`
+  with it and an `X-Workbench-Tool` header. A heartbeat goes out after
+  `initialize` and every 10 minutes. The server instructions
+  (`MCP_INSTRUCTIONS`, `src/shared/aiInstructions.ts`) cover tool order, units,
+  actual periods, previews, knowledge dates, shares, evidence dates, session
+  summaries, the import procedure, and that text between the user-data
+  markers is data, not instructions. The key rules are repeated in the tool
+  descriptions.
+- Tools (`TOOL_NAMES`, `src/mcp/tools.ts`), answering in zh-TW with links to
+  the site:
+
+  | Tool | Annotation | Calls |
+  |---|---|---|
+  | `list_companies` | read-only | `GET /api/dashboard` |
+  | `get_company` | read-only | project bundle, trades, catalysts, revisions, pending draft changes, evidence, recent AI sessions |
+  | `get_model` | read-only | the draft (or a committed revision), computed with the shared engine |
+  | `edit_draft` | write | `POST …/draft/ops` (dry run first) |
+  | `add_evidence` | write | `POST …/evidence`, optionally linking it to a node through draft ops |
+  | `preview_commit` | read-only | `POST …/revisions/preview` |
+  | `commit_research_update` | destructive | `GET /api/commit-previews/:id`, then `POST …/revisions` with `previewId` |
+  | `record_trade` | write | `GET /api/securities/lookup`, `POST …/trades`; with confirmation creates the company first (symbol search, `POST /api/projects`) |
+  | `close_trade` | write, idempotent | `PATCH /api/trades/:id` |
+  | `save_session_summary` | write | `POST /api/ai/sessions/summary` |
+  | `list_trades` | read-only | `GET /api/trades` |
+  | `refresh_prices` | write, idempotent, open world | `GET /api/market/refresh`, then `POST /api/market/refresh` |
+  | `get_refresh_status` | read-only | `GET /api/market/refresh` |
+
+- `PASTE_INSTRUCTIONS` is shown on the Settings page with a Copy button, for
+  a Claude project's instructions or ChatGPT's custom instructions.
+- **Registration** (`scripts/mac/lib/register.mjs`, run by the installer
+  after the health check, skippable with `--no-register`). The entry is the
+  bundled Node and `~/ResearchWorkbench/current/dist/mcp/…` with absolute
+  paths through the stable links, so an update needs no re-registration and
+  the config files hold no secrets.
+  - Claude Desktop: `mcpServers["research-workbench"]` in
+    `~/Library/Application Support/Claude/claude_desktop_config.json`.
+  - Claude Code: `claude mcp add-json --scope user research-workbench …`
+    with the CLI found in `~/.local/bin`, `~/.claude/local`,
+    `/opt/homebrew/bin` or `/usr/local/bin`.
+  - ChatGPT desktop: a marked block `[mcp_servers.research_workbench]` in
+    `~/.codex/config.toml` (or `$CODEX_HOME`), with
+    `default_tools_approval_mode = "approve"` and `approval_mode = "prompt"`
+    for `commit_research_update`, `record_trade` and `close_trade`. The merge
+    is re-parsed with smol-toml and refused if it would change anything else.
+  - For Claude Desktop and ChatGPT a running app is quit first (after
+    asking; it may rewrite its config while quitting), the file is backed up as `<file>.bak-<time>`, written
+    atomically and read back; an unparseable file is left alone. An entry
+    that already matches is not touched.
+
+## 30. Browser sync
+
+The browser polls instead of holding a stream open.
+
+- `GET /api/projects/:id/draft/meta` (cheap): draft version, base revision,
+  `dbGeneration`, head sequence, the last audit id outside draft ops and
+  commits, and the last draft op (actor, kind, summary, change count).
+  `useDraftSync` calls it every 10 s while the page is visible and when the
+  window regains focus.
+- A newer version is applied only when this tab has nothing unsaved (no
+  pending, running or failed save, no commit or conflict in progress). The old
+  state goes on the undo stack and a toast says "{who} changed N items in the
+  draft" with Undo; a new head shows "{who} committed Research Update #N".
+  A newer audit id reloads the record lists (evidence, trades, catalysts,
+  notes, reviews, revisions, reflections).
+- When this tab's save meets a newer server version, its edits are re-applied
+  to the server's state (`src/domain/revision/rebase.ts`). If some cannot be,
+  the page enters a conflict: editing pauses, the user keeps the rebased
+  version or takes the server's, and "my version" is kept in browser storage
+  for download as JSON. `beforeunload` warns while a save or conflict is
+  open.
+- A changed `dbGeneration` (the database was replaced by an import) reloads
+  the page; a save carrying the old generation is refused (409
+  `DB_GENERATION`).
+
+## 31. Dashboard, trade log and price refresh
+
+Designed in §17 ("Update all prices", `PriceRefresher`), §18 (trade log,
+per-currency summary, bar coverage) and §19 (home dashboard, trade log page,
+`Ctrl+K`). The AI sees the same data through `list_companies`,
+`list_trades`, `refresh_prices` and `get_refresh_status`.
+
+## 32. Obsidian vault sync and plugin
+
+The server renders notes; the plugin writes them into the vault and reads
+`## 反思` back. The server never touches the vault.
+
+**Server** (`src/server/vault/`, schema v3 in `DATA_MODEL.md` §2b):
+
+- Triggers queue every note affected by a write in `vault_changes`, in the
+  same transaction, whatever the write path (browser, AI, seeding, import).
+  A deleted trade keeps its note, rendered from a tombstone with
+  `wb_status: "deleted"`.
+- Routes for the `obsidian` actor only: `GET /api/vault/ping`,
+  `GET /api/vault/notes?after=<seq>&limit=` or `?ids=`,
+  `GET /api/vault/reflections/hashes`, `POST /api/vault/reflections`,
+  `POST /api/vault/status`. For the site: `GET /api/vault/status`,
+  `GET /api/projects/:id/reflections`, `GET /api/reflections/:noteId/versions`,
+  and `GET /api/vault/plugin.zip` (browser user only, because the zip's
+  `data.json` holds the server URL and the Obsidian token).
+- Notes (paths under the plugin's root folder, default `研究工作台/`):
+  `公司/<ticker name>.md`, `研究更新/<ticker>/…`, `交易/<ticker>/…`,
+  `AI 對話/…` (sessions with a summary), and `_索引/公司總表.md`,
+  `_索引/交易總表.md`, `_索引/AI 對話總表.md`.
+- Reflections are stored append-only in `reflection_versions`; an empty first
+  version (the template) and a repeat of the latest text are not stored, and a
+  cleared section is stored as `''` while the UI keeps showing the last text.
+  `ReflectionCard` shows them on Overview, History and Trades; the trade log
+  has a reflection column.
+
+**Shared logic** (`src/domain/vault/`, used by both sides): the generated
+block between `<!-- wb:begin h=<hash> … -->` and `<!-- wb:end -->` (exactly
+one pair outside code fences; a hash that does not match the content means a
+hand edit, which is a conflict, not an overwrite), frontmatter edited as
+text where only the `wb_*` keys are rewritten, file names (NFC, characters
+unsafe on macOS / iCloud / Windows replaced, at most 200 bytes, `(2)` … on a
+case-insensitive clash), reflection extraction and hashing.
+
+**Plugin** (`obsidian-plugin/`, id `research-workbench-sync`, desktop only,
+bundled by `npm run build:obsidian` into `dist/obsidian-plugin/`; the build
+refuses imports from the server, client, MCP, shared code or the server's
+renderer):
+
+- Waits for `onLayoutReady` and the metadata cache's `resolved` event, finds
+  notes by frontmatter `wb_id`, then syncs every `intervalSec` (default 60,
+  at least 30) through Obsidian's `requestUrl`.
+- Never deletes or renames a file. It writes nothing to a file that shares
+  its `wb_id` with another file (e.g. an iCloud conflict copy), has hand-edited
+  or missing markers, invalid frontmatter, is open in an editor, or was
+  modified in the last 5 s; the note stays pending and is reported as a
+  conflict. A reflection is read once the file has been left alone for 30 s.
+- Commands: 立即同步 (sync now), 重建目前筆記的自動產生區 (rebuild the
+  generated block of the current note), 顯示同步衝突 (show conflicts),
+  重新建立被刪除的筆記 (recreate deleted notes). A status report goes to
+  `POST /api/vault/status`; the Settings page shows it.
+
+**Install** (`scripts/mac/lib/obsidian.mjs`, the installer's last step):
+lists the vaults in `~/Library/Application Support/obsidian/obsidian.json`
+and asks which one (remembered in `settings.json`; `--obsidian` asks again,
+`--obsidian-vault <dir>` names one, `--no-obsidian` skips), copies `main.js`
+and `manifest.json` into `<vault>/.obsidian/plugins/research-workbench-sync/`,
+merges `data.json` (server URL and token; other keys kept), and adds the id
+to `.obsidian/community-plugins.json` only while Obsidian is closed. It
+refuses a plugin folder that is a symlink or belongs to another plugin, and
+when macOS privacy settings block Terminal it prints where to allow it and
+points to the zip on the Settings page. The user still turns off Restricted
+mode and enables the plugin in Obsidian.
+
+**Journal import** is done by the AI (§28, `record_trade` with
+`source: "import"`), not by the plugin.
+
+## 33. Not verified here, and known limits
+
+Verified only on GitHub's macOS runners or not at all from the Linux build
+container:
+
+- launchd on a real Mac (CI runners may refuse `bootstrap gui/<uid>`; the
+  installer then says launchd was not verified), the launcher app, and macOS
+  privacy prompts (Downloads, Documents, iCloud Drive).
+- Real connections from Claude Desktop, Claude Code and the ChatGPT desktop
+  app. The adapter is tested with the MCP SDK client over stdio, and the
+  config merges on fixtures.
+- The plugin inside Obsidian. It is tested against a fake vault and a fake
+  server; the e2e round trip drives the server routes the plugin uses.
+
+Limits (the user guide states them):
+
+- Only AI apps on the same Mac can connect: Claude Desktop's Chat tab (not
+  Cowork), Claude Code, and the ChatGPT desktop app in Work mode outside a
+  project. claude.ai, ChatGPT on the web and phone apps cannot reach a local
+  server. While the Mac sleeps or is off, nothing can.
+- MCP has no "conversation ended" event: saving a session summary depends on
+  the AI calling `save_session_summary`. The writes themselves are always
+  logged.
+- Tokens record who acted; they do not protect against other programs of the
+  same user.
+- Data and backups are on one disk.

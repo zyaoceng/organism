@@ -14,8 +14,55 @@ the change, what changed, and how it moved EPS and the target price.
 - Architecture, prototype review and self-critique: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - Data model and SQL schema: [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md)
 
-Running it
-----------
+Install on a Mac
+----------------
+
+Paste this line into Terminal (macOS 11 or later, Apple Silicon or Intel):
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/zyaoceng/organism/claude/vibrant-thompson-s3npyj/research-workbench/scripts/mac/install.sh)"
+```
+
+Re-running the same line is the update. It installs the commit named in
+[`release.json`](release.json) (the last one that passed the Mac install
+workflow), never whatever is on the branch at that moment. It needs no
+Homebrew, Node or Xcode: `install.sh` downloads the official Node.js tarball
+(Node 24, or Node 22 before macOS 13.5), checks its SHA-256 against the value
+written in the script, and runs `scripts/mac/install.mjs` with it, which:
+
+- downloads that commit, runs `npm ci` and `npm run build` into
+  `~/ResearchWorkbench/app-<sha7>/` and points `~/ResearchWorkbench/current` at it;
+- keeps the data in `~/Library/Application Support/ResearchWorkbench/` and the
+  logs in `~/Library/Logs/ResearchWorkbench/`;
+- imports `~/Downloads/wb-data.tgz` (or `--import <file>`), a data archive from
+  the old Codespaces setup, after showing what is in it;
+- starts the server as a LaunchAgent (`com.researchworkbench`, port 4310) and
+  rolls back to the previous version and database when the new one does not
+  answer `/api/health` within 60 seconds;
+- builds `~/Applications/研究工作台.app`, which opens the site and starts the
+  server if needed;
+- registers the MCP adapter with Claude Desktop, Claude Code and the ChatGPT
+  desktop app (a config file it edits is backed up first);
+- offers to install the Obsidian plugin into one of your vaults.
+
+Add options after ` -- `, for example `… install.sh)" -- --doctor`:
+
+| Option | Meaning |
+|---|---|
+| `--doctor` | Print diagnostics (Node, better-sqlite3, launchd, health check, port, data, backups, AI and Obsidian registration) and exit |
+| `--dry-run` | Check and print what would happen; change nothing |
+| `--uninstall` [`--purge`] | Remove the LaunchAgent, the app and `~/ResearchWorkbench`; data is kept unless `--purge` |
+| `--import <file>` | Import a data archive (default `~/Downloads/wb-data.tgz`) |
+| `--port <n>` | Serve on another port (remembered) |
+| `--yes`, `-y` | No prompts; take the default answers |
+| `--no-register` | Do not register with the AI apps |
+| `--obsidian`, `--obsidian-vault <dir>`, `--no-obsidian` | Choose the Obsidian vault again, install into this vault, or skip the plugin |
+| `--source-dir <dir>`, `--no-launchd` | Install from a local checkout, skip the LaunchAgent and app (CI) |
+
+The Chinese guide [`docs/使用說明.md`](docs/使用說明.md) walks through it.
+
+Running from source
+-------------------
 
 Needs Node.js 20.10 or later (developed on Node 22).
 
@@ -28,11 +75,21 @@ npm run dev          # API on 127.0.0.1:4310 + UI on http://localhost:5173
 Production-style single process (API and built UI on one port):
 
 ```bash
-npm run build
+npm run build        # vite build (dist/client) + build:mcp + build:obsidian
 npm start            # http://127.0.0.1:4310
 ```
 
-Optional offline example with a fictional company and synthetic prices:
+`npm run build` runs three steps, each also available on its own:
+
+| Script | Output |
+|---|---|
+| `vite build` | the web UI in `dist/client/` |
+| `npm run build:mcp` | the MCP adapter bundle `dist/mcp/research-workbench-mcp.mjs` (esbuild; the build fails if it pulls in the server, the client, better-sqlite3, Fastify or React) |
+| `npm run build:obsidian` | the Obsidian plugin in `dist/obsidian-plugin/` (`main.js`, `manifest.json`) |
+
+`npm run mcp -- --client=claude-code --data-dir=<absolute data dir>` runs the
+adapter from source (stdio). Optional offline example with a fictional company
+and synthetic prices:
 
 ```bash
 npm run seed:demo
@@ -40,28 +97,31 @@ npm run seed:demo
 
 | Environment variable | Default | Meaning |
 |---|---|---|
-| `WORKBENCH_DATA_DIR` | `./data` | SQLite file (`workbench.db`), uploaded files (`attachments/`) and `backups/` (daily copies in `daily/`, kept 14 days + 8 weeks; `pre-v<N>-…` before a schema migration and `pre-import-…` before a data import, never deleted) |
+| `WORKBENCH_DATA_DIR` | `./data` | SQLite file (`workbench.db`), uploaded files (`attachments/`), `tokens.json` and `backups/` (daily copies in `daily/`, kept 14 days + 8 weeks; `pre-v<N>-…` before a schema migration and `pre-import-…` before a data import, never deleted) |
 | `WORKBENCH_PORT` | `4310` | API port (the dev UI proxies `/api` to it) |
-| `WORKBENCH_HOST` | `127.0.0.1` | Bind address. V1 has no login, so keep it local or put an authenticating proxy in front |
+| `WORKBENCH_HOST` | `127.0.0.1` | Bind address. There is no login, so keep it local or put an authenticating proxy in front |
 | `WORKBENCH_ALLOWED_HOSTS` | (none) | Extra `host:port` names, comma-separated, that requests may use. The server accepts only `127.0.0.1:<port>` and `localhost:<port>` (plus `WORKBENCH_HOST`) and refuses requests from other web origins |
 | `WORKBENCH_LOG_LEVEL` | `info` | Server log level (`warn`, `error`, `debug`, …) |
 | `WORKBENCH_QUIET` | (unset) | Any value turns server logging off |
 
 Back up by copying the data directory. Everything in it is yours; nothing is
 sent anywhere except price requests to the chosen market-data provider.
+`tokens.json` holds one random token per caller (browser, each AI client,
+Obsidian); it records who did what and is not a password.
 
 Checks
 ------
 
 ```bash
 npm run typecheck    # TypeScript
-npm test             # 189 unit + API tests (domain engine, revisions, server, backups, data import, installer helpers, client store, preferences, translations)
-npm run e2e          # builds, starts a throwaway server, drives the UI through acceptance tests 1-18, the language switch, basic mode, an AI edit, the dashboard and the trade log (24 checks)
+npm test             # 562 unit + API tests (domain engine, revisions, server, backups, data import, AI rules, MCP adapter over stdio, Obsidian vault sync and plugin, installer helpers, client store, translations)
+npm run e2e          # builds, starts a throwaway server, drives the UI through acceptance tests 1-18, the valuation / catalysts / overview / search pages, the language switch, basic mode, an AI edit, the dashboard, the trade log and an Obsidian round trip (25 checks)
 ```
 
 `npm run e2e` uses the pre-installed Chromium at `/opt/pw-browsers/chromium`
 when present; set `CHROME=/path/to/chrome` otherwise. Screenshots go to
-`e2e/output/`.
+`e2e/output/`. The installer itself is exercised on macOS (arm64 and Intel)
+by `.github/workflows/mac-install.yml` at the repository root.
 
 Everyday workflow
 -----------------
@@ -94,21 +154,47 @@ Everyday workflow
    each entry to the research snapshot valid on its entry date and shows the
    2×ATR trailing-stop counterfactual. (`#/p/<id>/market` still opens it.)
 8. **Home and trade log**: the company list is one table of every company —
-   last price and its date (stale and "no new prices" flags), Bear/Base/Bull
-   target from the latest committed update, upside, last research date,
+   last price and its date (stale and "no new prices" flags), the base target
+   from the latest committed update (Bear / Base / Bull and the
+   probability-weighted target in advanced mode), upside, last research date,
    uncommitted draft, open positions with R, overdue catalysts, theses due for
    review and the latest AI activity. Sort by any column, filter by name or
    code, **Update all prices** in the background, and press `Ctrl+K` anywhere
    to switch company. The **Trade log** (`#/journal`) lists every trade across
    companies with R, P&L in each security's own currency (never converted or
    added across currencies), the research snapshot, reviews and who recorded it.
+9. **AI assistants**: in Claude Desktop (Chat tab), Claude Code or the ChatGPT
+   desktop app (Work mode, outside a project), ask about or update your
+   research in plain language. The assistant uses the workbench's tools
+   (`list_companies`, `get_model`, `edit_draft`, `preview_commit`,
+   `commit_research_update`, `record_trade`, …); the server checks units,
+   versions, dates and prices, asks for your confirmation on large moves, and
+   records which AI made each write. The page you have open picks up an AI's
+   draft edit within about 10 seconds ("Claude Desktop changed 3 items in the
+   draft", with Undo). **Settings** (`#/settings`) shows each AI client's last
+   connection, recent AI activity, and instructions to paste into a Claude
+   project or ChatGPT's custom instructions. Old trade journals are imported
+   by pasting them into the chat: the AI previews every trade, you confirm, and
+   importing the same excerpt again adds nothing.
+10. **Mark a Research Update wrong** (History, on the update): it stays as it
+    was but is left out of estimate evolution and calibration; the mark can be
+    undone.
+11. **Obsidian**: the *Research Workbench Sync* plugin writes every company,
+    Research Update, trade and summarised AI session as a note under
+    `研究工作台/` in your vault, and sends what you write under `## 反思`
+    back; the workbench keeps every version and shows it on Overview, History,
+    Trades and the trade log. The plugin only rewrites its own generated block between
+    `<!-- wb:begin … -->` and `<!-- wb:end -->`; it never deletes a file or
+    changes your text. Settings shows its status and offers the plugin as a zip
+    for installing by hand.
 
 Basic and advanced mode
 -----------------------
 
 The UI starts in **basic mode**: the sidebar lists Model, Valuation, Trades and
 History, and the pages show the everyday tools. The **Advanced mode** switch
-(bottom left, and on the company list) adds a **More** group (Evidence,
+(bottom left of a company's sidebar, and at the top of the company list, the
+trade log and Settings) adds a **More** group (Evidence,
 Catalysts, Overview) and every other tool: the language switch, theses, node
 change history, dependency marks, period editing, chart settings, MFE/MAE and
 the trailing stop, CSV import, the commit evidence checklist, the causal chain
@@ -161,13 +247,18 @@ Layout
 ------
 
 ```
-src/domain/   pure TypeScript shared by client and server (formula engine,
-              calculation, revisions, templates, indicators) — no I/O
-src/server/   Fastify API, SQLite migrations/repositories, commit service,
-              attachment store, market-data providers
-src/client/   React UI (Vite), zustand store, pages and components
-src/shared/   API types
-e2e/          browser acceptance walkthrough
+src/domain/       pure TypeScript shared by client, server, MCP adapter and
+                  Obsidian plugin (formula engine, calculation, revisions,
+                  templates, indicators, AI draft operations, vault notes) — no I/O
+src/server/       Fastify API, SQLite migrations/repositories, commit service,
+                  actors and tokens, backups, data import, vault sync,
+                  attachment store, market-data providers
+src/client/       React UI (Vite), zustand store, pages and components
+src/mcp/          MCP adapter (stdio) the AI apps start; calls the HTTP API
+src/shared/       API types, actors, AI instructions
+obsidian-plugin/  Obsidian plugin (Research Workbench Sync)
+scripts/mac/      Mac installer (install.sh, install.mjs, lib/)
+e2e/              browser acceptance walkthrough
 ```
 
-Known V1 limits are listed at the end of `docs/ARCHITECTURE.md` §21.
+Known limits are listed in `docs/ARCHITECTURE.md` §21 and §33.

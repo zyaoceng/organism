@@ -61,8 +61,10 @@ estimates changed 8. Maintainable code.
 
 Desktop-first, three columns plus an optional bottom panel:
 
-- **Left sidebar** — project switcher and navigation: Overview, Model,
-  Evidence, Valuation, Catalysts, Market, Trades, History.
+- **Left sidebar** — project switcher and navigation. Basic mode (the
+  default) lists Model, Valuation, Trades and History; advanced mode adds a
+  More group with Evidence, Catalysts and Overview. Market data and the price
+  chart live on the Trades page.
 - **Center** — the Research Tree / model canvas: indented tree with
   collapsible branches; each row shows the node's time series for the
   selected scenario. Tree = structure; the period columns = time.
@@ -204,14 +206,54 @@ Modal dialogs are avoided; editing happens inline or in the inspector.
   catalysts and update titles/reasons.
 - Full project JSON export (attachments listed by hash and filename).
 
+### 6.15 Across companies
+- Home page: one sortable, filterable table of every company with the last
+  price and its date (stale flags), the target from the latest committed
+  update, upside, last research date, uncommitted draft, open positions with
+  R, overdue / upcoming catalysts, theses due for review and the latest AI
+  activity. "Update all prices" refreshes every company in the background.
+  `Ctrl+K` switches company from anywhere.
+- Trade log: every trade across companies with R, P&L in each security's own
+  currency (never converted or added across currencies), the research
+  snapshot, reviews and who recorded it.
+- These views report; they never size positions or suggest trades.
+
+### 6.16 Working with AI assistants
+- An AI assistant on the same Mac (Claude Desktop, Claude Code, the ChatGPT
+  desktop app) reads and writes the workbench through a local MCP adapter
+  that calls the same API as the browser. The server enforces the rules, not
+  the assistant: explicit units, actual periods shared by all scenarios, the
+  current draft version on every draft write (a dry run shows the effect
+  first), a commit preview before a commit, no future knowledge dates, confirmation by the user for large
+  moves, prices checked against the day's bar, a publication date on every
+  piece of evidence.
+- Every write records who made it (the user, an AI client, the Obsidian
+  plugin or the system). An AI may not commit or discard draft edits the user
+  has not committed. The assistant can save a summary, decisions and to-dos
+  of a conversation; the site shows AI activity per company.
+- Committed Research Updates stay immutable, also when an AI made them; one
+  can be marked wrong, which excludes it from estimate evolution and
+  calibration without changing it.
+- Old trade journals are imported by an AI from the user's text: each trade
+  is previewed, confirmed by the user and stored with its excerpt, so
+  importing the same excerpt twice adds nothing.
+
+### 6.17 Obsidian notes
+- An Obsidian plugin writes each company, Research Update, trade and AI
+  session summary as a note in the user's vault and sends what the user
+  writes under `## 反思` back to the workbench, where every version is kept.
+  The plugin only rewrites its own generated block; text the user wrote is
+  never changed.
+
 ## 7. Non-goals for V1
 
-Automated SEC / MOPS parsing, AI research agent, consensus ingestion,
-portfolio optimisation and position sizing (the cross-company dashboard and
-trade log only report positions, R and P&L per currency), advanced VRVP, ATR
-optimisation, broker integration, real-time trading, SaaS features, billing,
-permissions, social features. Extension points are documented in
-`ARCHITECTURE.md`.
+Automated SEC / MOPS parsing, an autonomous AI research agent (AI assistants
+work only through the checked tools of §6.16, at the user's request),
+consensus ingestion, portfolio optimisation and position sizing (the
+cross-company dashboard and trade log of §6.15 only report positions, R and
+P&L per currency), advanced VRVP, ATR optimisation, broker integration,
+real-time trading, SaaS features, billing, permissions, social features.
+Extension points are documented in `ARCHITECTURE.md`.
 
 ## 8. Acceptance tests (V1)
 
@@ -232,7 +274,7 @@ permissions, social features. Extension points are documented in
 | 13 | Scenarios without three models | Override-based scenarios |
 | 14 | Tree readable with cross-branch formulas | Dependency highlighting, inspector input/used-by lists |
 | 15 | Historical estimates immune to current data | Frozen outputs; model never reads live prices |
-| 16 | Current price and OHLCV | Market page |
+| 16 | Current price and OHLCV | Trades page (market data was merged into it) |
 | 17 | Entry/exit on the chart | Trades + chart markers |
 | 18 | Reconstruct belief, reason, and cause of change | History + time-travel view + evidence citations |
 
