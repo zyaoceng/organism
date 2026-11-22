@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Research｜有機體 ORGANISM</title>
+<meta name="description" content="祖曜筬的個股研究：個股深度、財報前瞻、財報檢討">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Bodoni+Moda:opsz,wght@6..96,400..700&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@400;700&family=Shippori+Mincho+B1:wght@800&family=Zen+Antique&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body class="sub">
+
+<header class="wrap top">
+  <p class="wordmark"><a href="../">ORGANISM</a></p>
+  <div class="social"><a href="https://github.com/zyaoceng/organism"><b>GitHub</b></a></div>
+  <nav class="nav" aria-label="主選單">
+    <a href="../">Home</a>
+    <a href="../research/" aria-current="page">Research</a>
+    <a href="../ntu/">台大控股</a>
+    <a href="../tools/">Tools</a>
+  </nav>
+</header>
+
+<section id="research" class="light"><canvas class="bgcells" id="bg1" aria-hidden="true"></canvas>
+  <h2 class="shead stripe wrap rise">RESEARCH</h2>
+  <div class="wrap bar">
+    <div class="tabs" id="tabs" role="group" aria-label="文章類型"></div>
+    <div class="tools">
+      <select id="tk" aria-label="依標的篩選"><option value="">所有標的</option></select>
+      <input id="q" type="search" placeholder="搜尋文章…" aria-label="搜尋文章">
+    </div>
+  </div>
+  <div class="wrap tkhead" id="tkhead" hidden><span id="tkname"></span><button type="button" id="clr">清除標的 ×</button></div>
+  <div class="list" id="list"></div>
+  <p class="wrap empty" id="empty" hidden>這個分類目前還沒有文章，之後會陸續更新。</p>
+</section>
+
+<footer>
+  <canvas id="dish" aria-hidden="true"></canvas>
+  <div class="foot-row">
+    <span>© 2026 ORGANISM　<span class="disclaimer">研究紀錄與教材，非投資建議</span></span>
+    <nav aria-label="頁尾"><a href="../research/">Research</a><a href="../ntu/">台大控股</a><a href="../tools/">Tools</a><a href="https://github.com/zyaoceng/organism">GitHub</a></nav>
+  </div>
+</footer>
+
+<script src="./reports.js"></script>
+<script>window.SITE={base:'../',reports:MY_REPORTS,tickers:MY_TICKERS,types:['All','Deep','Preview','Review']};</script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>台大控股｜有機體 ORGANISM</title>
+<meta name="description" content="台大控股產業研究與個股深度研究">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Bodoni+Moda:opsz,wght@6..96,400..700&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@400;700&family=Shippori+Mincho+B1:wght@800&family=Zen+Antique&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body class="sub">
+
+<header class="wrap top">
+  <p class="wordmark"><a href="../">ORGANISM</a></p>
+  <div class="social"><small>（NTU<br>台大控股）</small><a href="https://github.com/zyaoceng/organism"><b>GitHub</b></a></div>
+  <nav class="nav" aria-label="主選單">
+    <a href="../">Home</a>
+    <a href="../research/">Research</a>
+    <a href="../ntu/" aria-current="page">台大控股</a>
+    <a href="../tools/">Tools</a>
+  </nav>
+</header>
+
+<section id="research" class="light"><canvas class="bgcells" id="bg1" aria-hidden="true"></canvas>
+  <h2 class="shead stripe wrap rise">台大控股</h2>
+  <div class="wrap bar">
+    <div class="tabs" id="tabs" role="group" aria-label="文章類型"></div>
+    <div class="tools">
+      <select id="tk" aria-label="依標的篩選"><option value="">所有標的</option></select>
+      <input id="q" type="search" placeholder="搜尋文章…" aria-label="搜尋文章">
+    </div>
+  </div>
+  <div class="wrap tkhead" id="tkhead" hidden><span id="tkname"></span><button type="button" id="clr">清除標的 ×</button></div>
+  <div class="list" id="list"></div>
+  <p class="wrap empty" id="empty" hidden>這個分類目前還沒有文章，之後會陸續更新。</p>
+</section>
+
+<section id="deep" style="padding-top:clamp(64px,8vw,120px)"><canvas class="bgcells" id="bg2" aria-hidden="true"></canvas>
+  <h2 class="shead stripe wrap rise">DEEP DIVE</h2>
+  <div class="wrap deep">
+    <a class="card big rise" href="../liteon-2028-scenarios-v2_1.html"><i class="cell a"></i><i class="cell b"></i>
+      <div class="kicker"><span>LATEST · 2026.09.14</span><span>05 · DATA CENTER POWER</span></div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <h3>光寶科 2028<br>三情境估值</h3>
+        <p>800VDC 供電架構 · 三情境營收、EPS 與估值</p>
+      </div>
+      <div class="figs"><div><b>3</b><span>估值情境</span></div><div><b>7</b><span>檔採信度盤</span></div><div><b>2028</b><span>估值年度</span></div></div>
+    </a>
+    <a class="card small rise" href="../09_AVGO/AVGO_Broadcom%E5%80%8B%E8%82%A1%E7%A0%94%E7%A9%B6%E5%A0%B1%E5%91%8A_%E5%AE%8C%E6%95%B4%E7%89%88_2026-08-22.pdf"><i class="cell a"></i><i class="cell b"></i>
+      <div class="kicker"><span>2026.08.22</span><span>09 · SINGLE STOCK</span></div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <h3>AVGO 博通</h3>
+        <p>客製化晶片 · 網通</p>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
+        <span class="lock">PDF</span>
+        <span style="font-family:var(--numeral);font-size:64px;line-height:1">45<small style="font-family:var(--sans);font-size:14px;margin-left:4px">頁</small></span>
+      </div>
+    </a>
+  </div>
+</section>
+
+<footer>
+  <canvas id="dish" aria-hidden="true"></canvas>
+  <div class="foot-row">
+    <span>© 2026 ORGANISM　<span class="disclaimer">研究紀錄與教材，非投資建議</span></span>
+    <nav aria-label="頁尾"><a href="../research/">Research</a><a href="../ntu/">台大控股</a><a href="../tools/">Tools</a><a href="https://github.com/zyaoceng/organism">GitHub</a></nav>
+  </div>
+</footer>
+
+<script src="../reports.js"></script>
+<script>window.SITE={base:'../',reports:REPORTS,tickers:TICKERS,types:['All','Deep','Preview','Review','Industry','Deck','Scorecard']};</script>
+<script src="../assets/site.js"></script>
+</body>
+</html>

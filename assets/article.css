@@ -1,0 +1,38 @@
+/* 個人研究文章頁：淺色閱讀版面，配色與首頁一致 */
+:root{--night:#0D0B24;--indigo:#2A2390;--concrete:#B8B7AF;--paper:#ECEBE7;--ink:#1B1934;--mute:#5A5966;
+  --display:"Archivo","Noto Sans TC",sans-serif;--serif:"Zen Antique","Noto Serif TC","Songti TC",serif;--sans:"Noto Sans TC","PingFang TC",sans-serif}
+*{box-sizing:border-box}
+html{color-scheme:light}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.9;-webkit-font-smoothing:antialiased}
+a{color:var(--indigo)}
+.bar{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:14px clamp(16px,4vw,40px);background:var(--night);color:var(--paper);font-family:var(--display)}
+.bar a{color:inherit;text-decoration:none}
+.bar .mark{font-weight:800;font-stretch:125%;letter-spacing:.14em}
+.bar nav a{font-size:13px;letter-spacing:.1em;text-transform:uppercase;padding:2px 4px;transition:background .25s,color .25s}
+.bar nav a:hover{background:var(--paper);color:var(--night)}
+main{max-width:780px;margin:0 auto;padding:clamp(36px,6vw,80px) clamp(18px,4vw,32px) 64px}
+.meta{display:flex;flex-wrap:wrap;gap:6px 16px;margin:0 0 18px;font-family:var(--display);font-size:13px;letter-spacing:.08em;color:var(--mute)}
+.meta .ty{color:var(--indigo);font-weight:600;text-transform:uppercase}
+.meta time{margin-left:auto;font-variant-numeric:tabular-nums}
+h1{margin:0 0 clamp(28px,4vw,48px);padding-bottom:clamp(20px,3vw,32px);border-bottom:1px solid var(--night);font-family:var(--serif);font-weight:400;font-size:clamp(30px,4.6vw,48px);line-height:1.3;text-wrap:balance}
+article h2{margin:2.4em 0 .7em;font-family:var(--serif);font-weight:400;font-size:clamp(23px,2.8vw,30px);line-height:1.4;color:var(--indigo)}
+article h3{margin:2em 0 .5em;font-size:19px;font-weight:700;line-height:1.5}
+article h4{margin:1.6em 0 .4em;font-size:17px;font-weight:700}
+article p{margin:0 0 1.15em}
+article ul,article ol{margin:0 0 1.15em;padding-left:1.4em}
+article li{margin-bottom:.4em}
+article strong{font-weight:700;color:var(--night)}
+article img{display:block;max-width:100%;height:auto;margin:1.6em auto;border:1px solid rgba(13,11,36,.15)}
+article blockquote{margin:1.4em 0;padding:.2em 0 .2em 1.1em;border-left:3px solid var(--indigo);color:#3B3A44}
+article hr{border:0;border-top:1px solid rgba(13,11,36,.25);margin:2.4em 0}
+article code{font-size:.9em;background:rgba(42,35,144,.08);padding:.1em .35em}
+article pre{overflow-x:auto;padding:16px;background:var(--night);color:var(--paper);font-size:14px;line-height:1.6}
+article pre code{background:none;padding:0}
+.tbl{overflow-x:auto;margin:1.6em 0}
+table{border-collapse:collapse;width:100%;font-size:15px;line-height:1.6;font-variant-numeric:tabular-nums}
+th,td{padding:9px 12px;border-bottom:1px solid rgba(13,11,36,.2);text-align:left;vertical-align:top}
+th{border-bottom:1px solid var(--night);font-weight:700;white-space:nowrap}
+tbody tr:hover{background:rgba(42,35,144,.05)}
+.footnote{font-size:14px;color:var(--mute)}
+footer{padding:28px clamp(16px,4vw,40px) 40px;border-top:1px solid rgba(13,11,36,.2);font-size:13px;letter-spacing:.04em;color:var(--mute);text-align:center}
+@media (max-width:600px){body{font-size:16px}.meta time{margin-left:0}}
