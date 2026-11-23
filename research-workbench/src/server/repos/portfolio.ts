@@ -160,6 +160,10 @@ export function buildDashboard(db: DB, o: DashboardOptions): DashboardRowDTO[] {
     ).map((r) => [r.project_id, r]),
   );
 
+  const workbooks = new Map(
+    (db.prepare('SELECT project_id, summary_json, checked_at FROM project_workbooks').all() as { project_id: string; summary_json: string | null; checked_at: string | null }[]).map((r) => [r.project_id, r]),
+  );
+
   return projects.map((p): DashboardRowDTO => {
     const head = heads.get(p.id);
     const headState = head ? (JSON.parse(head.state_json) as ModelState) : null;
@@ -283,8 +287,25 @@ export function buildDashboard(db: DB, o: DashboardOptions): DashboardRowDTO[] {
       catalysts: { upcoming, undated, overdue, next, oldestOverdue },
       theses: { reviewDue: due.length, nextReviewBy: ahead[0] ?? null },
       ai: latestAi(sessions.get(p.id), audits.get(p.id)),
+      workbook: workbookBrief(workbooks.get(p.id)),
     };
   });
+}
+
+/**
+ * The linked Excel file for the overview: the count of 要 cells kept by the workbook routes when
+ * the file was last read (project_workbooks.summary_json). The file is not opened here.
+ */
+export function workbookBrief(row: { summary_json: string | null; checked_at: string | null } | undefined): DashboardRowDTO['workbook'] {
+  if (!row) return { linked: false, pending: null, checkedAt: null };
+  let pending: number | null = null;
+  try {
+    const n = (JSON.parse(row.summary_json ?? 'null') as { needsDecision?: unknown } | null)?.needsDecision;
+    if (typeof n === 'number' && Number.isInteger(n) && n >= 0) pending = n;
+  } catch {
+    // an unreadable summary is the same as none
+  }
+  return { linked: true, pending, checkedAt: pending === null ? null : row.checked_at };
 }
 
 /** The newer of the latest AI session (with its summary) and the latest AI write in the audit log. */

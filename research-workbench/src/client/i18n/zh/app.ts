@@ -317,6 +317,10 @@ export const app: Record<string, string> = {
   'avg {r}R': '平均 {r}R',
   '{n} overdue': '{n} 項逾期',
   '{n} to review': '{n} 項待檢視',
+  // Dashboard: the 待判斷 column (cells marked 要 in the linked Excel)
+  'To decide': '待判斷',
+  'Excel linked, not read yet': '已連結 Excel，還沒讀到檔案',
+  'Cells marked 要 in the linked Excel, counted {ago}': '連結的 Excel 裡標「要」的格子數，{ago}讀檔時算的',
   'no research yet': '尚無研究',
   'no new prices for {n} days': '已 {n} 天沒有新股價',
   'Fetched {ago}': '取得於 {ago}',

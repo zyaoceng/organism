@@ -35,6 +35,10 @@ export interface ZipEntry {
   size: number;
   /** The entry's bytes as they sit in the file. */
   packed: Buffer;
+  /** "Version made by" and the file attributes of the directory record, kept so a rewrite can repeat them. */
+  madeBy: number;
+  internalAttrs: number;
+  externalAttrs: number;
 }
 
 const EOCD = 0x06054b50;
@@ -91,6 +95,9 @@ export function readZip(buf: Buffer): ZipEntry[] {
       dosDate: buf.readUInt16LE(p + 14),
       size,
       packed: buf.subarray(dataStart, dataStart + packedSize),
+      madeBy: buf.readUInt16LE(p + 4),
+      internalAttrs: buf.readUInt16LE(p + 36),
+      externalAttrs: buf.readUInt32LE(p + 38),
     });
     p += 46 + nameLen + extraLen + commentLen;
   }

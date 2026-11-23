@@ -13,6 +13,8 @@ type Row = DashboardRowDTO;
 /** Sortable columns: the sort value, and which way the first click sorts. */
 const SORTS: Record<string, { value: (r: Row) => number | string | null; first: SortDir }> = {
   name: { value: (r) => r.name, first: 'asc' },
+  // most cells waiting for a decision first; companies without a linked or read Excel last
+  pending: { value: (r) => r.workbook.pending, first: 'desc' },
   price: { value: (r) => r.price?.value ?? null, first: 'desc' },
   target: { value: (r) => r.target.base, first: 'desc' },
   weighted: { value: (r) => r.target.upsideWeighted, first: 'desc' },
@@ -64,6 +66,7 @@ export function DashboardTable({ rows, run, query }: { rows: Row[]; run: Refresh
         <thead>
           <tr>
             {th('name', t('Company'), 'l')}
+            {th('pending', t('To decide'))}
             {th('price', t('Last price'))}
             {th('target', t('Target (base)'))}
             {adv && th('weighted', t('Weighted target'))}
@@ -89,6 +92,9 @@ export function DashboardTable({ rows, run, query }: { rows: Row[]; run: Refresh
                   {r.archivedAt && <span className="badge">{t('archived')}</span>}
                   {r.price?.synthetic && <span className="badge synthetic">{t('SYNTHETIC')}</span>}
                   <div className="tiny sub">{r.security ? `${r.security.ticker} · ${r.security.exchange || '—'}` : ''}</div>
+                </td>
+                <td>
+                  <PendingCell r={r} />
                 </td>
                 <td>
                   <PriceCell r={r} item={item} />
@@ -170,6 +176,24 @@ export function DashboardTable({ rows, run, query }: { rows: Row[]; run: Refresh
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** How many cells of the linked Excel are marked 要, as of the last time the file was read; opens the assumptions page. */
+function PendingCell({ r }: { r: Row }) {
+  const w = r.workbook;
+  if (!w.linked) return null;
+  const to = href({ page: 'project', projectId: r.projectId, tab: 'assumptions' });
+  if (w.pending === null)
+    return (
+      <a href={to} className="sub" data-testid="dash-pending" title={t('Excel linked, not read yet')} onClick={(e) => e.stopPropagation()}>
+        —
+      </a>
+    );
+  return (
+    <a href={to} data-testid="dash-pending" data-pending={w.pending} title={t('Cells marked 要 in the linked Excel, counted {ago}', { ago: timeAgo(w.checkedAt) })} onClick={(e) => e.stopPropagation()}>
+      {w.pending > 0 ? <span className="badge warn num">{t('{n} cells', { n: w.pending })}</span> : <span className="num sub">0</span>}
+    </a>
   );
 }
 

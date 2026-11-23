@@ -2,8 +2,9 @@
 
 This document records the architecture review that preceded the build, the
 self-critique of the first proposal, the resulting (revised) design, and what
-was added afterwards to run the workbench on a Mac, use it from AI assistants
-and sync it with Obsidian.
+was added afterwards to run the workbench on a Mac, use it from AI assistants,
+sync it with Obsidian, and read, recalculate and write back each company's
+Excel model.
 
 How to read it:
 
@@ -18,6 +19,7 @@ How to read it:
 | §31 | Dashboard, trade log and "update all prices" (pointers into §17–§19) |
 | §32 | Obsidian vault sync and plugin |
 | §33 | What cannot be verified in a Linux container, and known limits of the Mac / AI / Obsidian parts |
+| §34 | Excel-backed assumptions: reader, engine and self-check, detection by labels, sensitivity, write-back safety order, phone access through Tailscale, and what is unverified |
 
 Keep this file in sync with `PRODUCT_SPEC.md` and `DATA_MODEL.md`.
 
@@ -715,11 +717,21 @@ Built as designed above; deviations are listed at the end of this section.
 | Browser sync and conflict rebase | `src/client/lib/store.ts`, `useDraftSync.ts`, `src/domain/revision/rebase.ts` | `store.test.ts`, `rebase.test.ts`; e2e check 22 |
 | Dashboard, trade log, update all prices | `src/server/repos/portfolio.ts`, `market/refreshAll.ts`, `src/domain/valuation/`, `src/domain/portfolio/` | `targets.test.ts`, `flags.test.ts`, `summary.test.ts`, `refreshAll.test.ts`; e2e checks 23–24 |
 | Obsidian sync (server, shared logic, plugin) | `src/server/vault/`, `src/domain/vault/`, `obsidian-plugin/` | `vault.test.ts`, `core/merge/render/reflection/filename.test.ts`, `obsidian-plugin/test/*` (fake vault and server, round trip); e2e check 25 |
-| UI and end-to-end workflow | `src/client/` | `e2e/acceptance.mjs` — 25 checks: acceptance tests 1–18 and the valuation / catalysts / overview / search pages (check 19) through the real UI in English and advanced mode, the language switch, basic mode, an AI edit picked up by the open page, the dashboard, the trade log and an Obsidian round trip, against a production build on a throwaway data directory |
+| Linked Excel workbooks: ZIP and xlsx reader, formula engine and self-check, file states | `src/server/xlsx/` (`zipRead.ts`, `read.ts`, `engine.ts`, `file.ts`, `view.ts`, `routes.ts`) | `xlsx.test.ts`, `engine.adversarial.test.ts`, `workbook.test.ts`, `workbookSafety.test.ts` |
+| Workbook layout detection, shared formulas, sensitivity | `src/domain/workbook/` | `detect.test.ts`, `detect.tolerance.test.ts`, `shiftFormula.test.ts`, `sensitivity.test.ts` |
+| Write-back to Excel | `src/server/xlsx/patch.ts`, `write.ts` | `patch.test.ts`, `patch.adversarial.test.ts` (LibreOffice round trips where `soffice` exists), `workbookWrite.test.ts`; e2e check 28; the write step of `mac-install.yml` |
+| Assumptions page, overview count | `src/client/pages/AssumptionsPage.tsx`, `lib/workbook.ts`, `components/DashboardTable.tsx`, `src/server/repos/portfolio.ts` | `src/client/lib/workbook.test.ts`, `dashboardWorkbook.test.ts`; e2e checks 26, 27 and 29 |
+| Phone access (HTTPS host, Tailscale login check) | `src/server/app.ts`, `main.ts`, `scripts/mac/lib/tailscale.mjs` | `remote.test.ts`, `tailscale.test.mjs`, `args.test.mjs`, `launchd.test.mjs` |
+| UI and end-to-end workflow | `src/client/` | `e2e/acceptance.mjs` — 29 checks (26–29 are in §34), the first 25: acceptance tests 1–18 and the valuation / catalysts / overview / search pages (check 19) through the real UI in English and advanced mode, the language switch, basic mode, an AI edit picked up by the open page, the dashboard, the trade log and an Obsidian round trip, against a production build on a throwaway data directory |
 
 Results at the time of writing (release `df5cde6`, M1–M5): `npm run typecheck`
 clean, `npm test` 562 passed (1 macOS-only test skipped on Linux), `npm run e2e`
 25/25; the Mac install workflow passed on `macos-15` and `macos-15-intel`.
+With §34 in the working tree: `npm run typecheck` clean, `npm test` 838 passed
+(2 skipped in the Linux container: one macOS-only, one that cannot run as
+root). `npm run e2e` was 29/29 at integration, before the review fixes of
+§34.5 and §34.6, and has not been run again since; the Mac install workflow
+has not run on this state yet.
 
 Basic / advanced mode is UI-only: no schema, server or domain change. The
 choice is a per-browser preference (`workbench.advanced` = `'1'`/`'0'`).
@@ -1222,3 +1234,257 @@ Limits (the user guide states them):
 - Tokens record who acted; they do not protect against other programs of the
   same user.
 - Data and backups are on one disk.
+
+## 34. Excel-backed assumptions
+
+Each company can be linked to one `.xlsx` in the vault folder (the user's
+Obsidian vault, usually in iCloud). **Excel is the only store of the
+assumptions.** The server reads the file on every request, recalculates it in
+memory and writes the user's decisions back into it; no assumption value is
+copied into the database (schema v4, `DATA_MODEL.md` §2c). Recalculation runs
+on the server, so a phone receives a small JSON and loads no formula engine.
+The file's real layout could not be seen while this was built: it follows the
+description in the workflow handoff, and `GET …/workbook/diagnosis` exists so
+the user can paste the real layout back.
+
+### 34.1 Reading the file
+
+- **Where** (`file.ts`). `resolveInVault` accepts a vault-relative path whose
+  real path (symlinks followed) stays under the vault's real path, ends in
+  `.xlsx` and is not an Excel lock file (`~$…`). The vault folder is
+  `WORKBENCH_VAULT_DIR`, else `app_settings.vault_dir`, which
+  `PUT /api/settings/vault-dir` sets only for the user, from a loopback peer
+  and a loopback Host; the installer calls it with the Obsidian vault.
+- **State.** `ok | missing | dataless | denied | locked | unreadable`, with a
+  `reason` (an errno, `not-a-file`, `too-large`, `changing`, or a reader
+  code). `excelOpen` is true when `~$<name>.xlsx` sits next to the file.
+- **iCloud.** A file whose content is still in the cloud is detected before
+  it is read (`/usr/bin/stat -f %Sf` listing `dataless`; else zero blocks
+  with a size; before macOS 14 the `.<name>.icloud` placeholder). The server
+  then runs `/usr/bin/brctl download` and polls every 500 ms for up to 15 s.
+  The LaunchAgent sets `MaterializeDatalessFiles`. Programs run through
+  `FileDeps`, so tests need neither macOS nor iCloud.
+- **Stable read.** The bytes are accepted only when size and modification
+  time are the same after the read; one retry, then `locked` / `changing`.
+  Every read returns the SHA-256, which is the version the page holds
+  (`baseSha`).
+- **Limits.** 50 MB for the file, 8 MB for one unpacked ZIP entry, 32 MB for
+  all parts unpacked; ZIP64 and encrypted files are refused. The vault
+  listing (`GET /api/workbook/files`) stops at 500 files and 5000 folders and
+  skips hidden folders, lock files and symlinked folders.
+- **ZIP and XML** (`zipRead.ts`, `read.ts`). The ZIP reader walks the central
+  directory and keeps each entry's packed bytes for the later rewrite. The
+  reader (saxes) yields, per cell, the formula, the result Excel stored
+  (`hasCached`), number format and note, plus shared strings, defined names,
+  merges, hidden sheets and the 1904 date flag. A shared formula
+  (`<f t="shared">`) is expanded to every cell of its range by
+  `shiftFormula` (`src/domain/workbook/shiftFormula.ts`).
+
+### 34.2 Engine and self-check
+
+`FormulaEngine` (`load / set / get / selfCheck / dispose`, in
+`src/domain/workbook/types.ts`) keeps the engine replaceable; the one
+implementation is HyperFormula 3.5.0 with the `gpl-v3` key, which makes the
+project GPL-3.0-only (`LICENSE`). Settings that match Excel: an empty cell
+reads as 0, array arithmetic is on, the sheet is Excel-sized and stored
+sparsely, defined names are substituted, sheet names Excel writes bare (e.g.
+`營收模型!B5`) are quoted, and array formulas are wrapped in `ARRAYFORMULA`.
+
+`selfCheck()` runs once after load, before any trial value: every formula
+cell with a stored result is recomputed and compared (relative tolerance
+1e-6, absolute floor 1e-9; any error equals any error). The report has
+`state` = `verified | mismatch | no-cached-values`, the counts, up to 50
+mismatching cells, the functions HyperFormula does not have, and load
+warnings (3-D references). The page shows it, and write-back uses it (§34.5).
+Up to four parsed workbooks stay in memory, keyed by SHA-256.
+
+### 34.3 Detection by labels
+
+`detectWorkbook` (`src/domain/workbook/detect.ts`) finds everything by the
+text in the cells, never by position, because the file is laid out by hand
+and an AI inserts rows. Labels are compared after NFKC folding, without
+whitespace, in upper case. Hidden sheets are skipped.
+
+- **Assumption tables.** A header row has at least three of 取用值, 下緣,
+  上緣, 依據 in short cells (the pair of rows under a merged header counts).
+  The label column is the text column left of the headers with the most
+  entries; the status column is the other column with the most 要 / 已定
+  cells (要判斷, 已決定 and a trailing note are accepted; 要素 is not a
+  status). Title rows become `section`. Rows with only formulas and neither a
+  range nor a status are calculation rows, not assumptions.
+- **Results.** The target price is the best-scoring label containing 目標價
+  with a figure to its right. The multiple, share count and net cash are the
+  labelled cells its formula refers to (倍數, 股數, 淨現金), else the nearest
+  such label on that sheet. A multiple outside the tables is still offered as
+  an assumption (`origin: 'output'`). Revenue is a row 總營收 under a header
+  with four quarters and 合計. EPS comes from the side-by-side table, under
+  我的預估, per period.
+- **Side-by-side tables.** A row with at least three of 我的預估, 線性推估,
+  賣方共識, FUNDA 預估, Allen 預估, 公司財測, 財報實際; the period names sit
+  on the row above.
+- **Anchors.** A result is stored as sheet + label text + occurrence
+  (optionally column header and sub-header), so inserted rows and columns do
+  not break a mapping saved with `PUT …/workbook/mapping`. Every other place
+  a result could be is returned in `candidates` for the page's picker.
+- **Warnings** name what is missing (`no-assumption-table`,
+  `header-incomplete`, `no-status-column`, `duplicate-label`,
+  `output-missing`, `output-ambiguous`, `no-party-table`,
+  `mapping-unresolved`, …) in Chinese, since the user reads them.
+
+### 34.4 Trial values, sensitivity, parties, overview
+
+- `GET /api/projects/:id/workbook` returns the file state, self-check,
+  assumptions, results, sensitivity, side-by-side tables, warnings, mapping
+  and a revert notice. `POST …/workbook/recalc {baseSha, overrides,
+  trialRanges}` returns results and sensitivity with the trial values; it
+  stores nothing, and answers 409 `WORKBOOK_CHANGED` when the file's SHA-256
+  is no longer `baseSha`. An AI client may call both; linking, the mapping
+  and writing are the browser user's (403 `USER_ONLY`).
+- The page debounces 250 ms, keeps trial values in `sessionStorage` per
+  company, and reads the file again when the tab becomes visible.
+- **Sensitivity** (`sensitivity.ts`): each assumption with a low and a high
+  (the sheet's, or a trial range sent with the request) is set to each end
+  with every other trial value kept, and the rows are sorted by the absolute
+  change of the target price. Assumptions without a range are returned in
+  `withoutRange`.
+- **Parties** (`partyTables`, `partyGap` in `view.ts`): `gap = (value −
+  mine) / |mine|`, flagged above 0.1 with a 1e-9 tolerance; a figure against a
+  我的預估 of 0 is flagged without a percentage. Percentage rows use the same
+  relative rule.
+- **Overview.** Every successful view stores `{ assumptions, needsDecision,
+  selfCheck }` in `project_workbooks.summary_json`; the dashboard and the MCP
+  tool `list_companies` read that count (`DashboardRowDTO.workbook`) and never
+  open the file. The write route ends with a view, so the count is fresh
+  after a write; an edit made in Excel shows up after the assumptions page
+  reads the file again.
+- **Diagnosis.** Plain text: sheets, table headers, assumption labels and
+  addresses, where each result was found, other candidates, warnings and the
+  self-check. No figure of the workbook is in it; mismatching formulas are
+  listed with their constants masked.
+
+### 34.5 Write-back safety order
+
+`POST /api/projects/:id/workbook/write {baseSha, changes: [{sheet, address,
+value}], statusChanges: [{sheet, address, to: '已定'}]}` (at most 500 cells)
+is the only route that changes a file in the vault, and `write.ts` the only
+module in `src/server/xlsx/` allowed to call writing `fs` functions
+(`workbookSafety.test.ts` pins the list). An agent actor gets 403 before the
+body is read. Writes to one file run one at a time within the process. Each
+step refuses before anything is written:
+
+1. Read the file again; not readable → 409 `WORKBOOK_UNREADABLE`.
+2. Its SHA-256 must equal `baseSha` → else 409 `FILE_CHANGED`.
+3. No Excel lock file → else 423 `FILE_LOCKED`.
+4. Every cell must be the value cell of a detected assumption, or the status
+   cell of one currently marked 要 → else 400 `NOT_AN_ASSUMPTION`.
+5. `patchXlsx` builds the new bytes. The XML is edited as text, so inside a
+   sheet only the named `<c>` elements change, and every untouched ZIP entry
+   keeps its packed bytes. A formula cell becomes the constant; a shared
+   formula it belonged to is written out as plain formulas for the remaining
+   cells; a status becomes an existing shared string 已定 or an inline
+   string (`sharedStrings.xml` is never edited); `fullCalcOnLoad` is set; the
+   calculation chain is dropped when a formula went. Array-formula and
+   data-table cells → 409 `CELL_NOT_WRITABLE`.
+6. The stored results of dependant formulas are refreshed only when the
+   self-check of the original was `verified`; otherwise Excel recalculates
+   them on open.
+7. The new bytes are parsed again and compared with the original: only the
+   intended cells and ZIP parts may differ, and (when verified) the new
+   file's own self-check must pass → else 500 `VERIFY_FAILED`.
+8. A file with no write permission bit → 403 `FILE_READ_ONLY`.
+9. The original is copied to `<dataDir>/workbook-backups/<projectId>/
+   <YYYYMMDD-HHMMSS>-<name>.xlsx` and the copy's hash checked; the newest 30
+   are kept → failure is 500 `BACKUP_FAILED`.
+10. The bytes go to `.<name>.xlsx.wb.nosync` in the same folder (opened with
+    `O_NOFOLLOW`; anything at that name that is not a regular file refuses
+    the write), are synced and read back; the lock file and the SHA-256 are
+    checked once more; then the temp file is renamed over the original with
+    its mode. A folder that cannot be written → 403 `WRITE_DENIED`.
+11. The file is read back and its SHA-256 and size compared; then one
+    `workbook_writes` row and one audit entry (`entity: 'workbook'`) are
+    inserted. Any failure after the rename puts the backup back and answers
+    500 `WRITE_FAILED` with `details.restored`.
+
+Nothing else in the vault is created, moved, renamed or deleted; the temp
+file is the only other name ever written there. **Revert detection**
+(`detectRevert`): when the file's SHA-256 equals the `before_sha256` of an
+earlier write and differs from the latest `after_sha256`, an older version is
+back (iCloud does this when two devices disagree); the view lists the lost
+cells and the page offers to fill them in again as trial values.
+
+### 34.6 Phone access through Tailscale
+
+The server still binds to 127.0.0.1. `tailscale serve --bg <port>` on the Mac
+forwards `https://<mac>.<tailnet>.ts.net` to it and adds
+`Tailscale-User-Login`. The site has no login of its own, so:
+
+- `WORKBENCH_HTTPS_HOSTS` (bare hosts) and `WORKBENCH_TAILSCALE_LOGINS` come
+  from the LaunchAgent (`launchAgent({ remote })`); `AppOptions.httpsHosts`
+  and `tailscaleLogins` in `app.ts`.
+- An `onRequest` hook, ahead of the actor hooks, covers every route, static
+  files and 404s. A request naming an HTTPS host must come from a loopback
+  peer (403 `TAILSCALE_ONLY`), carry a login (403
+  `TAILSCALE_LOGIN_REQUIRED`) that is on the list (403
+  `TAILSCALE_LOGIN_NOT_ALLOWED`); its origin must be `https://<host>`. `/api`
+  paths get JSON, other paths a plain-text page in Chinese and English.
+- `tailscale serve` chooses the forwarding by TLS server name and passes the
+  caller's `Host` through, so a tailnet device could send `Host:
+  127.0.0.1:4310`. With phone access on, a request naming a non-HTTPS host
+  that carries `Forwarded`, `X-Forwarded-For/Host/Proto` or any `Tailscale-*`
+  header gets 403 `FORWARDED_LOCAL_HOST`. Without phone access these headers
+  mean nothing.
+- The session cookie gets `Secure` when the request's Host is an HTTPS host
+  (decided by Host, not `X-Forwarded-Proto`). `GET /api/diagnostics` has
+  `remote: { url, logins }`, which the Settings page shows.
+- **Installer** (`scripts/mac/lib/tailscale.mjs`, pure with an injected
+  `run`): finds the CLI in PATH, Homebrew or the app bundle, reads `tailscale
+  status --json`, asks (default yes), runs `serve` with a 30 s limit, saves
+  `settings.json` → `tailscale: { host, login, enabledAt }` or `{ declined:
+  true }`, and prints the phone URL. `--tailscale` sets it up or redoes it;
+  `--no-tailscale` removes the variables and prints `tailscale serve
+  --https=443 off` without running it; `--yes` alone never turns it on. The
+  step never fails the install. `--doctor` adds `Tailscale serve` (fails when
+  Funnel is on for the host) and `手機網址 / phone URL`, next to `筆記庫讀取 /
+  vault access`.
+- **Layout.** One `@media (max-width: 720px)` block in `styles.css`: one
+  column, the sidebar becomes a scrolling top bar, inputs are 16 px.
+
+### 34.7 Verification and what is not verified
+
+Fixtures (`scripts/fixtures/build-crwd-xlsx.mjs` →
+`src/server/xlsx/fixtures/`): `CRWD_簡明損益表.xlsx` built to the handoff's
+numbers and recalculated by LibreOffice, so its stored results come from
+another engine; the same file without stored results; and a hand-written file
+with shared formulas, shared strings and a defined name. e2e checks 26
+(link, trial values, sensitivity order), 27 (390×844, no sideways scroll), 28
+(write, backup, agent refusal, 要 → 已定) and 29 (overview count). The Mac
+install workflow links, reads and writes the example in a fake vault and
+asserts that only that file changed.
+
+Not verified, because it needs the user's Mac, phone or real file:
+
+- The real workbook's layout (the user pastes the diagnosis text back).
+- Real Excel opening a written file without a repair prompt. LibreOffice
+  opens and recalculates the written fixtures, and a hand-built Excel-style
+  workbook is covered by `patch.adversarial.test.ts`.
+- iCloud: downloading a dataless file from the background service, the
+  `.nosync` temp file and the rename, and the macOS permission prompt for
+  the service (`node`) on Desktop, Documents and iCloud Drive.
+- `tailscale serve` live: the JSON shapes of `tailscale status` and `serve
+  status`, the headers it adds (taken from Tailscale's source), the App Store
+  build used as a CLI, and iPhone Safari with the `Secure; SameSite=Strict`
+  cookie. The installer's Tailscale step has not run on a Mac.
+- The new write step of `mac-install.yml` on a macOS runner.
+
+Known limits:
+
+- Excel open without its `~$` lock file is not detected, and LibreOffice or
+  Numbers locks are not checked.
+- The rename replaces the file, so extended attributes (Finder tags) are not
+  carried over; ZIP extra fields and comments are dropped.
+- A crash between writing the temp file and the rename leaves the hidden
+  temp file until the next write to that workbook.
+- One write at a time is enforced per process only.
+- The overview count is as old as the last read of the file.
+- The revert notice cannot be dismissed; it goes away with the next write.
+

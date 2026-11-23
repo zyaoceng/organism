@@ -1,14 +1,16 @@
 /**
  * Routes of the assumptions panel: link a company to an Excel file in the vault folder, read it,
- * and recalculate trial values. Excel is the only store of the assumptions; every answer is
- * computed from the file as it is on disk, and nothing here writes to it.
+ * recalculate trial values, and write the user's changes back into it. Excel is the only store of
+ * the assumptions; every answer is computed from the file as it is on disk. The one route that
+ * writes to the file is POST …/workbook/write (write.ts).
  *
- * Linking, the result mapping and the vault folder are the user's to set (an AI client may read
- * and recalculate). The vault folder itself can only be set from this Mac.
+ * Linking, the result mapping, writing back and the vault folder are the user's (an AI client may
+ * read and recalculate). The vault folder itself can only be set from this Mac.
  */
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import path from 'node:path';
 import type { LabelAnchor, OutputMapping, PeriodAnchor } from '../../domain/workbook/types';
+import { isAgentActor } from '../../shared/actors';
 import type { VaultDirDTO, WorkbookFileDTO, WorkbookFilesDTO, WorkbookRecalcDTO, WorkbookRecalcRequest, WorkbookViewDTO, WorkbookWarningDTO } from '../../shared/api';
 import { currentActor, quietRequest } from '../actor';
 import type { DB } from '../db/connection';
@@ -16,6 +18,7 @@ import { getProject, primarySecurity } from '../repos/projects';
 import { badRequest, conflict, forbidden, HttpError, nowIso, parseJson } from '../util';
 import { defaultFileDeps, listVaultXlsx, readWorkbookFile, resolveInVault, vaultAccess, WorkbookPathError, type FileDeps } from './file';
 import { assumptionDTOs, diagnosisText, evaluate, loadWorkbook, mappingWarnings, PARTY_GAP_THRESHOLD, partyTables, unknownAssumptionIds, type LoadedWorkbook, type TrialInput } from './view';
+import { detectRevert, parseWriteRequest, writeBack } from './write';
 import { XlsxError } from './zipRead';
 
 export const VAULT_DIR_SETTING = 'vault_dir';
@@ -31,6 +34,8 @@ export interface WorkbookRouteOptions {
   vaultDir?: string;
   /** How files are inspected (tests). */
   fileDeps?: Partial<FileDeps>;
+  /** Where the copies made before each write go (<dataDir>/workbook-backups). Default: the folder of the database file. */
+  dataDir?: string;
 }
 
 interface LinkRow {
@@ -103,6 +108,8 @@ function parseTrial(body: unknown): TrialInput & { baseSha: string } {
 export function registerWorkbookRoutes(app: FastifyInstance, o: WorkbookRouteOptions): void {
   const { db } = o;
   const deps: FileDeps = { ...defaultFileDeps, ...o.fileDeps };
+  // an in-memory database has no folder: writing back then needs `dataDir`
+  const dataDir = o.dataDir ?? (db.memory ? null : path.dirname(db.name));
   const cache = new Map<string, LoadedWorkbook>();
   app.addHook('onClose', async () => {
     for (const l of cache.values()) l.engine.dispose();
@@ -214,7 +221,7 @@ export function registerWorkbookRoutes(app: FastifyInstance, o: WorkbookRouteOpt
 
   async function view(req: FastifyRequest, projectId: string): Promise<WorkbookViewDTO> {
     const v = vault();
-    const empty = { vault: v, loaded: false, selfCheck: null, assumptions: [], needsDecision: 0, outputs: null, sensitivity: null, parties: [], gapThreshold: PARTY_GAP_THRESHOLD, warnings: [], mapping: null };
+    const empty = { vault: v, loaded: false, selfCheck: null, assumptions: [], needsDecision: 0, outputs: null, sensitivity: null, parties: [], gapThreshold: PARTY_GAP_THRESHOLD, warnings: [], mapping: null, revert: null };
     const link = linkOf(projectId);
     if (!link) return { ...empty, linked: false, file: null };
     const { file, loaded } = await open(req, v, link);
@@ -242,6 +249,7 @@ export function registerWorkbookRoutes(app: FastifyInstance, o: WorkbookRouteOpt
       gapThreshold: PARTY_GAP_THRESHOLD,
       warnings,
       mapping: { saved: saved !== null, outputs: mapping, candidates: loaded.detect.candidates },
+      revert: detectRevert(db, projectId, link.rel_path, file.sha256, loaded),
     };
   }
 
@@ -305,6 +313,30 @@ export function registerWorkbookRoutes(app: FastifyInstance, o: WorkbookRouteOpt
     if (unknown.length) throw badRequest(`Not an assumption of this workbook: ${unknown.slice(0, 5).join(', ')}`, { code: 'UNKNOWN_ASSUMPTION', ids: unknown });
     const saved = parseJson<OutputMapping | null>(link.mapping_json, null);
     return { baseSha: input.baseSha, ...evaluate(loaded, saved ?? loaded.detect.outputs, input) };
+  });
+
+  // The one route that changes the user's file. An AI client is refused whatever it sends: what goes
+  // into the workbook is decided by the person looking at the list of cells in the browser.
+  app.post<{ Params: Params }>('/api/projects/:id/workbook/write', async (req): Promise<WorkbookViewDTO> => {
+    const id = req.params.id;
+    getProject(db, id);
+    if (isAgentActor(req.actor)) throw forbidden('An AI client cannot write to the Excel file; the user does that in the browser', { code: 'USER_ONLY' });
+    userOnly(req, 'write to the Excel file');
+    const input = parseWriteRequest(req.body);
+    const link = linkOf(id);
+    if (!link) throw new HttpError(404, 'No Excel file is linked to this company', { code: 'WORKBOOK_NOT_LINKED' });
+    const v = vault();
+    if (!v.dir) throw conflict('The vault folder is not set', { code: 'NO_VAULT' });
+    let abs = '';
+    try {
+      abs = resolveInVault(v.dir, link.rel_path);
+    } catch (e) {
+      if (e instanceof WorkbookPathError) throw conflict('The linked Excel file cannot be read right now', { code: 'WORKBOOK_UNREADABLE', state: 'unreadable', reason: e.code });
+      throw e;
+    }
+    if (!dataDir) throw new HttpError(500, 'The server has no data folder to keep a copy of the original in');
+    await writeBack({ db, dataDir, projectId: id, relPath: link.rel_path, absPath: abs, fileDeps: deps, load }, input);
+    return view(req, id);
   });
 
   // Where the results are, as label anchors; null goes back to detecting them on every load.

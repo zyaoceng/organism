@@ -6,29 +6,36 @@ import { t, tm } from '../lib/i18n';
 import { useWorkspace } from '../lib/store';
 import { cls, fmtDateTime } from '../lib/util';
 import {
+  afterWrite,
   applyChoice,
   barShare,
   candidateChoices,
+  confirmOpen,
   currentCalc,
   deltaVsFile,
   editNum,
   emptyTrial,
+  exactNum,
   fmtNum,
   isPercent,
   hasRange,
   loadTrial,
+  mineFilled,
   orderAssumptions,
   OUTPUT_KEYS,
   parseNum,
   recalcPlan,
+  refill,
   reloadAfter,
   saveTrial,
   signed,
   sizeText,
   sortTornado,
+  writePlan,
   type RecalcPlan,
   type TrialCalc,
   type TrialState,
+  type WritePlan,
 } from '../lib/workbook';
 
 /** Wait this long after the last keystroke before asking the server to recalculate. */
@@ -39,7 +46,7 @@ const PRICE_FMT = '#,##0.00';
 /**
  * The assumptions of the company's linked Excel file. The file is the only copy: this page reads it,
  * shows what needs a decision first, and recalculates trial values on the server. Trial values stay in
- * this browser tab; nothing here writes to the file.
+ * this browser tab until the user presses “Write to Excel” and confirms the list of cells.
  */
 export function AssumptionsPage() {
   const projectId = useWorkspace((s) => s.projectId)!;
@@ -99,7 +106,7 @@ export function AssumptionsPage() {
     <div className="page wb" data-testid="assumptions-page">
       <div className="page-head">
         <h1>{t('Assumptions')}</h1>
-        <span className="sub">{t('Read from the linked Excel file. Numbers typed here are trial values and are not saved to Excel.')}</span>
+        <span className="sub">{t('Read from the linked Excel file. Numbers typed here are trial values; they go into Excel only when you press “Write to Excel”.')}</span>
       </div>
       {error && (
         <div className="msg err" style={{ marginBottom: 12 }}>
@@ -439,9 +446,20 @@ function Loaded(props: { projectId: string; view: WorkbookViewDTO; busy: boolean
   const [calcError, setCalcError] = useState<string | null>(null);
   const seq = useRef(0);
   const retried = useRef('');
+  const [confirming, setConfirming] = useState(false);
+  const [writing, setWriting] = useState(false);
+  const [writeError, setWriteError] = useState<string | null>(null);
+  /** Shown above the assumptions until the file changes again: what the last write did, or why it did not happen. */
+  const [notice, setNotice] = useState<{ kind: 'ok' | 'warn'; text: string; sha: string } | null>(null);
 
   useEffect(() => saveTrial(projectId, trial), [projectId, trial]);
   const plan = useMemo(() => recalcPlan(view.assumptions, trial, sha), [view.assumptions, trial, sha]);
+  const wplan = useMemo(() => writePlan(view.assumptions, plan, trial.decided, sha), [view.assumptions, plan, trial.decided, sha]);
+  const toWrite = wplan.rows.length + wplan.statusRows.length;
+  // the last change was taken back: the list is closed, and typing another number does not bring it back
+  useEffect(() => {
+    if (confirming && !confirmOpen(confirming, toWrite)) setConfirming(false);
+  }, [confirming, toWrite]);
   const active = plan.changed.length > 0 || plan.ranged.length > 0;
   const requestKey = active ? JSON.stringify(plan.request) : '';
   useEffect(() => {
@@ -488,9 +506,84 @@ function Loaded(props: { projectId: string; view: WorkbookViewDTO; busy: boolean
   const sensitivity = (shown.data ? shown.data.sensitivity : view.sensitivity) ?? { rows: [], withoutRange: [] };
   const { needs, groups } = useMemo(() => orderAssumptions(view.assumptions), [view.assumptions]);
   const setValue = (id: string, text: string) => setTrial((s) => ({ ...s, values: { ...s.values, [id]: text } }));
+  const toggleDecided = (id: string) => setTrial((s) => ({ ...s, decided: s.decided?.includes(id) ? s.decided.filter((x) => x !== id) : [...(s.decided ?? []), id] }));
+  const picked = (id: string) => wplan.statusRows.some((r) => r.id === id);
+
+  const write = async () => {
+    setWriting(true);
+    setWriteError(null);
+    try {
+      const v = await api.writeWorkbook(projectId, wplan.request);
+      const text = t('Written to Excel: {n} cell(s). The file is now from {time}, {size}.', { n: toWrite, time: fmtDateTime(v.file?.modifiedAt ?? null), size: sizeText(v.file?.size) });
+      // this change of the file is the page's own: not "the Excel file changed"
+      shownSha.current = v.file?.sha256 ?? '';
+      setTrial(afterWrite);
+      setConfirming(false);
+      setNotice({ kind: 'ok', text, sha: v.file?.sha256 ?? '' });
+      props.onView(v);
+      useWorkspace.getState().toast(text, 'success');
+    } catch (e) {
+      const code = e instanceof ApiError ? e.code : null;
+      if (code === 'FILE_LOCKED') setWriteError(t('Nothing was written: Excel has this file open. Close the file in Excel, then press “Write these cells” again.'));
+      else if (code === 'WRITE_DENIED')
+        setWriteError(t('Nothing was written: macOS does not let the Research Workbench service write in the folder of this file. On the Mac, allow it under System Settings → Privacy & Security → Files and Folders, then press “Write these cells” again.'));
+      else if (code === 'FILE_CHANGED' || code === 'WORKBOOK_UNREADABLE' || code === 'NOT_AN_ASSUMPTION') {
+        // the page's copy is out of date: read the file again and let the user look at the numbers before writing
+        setConfirming(false);
+        await onReload(true);
+        setNotice({
+          kind: 'warn',
+          text:
+            code === 'FILE_CHANGED'
+              ? t('Nothing was written: the Excel file was changed after this page read it. It was read again and your trial values are kept. Check the numbers, then press “Write to Excel” again.')
+              : t('Nothing was written: the Excel file could not be read as this page last saw it. It was read again; check the file status at the bottom of the page.'),
+          sha: '',
+        });
+      } else if (code === 'WRITE_FAILED') {
+        const restored = ((e as ApiError).details as { restored?: boolean } | null)?.restored === true;
+        setWriteError(
+          restored
+            ? t('The write failed and the file was put back as it was before. Nothing changed in Excel. Press Reload and try again.')
+            : t('The write failed and the file could not be put back. A copy from before the write is in the workbook-backups folder of the data folder on the Mac. Details: {msg}', { msg: tm((e as Error).message) }),
+        );
+        void onReload(true);
+      } else setWriteError(tm((e as Error).message));
+    } finally {
+      setWriting(false);
+    }
+  };
+  const openConfirm = () => {
+    setWriteError(null);
+    setConfirming(true);
+  };
+  const resetAll = () => {
+    setTrial(emptyTrial());
+    setConfirming(false);
+  };
+  const refillLost = () => {
+    if (!view.revert) return;
+    const r = refill(trial, view.revert, view.assumptions);
+    setTrial(r.trial);
+    useWorkspace.getState().toast(
+      r.missing > 0
+        ? t('Filled in again. {n} cell(s) can no longer be found in the file and were left out. Press “Write to Excel” to write them.', { n: r.missing })
+        : t('Filled in again. Press “Write to Excel” to write them.'),
+      'info',
+    );
+  };
   const setRange = (id: string, side: 'low' | 'high', text: string) => setTrial((s) => ({ ...s, ranges: { ...s.ranges, [id]: { ...(s.ranges[id] ?? { low: '', high: '' }), [side]: text } } }));
   const card = (a: AssumptionDTO) => (
-    <AssumptionCard key={a.id} a={a} text={trial.values[a.id] ?? ''} range={trial.ranges[a.id]} plan={plan} onValue={(v) => setValue(a.id, v)} onRange={(side, v) => setRange(a.id, side, v)} />
+    <AssumptionCard
+      key={a.id}
+      a={a}
+      text={trial.values[a.id] ?? ''}
+      range={trial.ranges[a.id]}
+      plan={plan}
+      decided={picked(a.id)}
+      onDecided={() => toggleDecided(a.id)}
+      onValue={(v) => setValue(a.id, v)}
+      onRange={(side, v) => setRange(a.id, side, v)}
+    />
   );
   const epsOut = outputs.eps.find((e) => e.period === outputs.epsPeriod) ?? null;
   const pending = calcBusy || shown.pending;
@@ -513,25 +606,82 @@ function Loaded(props: { projectId: string; view: WorkbookViewDTO; busy: boolean
           </div>
         )}
         <div className="wb-trial-note small" data-testid="wb-not-saved">
-          {active ? (
+          {active || toWrite > 0 ? (
             <>
               <b>
                 {plan.changed.length > 0
                   ? t('Trial: {n} assumption(s) changed, not saved to Excel.', { n: plan.changed.length })
-                  : t('Trial: {n} trial range(s) typed, no assumption changed; nothing is saved to Excel.', { n: plan.ranged.length })}
+                  : plan.ranged.length > 0
+                    ? t('Trial: {n} trial range(s) typed, no assumption changed; nothing is saved to Excel.', { n: plan.ranged.length })
+                    : t('{n} assumption(s) picked to become 已定, not saved to Excel yet.', { n: wplan.statusRows.length })}
               </b>
               {plan.changed.length > 0 && plan.ranged.length > 0 && ` ${t('{n} trial range(s).', { n: plan.ranged.length })}`}
+              {(plan.changed.length > 0 || plan.ranged.length > 0) && wplan.statusRows.length > 0 && ` ${t('{n} picked to become 已定.', { n: wplan.statusRows.length })}`}
               {calcBusy && ` ${t('Recalculating…')}`}{' '}
-              <button className="btn sm" onClick={() => setTrial(emptyTrial())} data-testid="wb-reset-all">
+              <button className="btn sm primary" disabled={toWrite === 0 || plan.invalid.length > 0 || writing} onClick={openConfirm} data-testid="wb-write">
+                {t('Write to Excel')}
+              </button>{' '}
+              <button className="btn sm" disabled={writing} onClick={resetAll} data-testid="wb-reset-all">
                 {t('Reset all')}
               </button>
+              {plan.invalid.length > 0 && <div className="err-text">{t('{n} box(es) do not hold a number. Correct or clear them before writing.', { n: plan.invalid.length })}</div>}
             </>
           ) : (
-            <span className="sub">{t('These are the file’s own numbers. Type a number in “Try” below to see them change; nothing is saved to Excel.')}</span>
+            <span className="sub">{t('These are the file’s own numbers. Type a number in “Try” below to see them change; nothing is saved to Excel until you press “Write to Excel”.')}</span>
           )}
         </div>
         {calcError && <div className="msg err">{tm(calcError)}</div>}
       </div>
+
+      {confirmOpen(confirming, toWrite) && (
+        <WriteConfirm
+          plan={wplan}
+          invalid={plan.invalid.length}
+          view={view}
+          target={pending || !active ? null : outputs.targetPrice}
+          busy={writing}
+          error={writeError}
+          onConfirm={() => void write()}
+          onCancel={() => setConfirming(false)}
+        />
+      )}
+      {notice && (notice.sha === '' || notice.sha === sha) && !confirming && (
+        <div className={cls('msg', notice.kind)} style={{ marginBottom: 12 }} data-testid="wb-write-notice" data-kind={notice.kind}>
+          {notice.text}{' '}
+          {notice.kind === 'warn' && (
+            <button className="btn sm" onClick={() => setNotice(null)}>
+              {t('Got it')}
+            </button>
+          )}
+        </div>
+      )}
+      {view.revert && (
+        <div className="msg warn" style={{ marginBottom: 12 }} data-testid="wb-revert">
+          <b>
+            {t('An older version of the Excel file is back: the {n} cell(s) written on {time} are no longer in it.', {
+              n: view.revert.changes.length + view.revert.statusChanges.length,
+              time: fmtDateTime(view.revert.writtenAt),
+            })}
+          </b>{' '}
+          {t('iCloud does this when two devices hold different versions. The numbers on this page are the older file’s.')}
+          <ul className="wb-list">
+            {view.revert.changes.map((c) => (
+              <li key={`${c.sheet}!${c.address}`} className="wb-wrap">
+                {c.label}（{c.sheet}!{c.address}）：{exactNum(c.value, view.assumptions.find((a) => a.id === c.id)?.numFmt)}
+              </li>
+            ))}
+            {view.revert.statusChanges.map((c) => (
+              <li key={`${c.sheet}!${c.address}`} className="wb-wrap">
+                {c.label}（{c.sheet}!{c.address}）：要 → 已定
+              </li>
+            ))}
+          </ul>
+          <button className="btn sm" onClick={refillLost} data-testid="wb-revert-refill">
+            {t('Fill these cells in again')}
+          </button>{' '}
+          <span className="small">{t('Nothing is written until you press “Write to Excel”.')}</span>
+        </div>
+      )}
 
       {view.warnings.length > 0 && (
         <div className="msg warn" style={{ marginBottom: 12 }} data-testid="wb-warnings">
@@ -564,8 +714,8 @@ function Loaded(props: { projectId: string; view: WorkbookViewDTO; busy: boolean
         ))}
       </section>
 
-      {view.parties.map((p) => (
-        <Parties key={p.sheet} table={p} threshold={view.gapThreshold} />
+      {view.parties.map((p, k) => (
+        <Parties key={`${k}:${p.sheet}`} table={p} threshold={view.gapThreshold} />
       ))}
 
       <FileCard view={view} busy={props.busy} onReload={() => void onReload()} onPick={props.onPick} onUnlink={props.onUnlink} projectId={projectId} onView={props.onView} />
@@ -606,11 +756,80 @@ function Result(props: { testid: string; label: string; out: WorkbookOutputDTO |
   );
 }
 
+/** Every cell the write will change, before it happens. Nothing is written until “Write these cells” is pressed. */
+function WriteConfirm(props: { plan: WritePlan; invalid: number; view: WorkbookViewDTO; target: WorkbookOutputDTO | null; busy: boolean; error: string | null; onConfirm: () => void; onCancel: () => void }) {
+  const { plan, view, target } = props;
+  const n = plan.rows.length + plan.statusRows.length;
+  const formulas = plan.rows.filter((r) => r.wasFormula).length;
+  const verified = view.selfCheck?.state === 'verified';
+  // the button that opens this sits in the bar that stays on screen; the list itself may be far up the page
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // not returned: newer browsers answer scrollIntoView with a promise, which is not an effect cleanup
+    box.current?.scrollIntoView({ block: 'start' });
+  }, []);
+  return (
+    <div className="card wb-confirm" ref={box} style={{ scrollMarginTop: 190, marginBottom: 12 }} data-testid="wb-write-confirm">
+      <h2>{t('Write {n} cell(s) to {file}?', { n, file: view.file?.name ?? '' })}</h2>
+      {target && target.cell && target.value !== null && target.fileValue !== null && (
+        <div className="wb-lead" data-testid="wb-write-target">
+          <b className="num">{t('Target price {a} → {b}', { a: fmtNum(target.fileValue, PRICE_FMT), b: fmtNum(target.value, PRICE_FMT) })}</b>
+        </div>
+      )}
+      <ul className="wb-list" data-testid="wb-write-cells">
+        {plan.rows.map((r) => (
+          <li key={r.id} className="wb-wrap" data-testid="wb-write-cell" data-cell={`${r.sheet}!${r.cell}`} data-formula={r.wasFormula ? '1' : '0'}>
+            <b>{r.label}</b>
+            <span className="num">
+              ：{exactNum(r.from, r.numFmt)} → {exactNum(r.to, r.numFmt)}
+            </span>{' '}
+            <span className="tiny faint nowrap">
+              {r.sheet}!{r.cell}
+            </span>{' '}
+            {r.wasFormula && <span className="badge warn">{t('a formula now; becomes a fixed number')}</span>}
+          </li>
+        ))}
+        {plan.statusRows.map((r) => (
+          <li key={`s:${r.id}`} className="wb-wrap" data-testid="wb-write-status" data-cell={`${r.sheet}!${r.cell}`}>
+            <b>{r.label}</b>：要 → 已定{' '}
+            <span className="tiny faint nowrap">
+              {r.sheet}!{r.cell}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {formulas > 0 && <div className="msg warn">{t('{n} of these cells hold a formula. The formula is replaced by the number and no longer follows the cells it referred to.', { n: formulas })}</div>}
+      {view.file?.excelOpen && <div className="msg warn">{t('Excel had this file open when it was last read. Close it in Excel first, or the write is refused.')}</div>}
+      <div className="small sub" style={{ marginTop: 6 }}>
+        {t('Only these cells change. A copy of the file as it is now is kept on the Mac first.')}{' '}
+        {verified ? t('The results that depend on them are updated in the file as well.') : t('Other results in the file are updated when Excel next opens it.')}
+      </div>
+      {props.invalid > 0 && <div className="err-text small">{t('{n} box(es) do not hold a number. Correct or clear them before writing.', { n: props.invalid })}</div>}
+      {props.error && (
+        <div className="msg err" style={{ marginTop: 8 }} data-testid="wb-write-error">
+          {props.error}
+        </div>
+      )}
+      <div className="row wrap" style={{ marginTop: 10 }}>
+        <button className="btn primary" disabled={props.busy || props.invalid > 0} onClick={props.onConfirm} data-testid="wb-write-go">
+          {props.busy ? t('Writing…') : t('Write these cells')}
+        </button>
+        <button className="btn ghost" disabled={props.busy} onClick={props.onCancel} data-testid="wb-write-cancel">
+          {t('Cancel')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AssumptionCard(props: {
   a: AssumptionDTO;
   text: string;
   range: { low: string; high: string } | undefined;
   plan: RecalcPlan;
+  /** Picked to become 已定 with the next write. */
+  decided: boolean;
+  onDecided: () => void;
   onValue: (text: string) => void;
   onRange: (side: 'low' | 'high', text: string) => void;
 }) {
@@ -636,10 +855,11 @@ function AssumptionCard(props: {
   };
   const ranged = hasRange(a);
   return (
-    <div className={cls('wb-a', changed && 'changed')} data-testid="wb-assumption" data-id={a.id} data-status={a.status ?? ''}>
+    <div className={cls('wb-a', (changed || props.decided) && 'changed')} data-testid="wb-assumption" data-id={a.id} data-status={a.status ?? ''} data-decided={props.decided ? '1' : '0'}>
       <div className="wb-a-head">
         <b className="wb-wrap">{a.label}</b>
         {a.status === 'needs-decision' && <span className="badge warn">要</span>}
+        {props.decided && <span className="badge accent">{t('becomes 已定 when written')}</span>}
         {a.status === 'decided' && <span className="badge">已定</span>}
         {a.valueIsFormula && <span className="badge">{t('formula')}</span>}
         <span className="tiny faint right nowrap">
@@ -682,6 +902,14 @@ function AssumptionCard(props: {
           </div>
         </div>
       </div>
+      {a.status === 'needs-decision' && a.statusCell && (
+        <div className="row wrap" style={{ marginTop: 6 }}>
+          <button className="btn sm" onClick={props.onDecided} aria-pressed={props.decided} data-testid="wb-decide">
+            {props.decided ? t('Keep it 要') : t('Change to 已定')}
+          </button>
+          <span className="tiny sub">{props.decided ? t('Written together with “Write to Excel”.') : t('Excel is changed only when you press “Write to Excel”.')}</span>
+        </div>
+      )}
       {!ranged && <div className="tiny sub">{t('The file gives no range. A trial range typed here is used for the sensitivity list only and is not saved.')}</div>}
       {!parsed.ok && <div className="tiny err-text">{t('Not a number')}</div>}
       {(a.basis || a.note) && (
@@ -766,21 +994,24 @@ function Parties({ table, threshold }: { table: PartyTableDTO; threshold: number
   // a party with no figure in this period is left out and named below
   const filled = period.columns.map((_, j) => table.rows.some((r) => r.cells[i]?.[j] && (r.cells[i][j].value !== null || r.cells[i][j].text)));
   const flagged = table.rows.reduce((n, r) => n + (r.cells[i] ?? []).filter((c) => c.flagged).length, 0);
+  const mine = mineFilled(period.columns, filled);
   const pct = Math.round(threshold * 100);
   return (
     <section className="card" data-testid="wb-parties" data-sheet={table.sheet}>
       <h2>{t('Side by side: {sheet}', { sheet: table.sheet })}</h2>
       <div className="wb-lead">
         <b data-testid="wb-parties-lead">
-          {flagged > 0
-            ? t('{period}: {n} figure(s) are more than {pct}% away from 我的預估.', { period: period.period, n: flagged, pct })
-            : t('{period}: no figure is more than {pct}% away from 我的預估.', { period: period.period, pct })}
+          {!mine
+            ? t('{period}: 我的預估 has no figure in this period, so nothing is compared.', { period: period.period })
+            : flagged > 0
+              ? t('{period}: {n} figure(s) are more than {pct}% away from 我的預估.', { period: period.period, n: flagged, pct })
+              : t('{period}: no figure is more than {pct}% away from 我的預估.', { period: period.period, pct })}
         </b>{' '}
         <span className="small sub">{t('File values, without trial values.')}</span>
       </div>
       <div className="seg wb-periods" role="group" aria-label={t('Period')}>
         {table.periods.map((p, k) => (
-          <button key={p.period} className={cls(k === i && 'on plain')} onClick={() => setAt(k)}>
+          <button key={k} className={cls(k === i && 'on plain')} onClick={() => setAt(k)}>
             {p.period}
           </button>
         ))}
@@ -794,8 +1025,8 @@ function Parties({ table, threshold }: { table: PartyTableDTO; threshold: number
             </tr>
           </thead>
           <tbody>
-            {table.rows.map((r) => (
-              <tr key={r.label}>
+            {table.rows.map((r, k) => (
+              <tr key={k}>
                 <td>{r.label}</td>
                 {period.columns.map((_, j) => {
                   const v = r.cells[i]?.[j];

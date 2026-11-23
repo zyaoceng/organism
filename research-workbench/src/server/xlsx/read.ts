@@ -99,7 +99,7 @@ function readStyles(root: XmlNode | undefined): (string | undefined)[] {
 }
 
 /** Resolves a relationship target against the part that holds it. */
-function resolveTarget(basePart: string, target: string): string {
+export function resolveTarget(basePart: string, target: string): string {
   if (target.startsWith('/')) return target.slice(1);
   const parts = basePart.split('/').slice(0, -1);
   for (const seg of target.split('/')) {
@@ -109,7 +109,7 @@ function resolveTarget(basePart: string, target: string): string {
   return parts.join('/');
 }
 
-const relsPath = (part: string) => part.replace(/([^/]+)$/, '_rels/$1.rels');
+export const relsPath = (part: string) => part.replace(/([^/]+)$/, '_rels/$1.rels');
 
 function readSheet(root: XmlNode, name: string, hidden: boolean, strings: string[], formats: (string | undefined)[]): WorkbookSheet {
   const cells: Record<string, WorkbookCell> = {};

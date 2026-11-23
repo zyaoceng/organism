@@ -12,7 +12,7 @@ import { openDatabase } from './db/connection';
 import { MIGRATIONS, SCHEMA_VERSION } from './db/migrations';
 import { DemoProvider } from './market/demo';
 import { BRCTL_PROGRAM, STAT_PROGRAM, defaultFileDeps, excelLockPath, inspectFile, legacyPlaceholderPath, listVaultXlsx, readWorkbookFile, resolveInVault, sha256Hex, type FileDeps } from './xlsx/file';
-import { maskFormula } from './xlsx/view';
+import { maskFormula, partyGap } from './xlsx/view';
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'xlsx', 'fixtures');
 const CRWD = 'CRWD_簡明損益表.xlsx';
@@ -141,6 +141,27 @@ describe('linking and reading the CRWD workbook', () => {
     }
     expect(cells.some((c) => c.gap !== null && !c.flagged)).toBe(true);
     expect(cells.some((c) => c.flagged)).toBe(true);
+  });
+
+  it('flags a party figure by its distance from 我的預估: zero, negative, missing and exactly 10%', () => {
+    expect(partyGap(120, 100)).toEqual({ gap: 0.2, flagged: true });
+    expect(partyGap(105, 100)).toEqual({ gap: 0.05, flagged: false });
+    // a negative 我的預估: the sign is the direction of the difference, the share is of its size
+    expect(partyGap(-1, -2)).toEqual({ gap: 0.5, flagged: true });
+    expect(partyGap(-2.1, -2).flagged).toBe(false);
+    expect(partyGap(1, -1)).toEqual({ gap: 2, flagged: true });
+    // exactly 10% is not "more than 10%", whatever binary arithmetic makes of it
+    expect((1.1 - 1) / 1).toBeGreaterThan(0.1);
+    expect(partyGap(1.1, 1).flagged).toBe(false);
+    expect(partyGap(0.9, 1).flagged).toBe(false);
+    expect(partyGap(1.1001, 1).flagged).toBe(true);
+    // against 0 there is no share, but a figure that is not 0 disagrees
+    expect(partyGap(5, 0)).toEqual({ gap: null, flagged: true });
+    expect(partyGap(-0.01, 0)).toEqual({ gap: null, flagged: true });
+    expect(partyGap(0, 0)).toEqual({ gap: null, flagged: false });
+    // nothing to compare
+    expect(partyGap(null, 100)).toEqual({ gap: null, flagged: false });
+    expect(partyGap(100, null)).toEqual({ gap: null, flagged: false });
   });
 
   it('reads a file without stored results and says the engine could not be checked', async () => {

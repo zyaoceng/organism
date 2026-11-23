@@ -529,6 +529,8 @@ export interface DiagnosticsDTO {
   clients: AiClientStatusDTO[];
   /** The Obsidian plugin's last report (null until it has synced once). */
   vault: VaultStatusDTO | null;
+  /** Phone access through Tailscale: the https address (null when not set up) and the Tailscale accounts let in. */
+  remote: { url: string | null; logins: string[] };
 }
 
 /** GET /api/securities/lookup?ticker= : the same security across all companies. */
@@ -631,6 +633,19 @@ export interface DashboardRowDTO {
   theses: { reviewDue: number; nextReviewBy: string | null };
   /** Latest AI activity on this company (ai_sessions or the audit log); summary is the session summary's first line. */
   ai: { client: AgentClient; at: string; summary: string | null } | null;
+  workbook: DashboardWorkbookDTO;
+}
+
+/**
+ * The linked Excel file as the overview knows it, from the count kept when the assumptions page
+ * (or any reader of GET …/workbook) last read the file. The overview itself never opens the file.
+ */
+export interface DashboardWorkbookDTO {
+  linked: boolean;
+  /** Assumptions marked 要 at that reading; null when no file is linked or it was never read. */
+  pending: number | null;
+  /** When that count was taken; null when there is none. */
+  checkedAt: string | null;
 }
 
 /** GET /api/dashboard */
@@ -839,6 +854,8 @@ export interface AssumptionDTO {
   note: string | null;
   /** 要 → 'needs-decision', 已定 → 'decided'. */
   status: AssumptionStatus | null;
+  /** Address of the cell that says 要 or 已定; null when the table has no such column. */
+  statusCell: string | null;
   /** 'output': the valuation multiple, found by its label outside the assumption tables. */
   origin: 'table' | 'output';
 }
@@ -911,7 +928,7 @@ export interface PartyValueDTO {
   text: string | null;
   /** (value − 我的預估) ÷ |我的預估| for the same row and period; null for 我的預估 itself or when either is missing. */
   gap: number | null;
-  /** |gap| is above `gapThreshold`. */
+  /** |gap| is above `gapThreshold`; also true for a figure other than 0 against a 我的預估 of 0, where `gap` is null. */
   flagged: boolean;
 }
 
@@ -962,6 +979,35 @@ export interface WorkbookViewDTO {
   gapThreshold: number;
   warnings: WorkbookWarningDTO[];
   mapping: WorkbookMappingDTO | null;
+  /** An older version of the file is back and an earlier write is no longer in it; null otherwise. */
+  revert: WorkbookRevertDTO | null;
+}
+
+/**
+ * POST /api/projects/:id/workbook/write: puts numbers into assumption value cells of the linked file
+ * (a formula there is replaced by the number) and turns 要 into 已定. Only the browser user may call
+ * it. Answers with the view of the file as written. Refusals: 409 FILE_CHANGED (the file is not the
+ * one `baseSha` names), 423 FILE_LOCKED (Excel has it open), 409 WORKBOOK_UNREADABLE,
+ * 400 NOT_AN_ASSUMPTION, 409 CELL_NOT_WRITABLE, 403 WRITE_DENIED (macOS keeps the server from writing
+ * in the folder), 403 FILE_READ_ONLY (the file's permissions say nobody may write to it), 500 BACKUP_FAILED and 500 VERIFY_FAILED (nothing was written), and 500 WRITE_FAILED
+ * (`details.restored` says whether the file is as it was before).
+ */
+export interface WorkbookWriteRequest {
+  /** `file.sha256` of the view the values were entered on. */
+  baseSha: string;
+  changes: { sheet: string; address: string; value: number }[];
+  statusChanges: { sheet: string; address: string; to: '已定' }[];
+}
+
+/** The cells of writes that an older version of the file no longer holds. */
+export interface WorkbookRevertDTO {
+  /** When the earliest of those writes was made. */
+  writtenAt: string;
+  /** How many writes are missing. */
+  writes: number;
+  /** `id`: the assumption of the file as it is now that has this cell; null when there is none. */
+  changes: { id: string | null; sheet: string; address: string; label: string; value: number }[];
+  statusChanges: { id: string | null; sheet: string; address: string; label: string }[];
 }
 
 /** POST /api/projects/:id/workbook/recalc. Nothing is saved. */

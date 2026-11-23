@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { OutputCandidate, OutputMapping } from '../../domain/workbook/types';
 import type { AssumptionDTO, TornadoRowDTO } from '../../shared/api';
-import { applyChoice, barShare, candidateChoices, currentCalc, reloadAfter, deltaVsFile, editNum, emptyTrial, fmtNum, isPercent, orderAssumptions, parseNum, parseTrial, recalcPlan, signed, sizeText, sortTornado } from './workbook';
+import { applyChoice, barShare, candidateChoices, currentCalc, reloadAfter, deltaVsFile, editNum, emptyTrial, fmtNum, isPercent, orderAssumptions, parseNum, parseTrial, recalcPlan, signed, sizeText, sortTornado, afterWrite, refill, writePlan, exactNum, confirmOpen, mineFilled } from './workbook';
 
 const a = (label: string, over: Partial<AssumptionDTO> = {}): AssumptionDTO => ({
   id: `營收模型!${label}#1`,
@@ -17,6 +17,7 @@ const a = (label: string, over: Partial<AssumptionDTO> = {}): AssumptionDTO => (
   basis: null,
   note: null,
   status: 'decided',
+  statusCell: 'F15',
   origin: 'table',
   ...over,
 });
@@ -255,5 +256,90 @@ describe('where the results are read from', () => {
 
     const eps = applyChoice(mapping, 'eps', candidateChoices(candidates, 'eps')[0]);
     expect(eps.eps.map((e) => e.period)).toEqual(['3Q27', 'FY27']);
+  });
+});
+
+describe('writing back to Excel', () => {
+  const growth = a('端點台數年增率', { status: 'needs-decision', statusCell: 'F15' });
+  const arr = a('3Q26 淨新增 ARR', { cell: 'B49', value: 265, numFmt: '#,##0.0', valueIsFormula: true, low: null, high: null, status: null, statusCell: null });
+  const multiple = a('目標價倍數', { cell: 'B82', value: 25, numFmt: null, low: null, high: null, status: null, statusCell: null, origin: 'output' });
+  const all = [growth, arr, multiple];
+
+  it('lists every cell a write changes, with old and new value and whether a formula is replaced', () => {
+    const trial = { values: { [growth.id]: '18', [arr.id]: '300', [multiple.id]: '25' }, ranges: { [multiple.id]: { low: '20', high: '30' } }, decided: [growth.id, multiple.id, 'gone'] };
+    const w = writePlan(all, recalcPlan(all, trial, 'sha'), trial.decided, 'sha');
+    expect(w.rows).toEqual([
+      { id: growth.id, label: growth.label, sheet: '營收模型', cell: 'B15', numFmt: '0.0%', from: 0.16, to: 0.18, wasFormula: false },
+      { id: arr.id, label: arr.label, sheet: '營收模型', cell: 'B49', numFmt: '#,##0.0', from: 265, to: 300, wasFormula: true },
+    ]);
+    // only an assumption marked 要 with a status cell can become 已定; the trial range is not written
+    expect(w.statusRows).toEqual([{ id: growth.id, label: growth.label, sheet: '營收模型', cell: 'F15' }]);
+    expect(w.request).toEqual({
+      baseSha: 'sha',
+      changes: [
+        { sheet: '營收模型', address: 'B15', value: 0.18 },
+        { sheet: '營收模型', address: 'B49', value: 300 },
+      ],
+      statusChanges: [{ sheet: '營收模型', address: 'F15', to: '已定' }],
+    });
+  });
+
+  it('has nothing to write when no value differs and nothing is picked', () => {
+    const w = writePlan(all, recalcPlan(all, { values: { [multiple.id]: '25' }, ranges: {} }, 'sha'), undefined, 'sha');
+    expect(w.rows).toEqual([]);
+    expect(w.statusRows).toEqual([]);
+  });
+
+  it('clears the written values after a write and keeps the trial ranges', () => {
+    expect(afterWrite({ values: { x: '1' }, ranges: { y: { low: '1', high: '2' } }, decided: ['x'] })).toEqual({ values: {}, ranges: { y: { low: '1', high: '2' } } });
+  });
+
+  it('keeps the picks with the trial values of the tab', () => {
+    expect(parseTrial(JSON.stringify({ values: {}, ranges: {}, decided: ['a', 5, 'b'] }))).toEqual({ values: {}, ranges: {}, decided: ['a', 'b'] });
+  });
+
+  it('types the cells of a lost write in again, and counts the ones the file no longer has', () => {
+    const revert = {
+      writtenAt: '2026-11-23T01:02:03.000Z',
+      writes: 1,
+      changes: [
+        { id: growth.id, sheet: '營收模型', address: 'B15', label: growth.label, value: 0.18 },
+        { id: null, sheet: '營收模型', address: 'B99', label: '不見了', value: 1 },
+      ],
+      statusChanges: [{ id: growth.id, sheet: '營收模型', address: 'F15', label: growth.label }],
+    };
+    const r = refill({ values: { [multiple.id]: '30' }, ranges: {} }, revert, all);
+    expect(r.missing).toBe(1);
+    // a percent cell is typed in percent
+    expect(r.trial).toEqual({ values: { [multiple.id]: '30', [growth.id]: '18' }, ranges: {}, decided: [growth.id] });
+    expect(writePlan(all, recalcPlan(all, r.trial, 'sha'), r.trial.decided, 'sha').request.changes).toContainEqual({ sheet: '營收模型', address: 'B15', value: 0.18 });
+  });
+  it('shows every digit in the list of cells when the cell format would round the change away', () => {
+    // the format shows the whole value: as the sheet shows it
+    expect(exactNum(25, '0.0')).toBe('25.0');
+    expect(exactNum(0.18, '0%')).toBe('18%');
+    expect(exactNum(1234.5, '#,##0.0')).toBe('1,234.5');
+    // it would not: 25.0 → 25.0 and 16% → 16% tell nothing about a write
+    expect(exactNum(25.04, '0.0')).toBe('25.04');
+    expect(exactNum(0.1601, '0%')).toBe('16.01%');
+    expect(exactNum(0.165, '0%')).toBe('16.5%');
+    expect(exactNum(1234.56, '#,##0')).toBe('1234.56');
+    expect(exactNum(-0.004, '0.00')).toBe('-0.004');
+    expect(exactNum(25.123456, null)).toBe('25.123456');
+    expect(exactNum(null, '0.0')).toBe('—');
+    for (const [from, to, fmt] of [[25, 25.04, '0.0'], [0.16, 0.163, '0%'], [100, 100.4, '#,##0']] as const) expect(exactNum(from, fmt)).not.toBe(exactNum(to, fmt));
+  });
+
+  it('closes the list of cells once nothing is left to write, so it does not reopen by itself', () => {
+    expect(confirmOpen(true, 2)).toBe(true);
+    expect(confirmOpen(true, 0)).toBe(false);
+    expect(confirmOpen(false, 2)).toBe(false);
+  });
+
+  it('knows when 我的預估 has no figure in a period', () => {
+    const columns = [{ party: 'mine' }, { party: 'consensus' }];
+    expect(mineFilled(columns, [true, true])).toBe(true);
+    expect(mineFilled(columns, [false, true])).toBe(false);
+    expect(mineFilled([{ party: 'consensus' }], [true])).toBe(false);
   });
 });

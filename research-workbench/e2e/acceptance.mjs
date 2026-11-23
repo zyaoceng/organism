@@ -10,6 +10,7 @@
  * T23 (dashboard) and T24 (trade log) add two companies with trades; one of them is recorded by an AI client when tokens are at hand.
  * T25 plays the Obsidian plugin with the obsidian token from tokens.json, so it also needs the server this script started.
  * T26 links the CRWD example workbook from a throwaway vault folder (WORKBENCH_VAULT_DIR), so it also needs the server this script started; T27 is the phone width.
+ * T28 writes to that copy of the workbook (never to the fixture in the repository) and T29 reads the count on the overview; both need T26.
  * CHROME=/path/to/chrome overrides the browser executable.
  */
 import { spawn, execSync } from 'node:child_process';
@@ -970,6 +971,180 @@ await test(27, 'Phone width (390×844): no sideways scrolling on the assumptions
     o = await overflow();
     assert.ok(o.doc <= o.win && o.wide.length === 0, `home page: ${JSON.stringify(o)}`);
     await phone.screenshot({ path: path.join(out, 'phone-home.png') });
+  } finally {
+    await phone.close();
+  }
+});
+
+await test(28, 'Write to Excel: the list of cells, the file changes and is re-read, a copy is kept, 要 → 已定 lowers the count', async () => {
+  if (!vaultDir || !crwd) {
+    console.log('      (skipped: needs the workbook linked in T26)');
+    return;
+  }
+  const linked = path.join(vaultDir, '03 個股研究', 'CRWD', 'CRWD_簡明損益表.xlsx');
+  const other = path.join(vaultDir, '共用公式.xlsx');
+  const sha = (f) => execSync(`sha256sum "${f}"`).toString().split(' ')[0];
+  const original = sha(linked);
+  const otherBefore = sha(other);
+  const backupDir = path.join(dataDir, 'workbook-backups', crwd);
+  const backups = () => (fs.existsSync(backupDir) ? fs.readdirSync(backupDir).sort() : []);
+  const vaultFiles = () => fs.readdirSync(vaultDir, { recursive: true, withFileTypes: true }).filter((d) => d.isFile()).map((d) => path.relative(vaultDir, path.join(d.parentPath, d.name))).sort();
+  const filesBefore = vaultFiles();
+  const num = async (id) => Number(await page.getByTestId(id).getAttribute('data-value'));
+  const near = (a, b, tol, what) => assert.ok(Math.abs(a - b) <= tol, `${what}: ${a}, expected about ${b}`);
+  assert.deepEqual(backups(), [], 'nothing was written before this check');
+
+  await page.goto(`${BASE}/#/p/${crwd}/assumptions`);
+  await page.reload();
+  await page.getByTestId('wb-results').waitFor();
+  const seen = (await api(`/api/projects/${crwd}/workbook`)).file;
+  assert.equal(seen.sha256, original);
+  // nothing to write yet
+  assert.equal(await page.getByTestId('wb-write').count(), 0);
+  const multiple = page.locator('[data-testid=wb-assumption][data-id="營收模型!EV/Sales 倍數#1"]');
+  await multiple.getByTestId('wb-trial').fill('30');
+  await page.locator('[data-testid=wb-results][data-trial="1"][data-pending="0"]').waitFor();
+  near(await num('wb-result-tp'), 204.83, 0.01, 'target price at 30×');
+  assert.equal(sha(linked), original, 'trying a value does not touch the file');
+
+  // the list: target price old → new, and the one cell; cancelling writes nothing
+  await page.getByTestId('wb-write').click();
+  const confirm = page.getByTestId('wb-write-confirm');
+  await confirm.waitFor();
+  assert.match(await confirm.locator('h2').innerText(), /Write 1 cell\(s\) to CRWD_簡明損益表\.xlsx\?/);
+  assert.match(await confirm.getByTestId('wb-write-target').innerText(), /171\.53 → 204\.83/);
+  assert.equal(await confirm.getByTestId('wb-write-cell').count(), 1);
+  assert.match(await confirm.getByTestId('wb-write-cell').innerText(), /EV\/Sales 倍數[\s\S]*25[\s\S]*→[\s\S]*30[\s\S]*營收模型![A-Z]+\d+/);
+  await snap('write-confirm');
+  await confirm.getByTestId('wb-write-cancel').click();
+  await confirm.waitFor({ state: 'detached' });
+  assert.equal(sha(linked), original, 'cancelling the list writes nothing');
+  assert.deepEqual(backups(), []);
+
+  // an AI client is refused, and so is a write that names another version of the file
+  if (fs.existsSync(path.join(dataDir, 'tokens.json'))) {
+    const cell = (await api(`/api/projects/${crwd}/workbook`)).assumptions.find((a) => a.id === '營收模型!EV/Sales 倍數#1');
+    await assert.rejects(tokenWrite('claude-code')('POST', `/api/projects/${crwd}/workbook/write`, { baseSha: original, changes: [{ sheet: cell.sheet, address: cell.cell, value: 99 }], statusChanges: [] }), /403[\s\S]*USER_ONLY/);
+    assert.equal(sha(linked), original, 'an AI client cannot write to the file');
+  }
+
+  await page.getByTestId('wb-write').click();
+  await confirm.getByTestId('wb-write-go').click();
+  const notice = page.locator('[data-testid=wb-write-notice][data-kind=ok]');
+  await notice.waitFor();
+  await page.locator('[data-testid=wb-results][data-trial="0"]').waitFor();
+  // the file is a different one now, and the page says its new time and size
+  const written = sha(linked);
+  assert.notEqual(written, original, 'the file was written');
+  const now = (await api(`/api/projects/${crwd}/workbook`)).file;
+  assert.equal(now.sha256, written, 'the page reads the written file');
+  assert.equal(now.size, fs.statSync(linked).size);
+  const kb = (n) => new RegExp(String(Math.round(n / 1024)).slice(0, 2));
+  const noticeText = await notice.innerText();
+  assert.match(noticeText, /Written to Excel: 1 cell\(s\)\. The file is now from .*\d\d:\d\d/);
+  assert.match(noticeText, kb(now.size), `the notice gives the size (${now.size} bytes): ${noticeText}`);
+  near(await num('wb-result-tp'), 204.83, 0.01, 'target price read from the written file');
+  assert.equal(await multiple.getByTestId('wb-trial').inputValue(), '', 'the trial value is cleared after the write');
+  assert.equal(await page.getByTestId('wb-selfcheck').getAttribute('data-state'), 'verified', 'the written file still recalculates to its stored results');
+  await snap('write-done');
+
+  // a copy of the original is in the data folder; in the vault only that one file changed
+  assert.equal(backups().length, 1);
+  assert.equal(sha(path.join(backupDir, backups()[0])), original, 'the copy is the file as it was');
+  assert.deepEqual(vaultFiles(), filesBefore, 'no file was added to or removed from the vault');
+  assert.equal(sha(other), otherBefore);
+
+  // after a reload the value is the file's own
+  await page.reload();
+  await page.getByTestId('wb-results').waitFor();
+  assert.equal(await page.getByTestId('wb-results').getAttribute('data-trial'), '0');
+  near(await num('wb-result-tp'), 204.83, 0.01, 'target price after reload');
+  assert.match(await multiple.getByTestId('wb-value').innerText(), /30/);
+  near(await num('wb-result-revenue'), 6861, 0.5, 'revenue is as before');
+
+  // one 要 becomes 已定: the count goes from 8 to 7, here and on the overview
+  assert.equal(await page.getByTestId('wb-needs').getByTestId('wb-assumption').count(), 8);
+  assert.equal((await api('/api/dashboard')).rows.find((r) => r.projectId === crwd).workbook.pending, 8);
+  const firstNeed = page.getByTestId('wb-needs').getByTestId('wb-assumption').first();
+  const decidedId = await firstNeed.getAttribute('data-id');
+  await firstNeed.getByTestId('wb-decide').click();
+  assert.match(await page.getByTestId('wb-not-saved').innerText(), /1 assumption\(s\) picked to become 已定, not saved to Excel yet/);
+  await page.getByTestId('wb-write').click();
+  await confirm.waitFor();
+  assert.equal(await confirm.getByTestId('wb-write-cell').count(), 0);
+  assert.match(await confirm.getByTestId('wb-write-status').innerText(), /要 → 已定/);
+  await confirm.getByTestId('wb-write-go').click();
+  await notice.waitFor();
+  await page.waitForFunction(() => document.querySelectorAll('[data-testid=wb-needs] [data-testid=wb-assumption]').length === 7);
+  assert.equal(await page.locator(`[data-testid=wb-assumption][data-id="${decidedId}"]`).getAttribute('data-status'), 'decided');
+  assert.equal((await api('/api/dashboard')).rows.find((r) => r.projectId === crwd).workbook.pending, 7);
+  near(await num('wb-result-tp'), 204.83, 0.01, 'the status change leaves the numbers alone');
+  assert.equal(backups().length, 2);
+  assert.equal(sha(path.join(backupDir, backups()[1])), written, 'the second copy is the file before the second write');
+  assert.deepEqual(vaultFiles(), filesBefore);
+  assert.equal(sha(crwdFixture), original, 'the example file in the repository is untouched');
+});
+
+await test(29, 'Overview: the 待判斷 count links to the assumptions page; phone width (390×844) still has no sideways scrolling', async () => {
+  if (!crwd) {
+    console.log('      (skipped: needs the workbook linked in T26)');
+    return;
+  }
+  const expected = (await api('/api/dashboard')).rows.find((r) => r.projectId === crwd).workbook.pending;
+  assert.ok(expected === 7 || expected === 8, `pending count ${expected}`);
+  await page.goto(`${BASE}/#/`);
+  await page.getByTestId('dash-table').waitFor();
+  const rowOf = (pg, id) => pg.locator(`[data-testid=project-card][data-project-id="${id}"]`);
+  const cell = rowOf(page, crwd).getByTestId('dash-pending');
+  assert.equal(await cell.getAttribute('data-pending'), String(expected));
+  assert.match(await cell.innerText(), new RegExp(`^${expected} cells$`));
+  // a company without a linked Excel shows nothing in that column
+  assert.equal(await rowOf(page, projectId).getByTestId('dash-pending').count(), 0);
+  // most cells first
+  await page.getByTestId('dash-sort-pending').click();
+  assert.equal(await page.getByTestId('project-card').first().getAttribute('data-project-id'), crwd);
+  await snap('dashboard-pending');
+  await cell.click();
+  await page.getByTestId('assumptions-page').waitFor();
+  assert.ok(page.url().endsWith(`#/p/${crwd}/assumptions`), page.url());
+  assert.equal(await page.getByTestId('wb-needs').getByTestId('wb-assumption').count(), expected);
+
+  // the phone, in Chinese as it opens there
+  const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  phone.on('pageerror', (e) => errors.push(e.message));
+  const overflow = () =>
+    phone.evaluate(() => {
+      const wide = [...document.querySelectorAll('.content, .main, .projects')].filter((el) => el.scrollWidth > el.clientWidth + 1).map((el) => el.className);
+      return { doc: document.documentElement.scrollWidth, win: window.innerWidth, wide };
+    });
+  try {
+    await phone.goto(`${BASE}/#/`);
+    await phone.getByTestId('dash-table').waitFor();
+    assert.match(await phone.getByTestId('dash-sort-pending').innerText(), /待判斷/);
+    const pc = rowOf(phone, crwd).getByTestId('dash-pending');
+    assert.equal((await pc.innerText()).trim(), `${expected} 格`);
+    // the count is on screen without scrolling the table sideways
+    const box = await pc.boundingBox();
+    assert.ok(box.x >= 0 && box.x + box.width <= 390, `待判斷 at x=${box.x}, width ${box.width}`);
+    let o = await overflow();
+    assert.ok(o.doc <= o.win && o.wide.length === 0, `home page: ${JSON.stringify(o)}`);
+    await phone.screenshot({ path: path.join(out, 'phone-home-pending.png') });
+    await pc.click();
+    await phone.getByTestId('wb-results').waitFor();
+    assert.ok(phone.url().endsWith(`#/p/${crwd}/assumptions`), phone.url());
+    // the list before a write fits the phone too (nothing is written here)
+    await phone.locator('[data-testid=wb-assumption][data-id="營收模型!EV/Sales 倍數#1"]').getByTestId('wb-trial').fill('28');
+    await phone.locator('[data-testid=wb-results][data-trial="1"][data-pending="0"]').waitFor();
+    assert.match(await phone.getByTestId('wb-write').innerText(), /寫回 Excel/);
+    await phone.getByTestId('wb-write').click();
+    await phone.getByTestId('wb-write-confirm').waitFor();
+    assert.match(await phone.getByTestId('wb-write-confirm').locator('h2').innerText(), /要把這 1 格寫進 CRWD_簡明損益表\.xlsx 嗎？/);
+    o = await overflow();
+    assert.ok(o.doc <= o.win && o.wide.length === 0, `write list: ${JSON.stringify(o)}`);
+    const go = await phone.getByTestId('wb-write-go').boundingBox();
+    assert.ok(go.x >= 0 && go.x + go.width <= 390, `write button at x=${go.x}, width ${go.width}`);
+    await phone.screenshot({ path: path.join(out, 'phone-write-confirm.png') });
+    await phone.getByTestId('wb-write-cancel').click();
   } finally {
     await phone.close();
   }

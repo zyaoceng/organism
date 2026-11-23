@@ -125,9 +125,12 @@ describe('nothing in the vault folder is ever changed', () => {
     expect(fs.readdirSync(dir).sort()).toEqual([...new Set([...outsideBefore, 'data'])].sort());
   });
 
-  it('the server code that touches the vault calls nothing that writes', () => {
+  it('the server code that touches the vault calls nothing that writes, except write.ts', () => {
     const src = path.join(path.dirname(fileURLToPath(import.meta.url)));
-    const files = [...fs.readdirSync(path.join(src, 'xlsx')).map((f) => path.join(src, 'xlsx', f)), ...fs.readdirSync(path.join(src, '..', 'domain', 'workbook')).map((f) => path.join(src, '..', 'domain', 'workbook', f))].filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'));
+    const all = [...fs.readdirSync(path.join(src, 'xlsx')).map((f) => path.join(src, 'xlsx', f)), ...fs.readdirSync(path.join(src, '..', 'domain', 'workbook')).map((f) => path.join(src, '..', 'domain', 'workbook', f))].filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'));
+    // write.ts is the one module that writes (the linked file through its temp file, and the backups in the data folder)
+    const files = all.filter((f) => path.basename(f) !== 'write.ts');
+    expect(all.length - files.length).toBe(1);
     expect(files.length).toBeGreaterThan(8);
     const writers = /\b(?:write|append|copy|rename|unlink|rm|rmdir|mkdir|mkdtemp|truncate|ftruncate|chmod|chown|utimes|lutimes|symlink|link|cp|open|createWriteStream|writev)(?:File)?(?:Sync)?\s*\(/;
     const hits: string[] = [];
@@ -140,6 +143,11 @@ describe('nothing in the vault folder is ever changed', () => {
         });
     }
     expect(hits).toEqual([]);
+    // in write.ts nothing is removed but its own temp file, a backup copy that failed its check and the backups beyond the newest 30, and nothing is created in the vault but that temp file
+    const write = fs.readFileSync(path.join(src, 'xlsx', 'write.ts'), 'utf8');
+    expect([...write.matchAll(/fs\.(rm\w*|unlink\w*)\(([^,)]+)/g)].map((m) => `${m[1]} ${m[2]}`).sort()).toEqual(['rmSync copy', 'rmSync path.join(dir', 'rmSync tmp']);
+    expect([...write.matchAll(/fs\.(mkdir\w*|copy\w*|cp\w*|symlink\w*|link\w*|truncate\w*|append\w*)\(/g)].map((m) => m[1])).toEqual(['mkdirSync']);
+    expect([...write.matchAll(/fs\.(writeFile\w*|open\w*|rename\w*)\(([^,)]+)/g)].map((m) => `${m[1]} ${m[2]}`).sort()).toEqual(['openSync tmp', 'renameSync tmp', 'writeFileSync copy']);
     // the only programs run are stat (read-only) and brctl download (asks iCloud for the content)
     const file = fs.readFileSync(path.join(src, 'xlsx', 'file.ts'), 'utf8');
     expect([...file.matchAll(/deps\.run\((\w+)/g)].map((m) => m[1]).sort()).toEqual(['BRCTL_PROGRAM', 'STAT_PROGRAM']);

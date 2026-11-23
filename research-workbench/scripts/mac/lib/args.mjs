@@ -23,6 +23,8 @@ export const HELP = `研究工作台 Mac 安裝程式 / Research Workbench Mac i
   --obsidian          重新選擇要連接的 Obsidian vault / choose the Obsidian vault again
   --obsidian-vault <dir>  把 Obsidian 外掛裝到這個 vault / install the Obsidian plugin into this vault
   --no-obsidian       這次不安裝 Obsidian 外掛 / skip the Obsidian plugin this time
+  --tailscale         開放手機連線：用 Tailscale 讓你自己的裝置打開研究工作台 / phone access through Tailscale (set up or redo)
+  --no-tailscale      不開放手機連線（已開放的會關掉）/ no phone access (turns it off if it was on)
 `;
 
 export class ArgsError extends Error {}
@@ -52,6 +54,8 @@ export function parseInstallArgs(argv, env = {}) {
         obsidian: { type: 'boolean' },
         'obsidian-vault': { type: 'string' },
         'no-obsidian': { type: 'boolean' },
+        tailscale: { type: 'boolean' },
+        'no-tailscale': { type: 'boolean' },
         help: { type: 'boolean', short: 'h' },
       },
     }));
@@ -69,6 +73,8 @@ export function parseInstallArgs(argv, env = {}) {
   if (values.uninstall && (values.obsidian || values['obsidian-vault'] !== undefined || values['no-obsidian'])) {
     throw new ArgsError('the Obsidian options cannot be combined with --uninstall (it never touches the vault)');
   }
+  if (values.tailscale && values['no-tailscale']) throw new ArgsError('--tailscale and --no-tailscale cannot be combined');
+  if (values.uninstall && (values.tailscale || values['no-tailscale'])) throw new ArgsError('the Tailscale options cannot be combined with --uninstall');
   let port = null;
   if (values.port !== undefined) {
     port = /^\d+$/.test(values.port) ? Number(values.port) : NaN;
@@ -88,5 +94,7 @@ export function parseInstallArgs(argv, env = {}) {
     obsidian: !!values.obsidian,
     obsidianVault: values['obsidian-vault'] ? path.resolve(values['obsidian-vault']) : null,
     noObsidian: !!values['no-obsidian'],
+    tailscale: !!values.tailscale,
+    noTailscale: !!values['no-tailscale'],
   };
 }

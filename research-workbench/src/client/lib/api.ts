@@ -37,6 +37,7 @@ import type {
   WorkbookRecalcDTO,
   WorkbookRecalcRequest,
   WorkbookViewDTO,
+  WorkbookWriteRequest,
 } from '../../shared/api';
 import type { ModelState } from '../../domain/model/types';
 import type { OutputMapping } from '../../domain/workbook/types';
@@ -202,12 +203,14 @@ export const api = {
   reflectionVersions: (noteId: string) => get<ReflectionVersionDTO[]>(`/api/reflections/${encodeURIComponent(noteId)}/versions`),
   vaultStatus: () => get<VaultStatusDTO | null>('/api/vault/status'),
 
-  // the linked Excel workbook (assumptions page); nothing here writes to the file
+  // the linked Excel workbook (assumptions page)
   workbookFiles: (id: string) => get<WorkbookFilesDTO>(`/api/workbook/files?projectId=${encodeURIComponent(id)}`),
   workbook: (id: string) => get<WorkbookViewDTO>(`/api/projects/${id}/workbook`),
   linkWorkbook: (id: string, path: string) => put<WorkbookViewDTO>(`/api/projects/${id}/workbook/link`, { path }),
   unlinkWorkbook: (id: string) => del<{ ok: true }>(`/api/projects/${id}/workbook/link`),
   recalcWorkbook: (id: string, b: WorkbookRecalcRequest) => post<WorkbookRecalcDTO>(`/api/projects/${id}/workbook/recalc`, b),
+  // the one call that changes the Excel file; sent only after the user confirmed the list of cells
+  writeWorkbook: (id: string, b: WorkbookWriteRequest) => post<WorkbookViewDTO>(`/api/projects/${id}/workbook/write`, b),
   /** null goes back to detection. */
   saveWorkbookMapping: (id: string, mapping: OutputMapping | null) => put<WorkbookViewDTO>(`/api/projects/${id}/workbook/mapping`, { mapping }),
   workbookDiagnosis: async (id: string) => {

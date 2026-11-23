@@ -9,6 +9,13 @@ metric → EPS → valuation → target price**, then **trade → outcome → re
 Every Research Update keeps what you believed, why, which evidence caused
 the change, what changed, and how it moved EPS and the target price.
 
+Each company can also be linked to its Excel model (`.xlsx` in the Obsidian
+vault). The **Assumptions** page reads the file, lists the assumptions that
+wait for a decision first, recalculates trial values with the workbook's own
+formulas, shows which assumption moves the target price most, and writes the
+numbers you decide on back into the file. Excel stays the only store of those
+numbers. With Tailscale the site also opens on your phone.
+
 - 中文使用說明：[`docs/使用說明.md`](docs/使用說明.md)
 - Product spec: [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md)
 - Architecture, prototype review and self-critique: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
@@ -43,13 +50,17 @@ written in the script, and runs `scripts/mac/install.mjs` with it, which:
   server if needed;
 - registers the MCP adapter with Claude Desktop, Claude Code and the ChatGPT
   desktop app (a config file it edits is backed up first);
-- offers to install the Obsidian plugin into one of your vaults.
+- with Tailscale signed in on the Mac, offers phone access: it runs
+  `tailscale serve --bg <port>` and gives the LaunchAgent the HTTPS host name
+  and the one Tailscale account to let in;
+- offers to install the Obsidian plugin into one of your vaults, and tells the
+  server that vault folder, which is where linked Excel files must be.
 
 Add options after ` -- `, for example `… install.sh)" -- --doctor`:
 
 | Option | Meaning |
 |---|---|
-| `--doctor` | Print diagnostics (Node, better-sqlite3, launchd, health check, port, data, backups, AI and Obsidian registration) and exit |
+| `--doctor` | Print diagnostics (Node, better-sqlite3, launchd, health check, port, data, backups, AI and Obsidian registration, vault folder access, `tailscale serve` and the phone URL) and exit |
 | `--dry-run` | Check and print what would happen; change nothing |
 | `--uninstall` [`--purge`] | Remove the LaunchAgent, the app and `~/ResearchWorkbench`; data is kept unless `--purge` |
 | `--import <file>` | Import a data archive (default `~/Downloads/wb-data.tgz`) |
@@ -57,6 +68,7 @@ Add options after ` -- `, for example `… install.sh)" -- --doctor`:
 | `--yes`, `-y` | No prompts; take the default answers |
 | `--no-register` | Do not register with the AI apps |
 | `--obsidian`, `--obsidian-vault <dir>`, `--no-obsidian` | Choose the Obsidian vault again, install into this vault, or skip the plugin |
+| `--tailscale`, `--no-tailscale` | Set up phone access through Tailscale (or redo it), or turn it off. `--yes` alone never turns it on. Neither can be combined with `--uninstall` |
 | `--source-dir <dir>`, `--no-launchd` | Install from a local checkout, skip the LaunchAgent and app (CI) |
 
 The Chinese guide [`docs/使用說明.md`](docs/使用說明.md) walks through it.
@@ -97,10 +109,13 @@ npm run seed:demo
 
 | Environment variable | Default | Meaning |
 |---|---|---|
-| `WORKBENCH_DATA_DIR` | `./data` | SQLite file (`workbench.db`), uploaded files (`attachments/`), `tokens.json` and `backups/` (daily copies in `daily/`, kept 14 days + 8 weeks; `pre-v<N>-…` before a schema migration and `pre-import-…` before a data import, never deleted) |
+| `WORKBENCH_DATA_DIR` | `./data` | SQLite file (`workbench.db`), uploaded files (`attachments/`), `tokens.json` and `backups/` (daily copies in `daily/`, kept 14 days + 8 weeks; `pre-v<N>-…` before a schema migration and `pre-import-…` before a data import, never deleted) and `workbook-backups/<project id>/` (the copy of a linked Excel file taken before each write-back, newest 30 kept) |
 | `WORKBENCH_PORT` | `4310` | API port (the dev UI proxies `/api` to it) |
 | `WORKBENCH_HOST` | `127.0.0.1` | Bind address. There is no login, so keep it local or put an authenticating proxy in front |
 | `WORKBENCH_ALLOWED_HOSTS` | (none) | Extra `host:port` names, comma-separated, that requests may use. The server accepts only `127.0.0.1:<port>` and `localhost:<port>` (plus `WORKBENCH_HOST`) and refuses requests from other web origins |
+| `WORKBENCH_VAULT_DIR` | (none) | The folder linked Excel files must be in. Wins over the folder saved through `PUT /api/settings/vault-dir` (which the Mac installer calls with the Obsidian vault) |
+| `WORKBENCH_HTTPS_HOSTS` | (none) | Bare host names (no scheme, port or path), comma-separated, that `tailscale serve` forwards to this server over HTTPS. Each is accepted as `Host` and as an `https://` origin and gets a `Secure` cookie |
+| `WORKBENCH_TAILSCALE_LOGINS` | (none) | Tailscale accounts, comma-separated, allowed in through `WORKBENCH_HTTPS_HOSTS` (matched without regard to case). Empty means every request through those hosts is refused |
 | `WORKBENCH_LOG_LEVEL` | `info` | Server log level (`warn`, `error`, `debug`, …) |
 | `WORKBENCH_QUIET` | (unset) | Any value turns server logging off |
 
@@ -114,18 +129,35 @@ Checks
 
 ```bash
 npm run typecheck    # TypeScript
-npm test             # 562 unit + API tests (domain engine, revisions, server, backups, data import, AI rules, MCP adapter over stdio, Obsidian vault sync and plugin, installer helpers, client store, translations)
-npm run e2e          # builds, starts a throwaway server, drives the UI through acceptance tests 1-18, the valuation / catalysts / overview / search pages, the language switch, basic mode, an AI edit, the dashboard, the trade log and an Obsidian round trip (25 checks)
+npm test             # 838 unit + API tests, 2 more skipped in the Linux container (domain engine, revisions, server, backups, data import, AI rules, MCP adapter over stdio, Obsidian vault sync and plugin, Excel reading / recalculation / detection / write-back, phone access, installer helpers, client store, translations)
+npm run e2e          # builds, starts a throwaway server, drives the UI through acceptance tests 1-18, the valuation / catalysts / overview / search pages, the language switch, basic mode, an AI edit, the dashboard, the trade log, an Obsidian round trip, the assumptions page with trial values, the phone width, a write to Excel and the overview's count (29 checks)
 ```
 
 `npm run e2e` uses the pre-installed Chromium at `/opt/pw-browsers/chromium`
 when present; set `CHROME=/path/to/chrome` otherwise. Screenshots go to
-`e2e/output/`. The installer itself is exercised on macOS (arm64 and Intel)
-by `.github/workflows/mac-install.yml` at the repository root.
+`e2e/output/`. The write-back tests that reopen the written file in
+LibreOffice are skipped when `/usr/bin/soffice` is absent. The installer itself is
+exercised on macOS (arm64 and Intel) by `.github/workflows/mac-install.yml`
+at the repository root, which also links, reads and writes an example
+workbook in a fake vault and checks that no other file in it changed.
 
 Everyday workflow
 -----------------
 
+0. **Assumptions** (first page of a company): link the company's `.xlsx`
+   from the vault folder. The page reads the assumption tables by their
+   headers (取用值 / 下緣 / 上緣 / 依據, and a column of 要 / 已定), puts
+   the ones marked 要 first and keeps next-four-quarter revenue, EPS and the
+   target price on screen. A number typed under **Try** is recalculated on
+   the server and nothing is saved. **Write to Excel** lists every cell
+   first, then changes only those cells (a formula becomes the number; 要 can
+   become 已定), after copying the original to `workbook-backups/`. It is
+   refused while Excel has the file open or when the file changed since the
+   page read it, and an AI client can never do it. The page also ranks the
+   assumptions by how far each moves the target price between its low and
+   high, compares 我的預估 with the other parties (more than 10% apart is
+   marked), shows a self-check of the recalculation against the results Excel
+   stored, and offers **Copy diagnosis** (layout only, no figures).
 1. **New company** → pick the Standard Equity Research Template (or one you
    saved). Periods start at Y-2A … Y+2E; amounts are in 億 for TWD and
    millions for USD.
@@ -154,7 +186,7 @@ Everyday workflow
    each entry to the research snapshot valid on its entry date and shows the
    2×ATR trailing-stop counterfactual. (`#/p/<id>/market` still opens it.)
 8. **Home and trade log**: the company list is one table of every company —
-   last price and its date (stale and "no new prices" flags), the base target
+   the number of cells still marked 要 in its linked Excel (待判斷), last price and its date (stale and "no new prices" flags), the base target
    from the latest committed update (Bear / Base / Bull and the
    probability-weighted target in advanced mode), upside, last research date,
    uncommitted draft, open positions with R, overdue catalysts, theses due for
@@ -191,8 +223,8 @@ Everyday workflow
 Basic and advanced mode
 -----------------------
 
-The UI starts in **basic mode**: the sidebar lists Model, Valuation, Trades and
-History, and the pages show the everyday tools. The **Advanced mode** switch
+The UI starts in **basic mode**: the sidebar lists Assumptions, Model, Valuation,
+Trades and History, and the pages show the everyday tools. The **Advanced mode** switch
 (bottom left of a company's sidebar, and at the top of the company list, the
 trade log and Settings) adds a **More** group (Evidence,
 Catalysts, Overview) and every other tool: the language switch, theses, node
@@ -201,6 +233,20 @@ the trailing stop, CSV import, the commit evidence checklist, the causal chain
 and attribution, snapshot comparison and the evolution chart. It is a UI
 preference stored in the browser (`src/client/lib/prefs.ts`); the data is the
 same in both modes, and links into hidden pages keep working.
+
+Phone access
+------------
+
+The server keeps listening on `127.0.0.1` only. `tailscale serve` on the Mac
+forwards `https://<mac>.<tailnet>.ts.net` to it, and the server accepts that
+host name only from a loopback peer and only with a `Tailscale-User-Login`
+header naming an allowed account; everything else through that name gets 403
+(`TAILSCALE_LOGIN_REQUIRED`, `TAILSCALE_LOGIN_NOT_ALLOWED`, `TAILSCALE_ONLY`),
+and a forwarded request that names a local host gets 403
+`FORWARDED_LOCAL_HOST`. The installer never turns on Tailscale Funnel, and
+`--doctor` fails when it is on. **Settings** shows the phone address. Below
+720 px the layout is one column and the sidebar becomes a scrolling top bar.
+Details: `docs/ARCHITECTURE.md` §34.
 
 Language
 --------
@@ -249,16 +295,26 @@ Layout
 ```
 src/domain/       pure TypeScript shared by client, server, MCP adapter and
                   Obsidian plugin (formula engine, calculation, revisions,
-                  templates, indicators, AI draft operations, vault notes) — no I/O
+                  templates, indicators, AI draft operations, vault notes,
+                  workbook layout detection and sensitivity) — no I/O
 src/server/       Fastify API, SQLite migrations/repositories, commit service,
                   actors and tokens, backups, data import, vault sync,
-                  attachment store, market-data providers
+                  attachment store, market-data providers, and xlsx/ (read,
+                  recalculate and write back the linked Excel files)
 src/client/       React UI (Vite), zustand store, pages and components
 src/mcp/          MCP adapter (stdio) the AI apps start; calls the HTTP API
 src/shared/       API types, actors, AI instructions
 obsidian-plugin/  Obsidian plugin (Research Workbench Sync)
 scripts/mac/      Mac installer (install.sh, install.mjs, lib/)
+scripts/fixtures/ builds the example workbook used by the tests
 e2e/              browser acceptance walkthrough
 ```
 
-Known limits are listed in `docs/ARCHITECTURE.md` §21 and §33.
+Known limits are listed in `docs/ARCHITECTURE.md` §21, §33 and §34.
+
+Licence
+-------
+
+GPL-3.0-only (see [`LICENSE`](LICENSE)). The Excel recalculation uses
+[HyperFormula](https://hyperformula.handsontable.com/) under its GPLv3 licence
+key, which is why the whole project is GPL.

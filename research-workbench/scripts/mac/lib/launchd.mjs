@@ -45,13 +45,20 @@ export function renderPlist(value) {
 
 /**
  * The LaunchAgent definition. Every path must be absolute: launchd does not expand `~` or $HOME.
- * @param {{ node: string, workingDirectory: string, dataDir: string, port: number, stdoutLog: string, stderrLog: string }} o
+ * `remote` ({ host, login }, from lib/tailscale.mjs) turns on phone access: the server then accepts
+ * https://<host> and only that Tailscale account.
+ * @param {{ node: string, workingDirectory: string, dataDir: string, port: number, stdoutLog: string, stderrLog: string, remote?: { host: string, login: string } | null }} o
  */
-export function launchAgent({ node, workingDirectory, dataDir, port, stdoutLog, stderrLog }) {
+export function launchAgent({ node, workingDirectory, dataDir, port, stdoutLog, stderrLog, remote = null }) {
   for (const [k, p] of Object.entries({ node, workingDirectory, dataDir, stdoutLog, stderrLog })) {
     if (typeof p !== 'string' || !path.isAbsolute(p) || p.includes('~')) throw new Error(`${k} must be an absolute path without ~: ${p}`);
   }
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error(`bad port: ${port}`);
+  if (remote) {
+    // the server splits both variables at commas
+    if (typeof remote.host !== 'string' || !/^[a-z0-9.-]+$/.test(remote.host)) throw new Error(`bad HTTPS host: ${remote.host}`);
+    if (typeof remote.login !== 'string' || !/^[^\s,]+$/.test(remote.login)) throw new Error(`bad Tailscale login: ${remote.login}`);
+  }
   return {
     Label: LABEL,
     ProgramArguments: [node, '--import', 'tsx', 'src/server/main.ts'],
@@ -61,6 +68,7 @@ export function launchAgent({ node, workingDirectory, dataDir, port, stdoutLog, 
       WORKBENCH_DATA_DIR: dataDir,
       WORKBENCH_PORT: String(port),
       WORKBENCH_LOG_LEVEL: 'warn',
+      ...(remote ? { WORKBENCH_HTTPS_HOSTS: remote.host, WORKBENCH_TAILSCALE_LOGINS: remote.login } : {}),
     },
     RunAtLoad: true,
     KeepAlive: { SuccessfulExit: false },

@@ -116,6 +116,14 @@ export interface AppOptions {
   allowedHosts?: string[];
   /** Extra origins accepted when allowedHosts is set, e.g. 'app://obsidian.md'. */
   allowedOrigins?: string[];
+  /**
+   * Bare hosts (no port) that `tailscale serve` proxies to this server over HTTPS, e.g. 'mac.tailnet.ts.net'.
+   * Each is accepted as Host and as the https:// origin, gets a Secure session cookie, and every
+   * request naming it must carry a Tailscale-User-Login listed in tailscaleLogins.
+   */
+  httpsHosts?: string[];
+  /** Tailscale accounts allowed in through httpsHosts (case-insensitive). Empty: nobody. */
+  tailscaleLogins?: string[];
   /** Where version.json lives. Default: the research-workbench directory. */
   appRoot?: string;
   /** Who-is-acting tokens. Default <dataDir>/tokens.json (created when missing). */
@@ -144,6 +152,20 @@ export interface AppContext {
 }
 
 type Params = { id: string };
+
+/** 'Mac.Tailnet.ts.net.' → 'mac.tailnet.ts.net'; '' for anything that is not a bare host name (a port, a scheme, a path). */
+export function bareHost(h: string): string {
+  const s = h.trim().toLowerCase().replace(/\.$/, '');
+  return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/.test(s) ? s : '';
+}
+
+/** Comma list from an environment variable. */
+export const envList = (v: string | undefined): string[] => (v ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+
+/** Headers a reverse proxy (`tailscale serve`) adds; Node gives header names in lower case. */
+const FORWARDED_HEADER = /^(forwarded|x-forwarded-(for|host|proto)|tailscale[-_].*)$/;
+
+const isLoopbackAddress = (a: string | undefined) => !!a && (a === '::1' || a.startsWith('127.') || a.startsWith('::ffff:127.'));
 
 export async function buildApp(opts: AppOptions): Promise<AppContext> {
   const startedAt = Date.now();
@@ -174,14 +196,61 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
   const refresher = new PriceRefresher(db, market, { onError: (err) => app.log.error({ err }, 'price refresh failed') });
   await app.register(fastifyMultipart, { limits: { fileSize: opts.maxUploadBytes ?? 100 * 1024 * 1024, files: 20, fields: 50 } });
 
-  if (opts.allowedHosts) {
+  // Phone access: `tailscale serve` on this Mac forwards https://<mac>.<tailnet>.ts.net to this loopback server.
+  const httpsHosts = new Set((opts.httpsHosts ?? []).map(bareHost).filter(Boolean));
+  const tailscaleLogins = new Set((opts.tailscaleLogins ?? []).map((l) => l.trim().toLowerCase()).filter(Boolean));
+  const isHttpsHost = (req: FastifyRequest) => httpsHosts.has((req.headers.host ?? '').toLowerCase());
+  if (opts.allowedHosts || httpsHosts.size) {
     // The API has no login; only the local app (or a listed client) may call it, never another web page.
-    const hosts = new Set(opts.allowedHosts.map((h) => h.toLowerCase()));
-    const origins = new Set([...[...hosts].map((h) => `http://${h}`), ...(opts.allowedOrigins ?? []).map((o) => o.toLowerCase())]);
+    const hosts = opts.allowedHosts ? new Set(opts.allowedHosts.map((h) => h.toLowerCase())) : null;
+    const origins = new Set([...[...(hosts ?? [])].map((h) => `http://${h}`), ...[...httpsHosts].map((h) => `https://${h}`), ...(opts.allowedOrigins ?? []).map((o) => o.toLowerCase())]);
     app.addHook('onRequest', async (req, reply) => {
-      if (!hosts.has((req.headers.host ?? '').toLowerCase())) return reply.status(403).send({ error: 'Host not allowed' });
+      const remote = isHttpsHost(req);
+      if (!remote && hosts && !hosts.has((req.headers.host ?? '').toLowerCase())) return reply.status(403).send({ error: 'Host not allowed' });
       const origin = req.headers.origin;
-      if (origin !== undefined && !origins.has(origin.toLowerCase())) return reply.status(403).send({ error: 'Origin not allowed' });
+      if (origin !== undefined && (hosts || remote) && !origins.has(origin.toLowerCase())) return reply.status(403).send({ error: 'Origin not allowed' });
+      const refuse = (code: string, zh: string, en: string) => {
+        if (req.url.startsWith('/api/')) return reply.status(403).send({ error: `${zh} / ${en}`, code, details: null });
+        return reply.status(403).type('text/plain; charset=utf-8').send(`${zh}\n${en}\n`);
+      };
+      if (!remote) {
+        // `tailscale serve` picks what to forward by the TLS server name and passes the Host header on
+        // as the caller wrote it, so any device of the tailnet can ask for "Host: 127.0.0.1:<port>" and
+        // would arrive here looking local. It cannot stop the proxy from adding X-Forwarded-Host
+        // (and -For, -Proto); the local browser, the AI clients and Obsidian never send those. So with
+        // phone access on, a forwarded request must name the HTTPS host and pass the login check below.
+        if (httpsHosts.size && Object.keys(req.headers).some((k) => FORWARDED_HEADER.test(k))) {
+          return refuse(
+            'FORWARDED_LOCAL_HOST',
+            '這個連線是轉送進來的，卻用了本機的網址；手機請用 Tailscale 的 https 網址。',
+            'A forwarded request may not use a local host name; use the Tailscale https address.',
+          );
+        }
+        // Otherwise requests naming a loopback host stop here: no Tailscale login is asked of them.
+        return;
+      }
+      // The site has no login of its own. Tailscale strips incoming Tailscale-* headers and sets the
+      // caller's account, so through this host that header is the login; it is required on every route.
+      // `tailscale serve` connects from this Mac; anything else claiming the name did not come through it
+      if (!isLoopbackAddress(req.socket.remoteAddress)) {
+        return refuse('TAILSCALE_ONLY', '這個網址只接受經由這台 Mac 的 Tailscale 轉送進來的連線。', 'This address only accepts connections forwarded by Tailscale on this Mac.');
+      }
+      const header = req.headers['tailscale-user-login'];
+      const login = (Array.isArray(header) ? header[0] : header)?.trim().toLowerCase();
+      if (!login) {
+        return refuse(
+          'TAILSCALE_LOGIN_REQUIRED',
+          '研究工作台只接受你自己的 Tailscale 帳號登入的裝置；這個連線沒有帶 Tailscale 帳號（分享給別人的節點、加了標籤的裝置都不行）。',
+          'No Tailscale account came with this request. Open it from a device signed in to your own Tailscale account.',
+        );
+      }
+      if (!tailscaleLogins.has(login)) {
+        return refuse(
+          'TAILSCALE_LOGIN_NOT_ALLOWED',
+          `Tailscale 帳號 ${login} 不在允許名單內。要加入的話，在 Mac 的終端機重新貼上安裝指令並在最後加上 -- --tailscale。`,
+          `The Tailscale account ${login} is not on the allowed list (WORKBENCH_TAILSCALE_LOGINS).`,
+        );
+      }
     });
   }
   // who is acting (user, AI client or nobody known); after the Host check
@@ -276,6 +345,8 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
       clients: listAiClients(db),
       // the Obsidian plugin's last report
       vault: vaultStatus(db),
+      // phone access through Tailscale (WORKBENCH_HTTPS_HOSTS, WORKBENCH_TAILSCALE_LOGINS)
+      remote: { url: httpsHosts.size ? `https://${[...httpsHosts][0]}` : null, logins: [...tailscaleLogins] },
     }),
   );
 
@@ -288,7 +359,8 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
     }
     const site = req.headers['sec-fetch-site'];
     if (site !== undefined && site !== 'same-origin' && site !== 'none') throw forbidden('Cross-site request refused', { code: 'CROSS_SITE' });
-    reply.header('set-cookie', `${SESSION_COOKIE}=${tokens.tokens.user}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000`);
+    // through the HTTPS host the cookie is Secure; on http://127.0.0.1 a Secure cookie would not be sent back by every browser
+    reply.header('set-cookie', `${SESSION_COOKIE}=${tokens.tokens.user}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000${isHttpsHost(req) ? '; Secure' : ''}`);
     return { actor: 'user', dbGeneration: dbGeneration(db) };
   });
 

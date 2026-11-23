@@ -636,16 +636,16 @@ CREATE TABLE project_workbooks (          -- one linked file per company
   updated_at TEXT NOT NULL
 );
 
-CREATE TABLE workbook_writes (            -- one row per write-back (created in v4, written by the write-back route)
+CREATE TABLE workbook_writes (            -- one row per write-back (POST …/workbook/write)
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   project_id TEXT NOT NULL REFERENCES projects(id),
   rel_path TEXT NOT NULL,
   at TEXT NOT NULL,
   actor TEXT NOT NULL,
-  cells_json TEXT NOT NULL,               -- the cells that were changed, before and after
+  cells_json TEXT NOT NULL,               -- { changes: [{sheet, address, label, before, after, wasFormula, formula?}], statusChanges: [{sheet, address, label, before, after}] }
   before_sha256 TEXT NOT NULL, before_size INTEGER NOT NULL,
   after_sha256 TEXT NOT NULL, after_size INTEGER NOT NULL,
-  backup_file TEXT                        -- the copy taken before the write
+  backup_file TEXT                        -- the copy taken before the write, relative to the data folder: workbook-backups/<project id>/<stamp>-<name>.xlsx
 );
 CREATE INDEX workbook_writes_project ON workbook_writes(project_id, id);
 ```
@@ -662,16 +662,31 @@ CREATE INDEX workbook_writes_project ON workbook_writes(project_id, id);
   sub-header), never by cell address, so rows and columns inserted into the
   workbook do not break it. An anchor the file no longer has is reported as a
   `mapping-unresolved` warning.
-- **Summary.** `summary_json`, `file_size`, `file_sha256` and `file_mtime` are
-  refreshed when a `GET …/workbook` reads a file whose SHA-256 or counts
-  differ from the row. Linking another file clears them and the mapping.
+- **Summary.** `summary_json`, `file_size`, `file_sha256`, `file_mtime` and
+  `checked_at` are refreshed whenever a view is built (`GET …/workbook`, and
+  the answers of link, mapping and write) from a file whose SHA-256 or counts
+  differ from the row; an unchanged file leaves the row alone, so
+  `checked_at` is when the summary last changed. Linking another file clears
+  them and the mapping. The dashboard reads `needsDecision` from here
+  (`DashboardRowDTO.workbook = { linked, pending, checkedAt }`) and never
+  opens the file.
 - **Change check.** `POST …/workbook/recalc` carries the SHA-256 the page was
   loaded with (`baseSha`); when the file on disk has another, the answer is
   409 `WORKBOOK_CHANGED` and the page loads the file again.
 - **Not synced.** None of these tables has a `vault_*` trigger: linking a
   workbook writes no Obsidian note.
-- **`workbook_writes.before_*`.** A file that later shows a `before_sha256`
-  again was put back by iCloud; the write-back route uses the table for that.
+- **`workbook_writes`.** Inserted in one transaction with an audit entry
+  (`entity: 'workbook'`, action `update`) after the written file was read
+  back and matched `after_sha256` and `after_size`. `actor` is always `user`:
+  an AI client is refused. The backup files are outside the database: the
+  newest 30 per company are kept, so `backup_file` of an older row may name a
+  file that is gone.
+- **Revert.** A file whose SHA-256 equals a `before_sha256` and differs from
+  the latest `after_sha256` was put back by iCloud. `detectRevert` returns
+  the cells of that write and every later one (the later value wins), each
+  matched to an assumption of the file as it is now (`WorkbookViewDTO.revert`).
+- **Trial ranges and 要 → 已定 picks** are browser state (`sessionStorage`),
+  like trial values; none of them has a column.
 
 ## 3. Point-in-time queries
 

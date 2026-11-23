@@ -1,7 +1,8 @@
 # Runs the Mac installer (research-workbench/scripts/mac) for real on GitHub's macOS runners:
 # Node download + checksum, npm ci, build, LaunchAgent bootstrap, launcher app, --doctor, an update to
 # the published commit with a data import, the Obsidian plugin copied into a fake vault (and nothing
-# else in that vault changed), and --uninstall. If the runner does not allow
+# else in that vault changed), a write-back into an Excel workbook in that vault (only that file
+# changes, a backup is kept), and --uninstall. If the runner does not allow
 # `launchctl bootstrap gui/<uid>`, the installer health-checks the server directly instead and the job
 # reports launchd as SKIPPED (a warning annotation and the step summary), never as verified.
 name: Mac install
@@ -234,6 +235,124 @@ jobs:
           if /bin/bash research-workbench/scripts/mac/install.sh --doctor; then exit 0; fi
           if [ "$LAUNCHD" = "ok" ]; then exit 1; fi
           echo "::warning title=doctor::doctor printed FAIL lines because launchd was skipped on this runner"
+
+      # The installed app writes one cell back into an Excel workbook that sits in the vault, on a real
+      # macOS file system: the linked file is the only thing in the vault that changes, and the original
+      # is kept as a backup in the data folder. It runs as a second server (own port, own data folder) so
+      # the installed service's data stays as the later steps expect it.
+      - name: Write back to an Excel workbook in the vault changes only that file and keeps a backup
+        run: |
+          vault="$RUNNER_TEMP/vault"
+          mkdir -p "$vault/個股/CRWD"
+          cp "research-workbench/src/server/xlsx/fixtures/CRWD_簡明損益表.xlsx" "$vault/個股/CRWD/"
+          cat > "$RUNNER_TEMP/check-workbook-write.cjs" <<'EOF'
+          const assert = require('node:assert/strict');
+          const { spawn, execFileSync } = require('node:child_process');
+          const crypto = require('node:crypto');
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const home = process.env.HOME;
+          const app = path.join(home, 'ResearchWorkbench', 'current');
+          const node = path.join(home, 'ResearchWorkbench', 'runtime', 'current', 'bin', 'node');
+          const vault = path.join(process.env.RUNNER_TEMP, 'vault');
+          const dataDir = path.join(process.env.RUNNER_TEMP, 'wb-write-data');
+          const port = 4311;
+          const base = `http://127.0.0.1:${port}`;
+          const rel = '個股/CRWD/CRWD_簡明損益表.xlsx';
+          const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
+          // every file and folder of the vault, hidden ones included
+          function snapshot() {
+            const out = {};
+            const walk = (dir) => {
+              for (const e of fs.readdirSync(path.join(vault, dir), { withFileTypes: true })) {
+                const p = path.join(dir, e.name);
+                if (e.isDirectory()) {
+                  out[p] = 'dir';
+                  walk(p);
+                } else out[p] = sha(fs.readFileSync(path.join(vault, p)));
+              }
+            };
+            walk('');
+            return out;
+          }
+          async function main() {
+            const original = fs.readFileSync(path.join(vault, rel));
+            const before = snapshot();
+            const server = spawn(node, ['--import', 'tsx', 'src/server/main.ts'], { cwd: app, env: { ...process.env, WORKBENCH_DATA_DIR: dataDir, WORKBENCH_PORT: String(port), WORKBENCH_LOG_LEVEL: 'warn' }, stdio: 'inherit' });
+            try {
+              let up = false;
+              for (let i = 0; i < 120 && !up; i++) {
+                await new Promise((r) => setTimeout(r, 500));
+                up = await fetch(`${base}/api/health`).then((r) => r.ok, () => false);
+              }
+              assert.ok(up, 'the second server answers /api/health');
+              const tokens = JSON.parse(fs.readFileSync(path.join(dataDir, 'tokens.json'), 'utf8')).tokens;
+              const call = async (who, method, url, body) => {
+                const res = await fetch(base + url, { method, headers: { authorization: `Bearer ${tokens[who]}`, ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
+                return { status: res.status, json: await res.json().catch(() => null) };
+              };
+              const ok = async (...args) => {
+                const r = await call('user', ...args);
+                assert.equal(r.status, 200, `${args[0]} ${args[1]} → ${r.status} ${JSON.stringify(r.json)}`);
+                return r.json;
+              };
+              const dir = await ok('PUT', '/api/settings/vault-dir', { dir: vault });
+              assert.equal(dir.readable, true, `the server reads the vault folder: ${JSON.stringify(dir)}`);
+              const project = await ok('POST', '/api/projects', { name: 'CrowdStrike', year: 2026, security: { ticker: 'CRWD', exchange: 'NASDAQ', apiSymbol: 'CRWD', currency: 'USD', priceSource: 'demo' } });
+              const files = await ok('GET', `/api/workbook/files?projectId=${project.id}`);
+              assert.deepEqual(files.files.map((f) => [f.path.normalize('NFC'), f.matchesTicker]), [[rel, true]]);
+              const view = await ok('PUT', `/api/projects/${project.id}/workbook/link`, { path: files.files[0].path });
+              assert.equal(view.file.state, 'ok');
+              assert.equal(view.file.sha256, sha(original));
+              assert.equal(view.selfCheck.state, 'verified');
+              assert.ok(Math.abs(view.outputs.targetPrice.value - 171.53) < 0.01, `target price as the file has it: ${view.outputs.targetPrice.value}`);
+              const multiple = view.assumptions.find((a) => a.origin === 'output');
+              assert.equal(multiple.value, 25);
+              const request = { baseSha: view.file.sha256, changes: [{ sheet: multiple.sheet, address: multiple.cell, value: 30 }], statusChanges: [] };
+
+              // an AI client may not write; nothing changes
+              const refused = await call('claude-code', 'POST', `/api/projects/${project.id}/workbook/write`, request);
+              assert.equal(refused.status, 403);
+              assert.deepEqual(snapshot(), before);
+
+              const written = await ok('POST', `/api/projects/${project.id}/workbook/write`, request);
+              const now = fs.readFileSync(path.join(vault, rel));
+              assert.equal(written.file.sha256, sha(now));
+              assert.notEqual(sha(now), sha(original));
+              assert.equal(written.assumptions.find((a) => a.id === multiple.id).value, 30);
+              assert.equal(written.selfCheck.state, 'verified');
+              assert.ok(written.outputs.targetPrice.value > 200, `target price after the write: ${written.outputs.targetPrice.value}`);
+              execFileSync('/usr/bin/unzip', ['-tq', path.join(vault, rel)], { stdio: 'inherit' });
+
+              // in the vault only that one file changed: no temp file, no lock file, nothing else touched
+              const after = snapshot();
+              assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
+              assert.deepEqual(Object.keys(after).filter((p) => after[p] !== before[p]).map((p) => p.normalize('NFC')), [rel]);
+
+              // the original is in the data folder, byte for byte
+              const backups = path.join(dataDir, 'workbook-backups', project.id);
+              const kept = fs.readdirSync(backups);
+              assert.equal(kept.length, 1, `one backup: ${kept}`);
+              assert.equal(sha(fs.readFileSync(path.join(backups, kept[0]))), sha(original));
+
+              // reading again gives the written file, and no "older version is back" notice
+              const again = await ok('GET', `/api/projects/${project.id}/workbook`);
+              assert.equal(again.file.sha256, sha(now));
+              assert.equal(again.revert, null);
+              console.log(`wrote ${multiple.sheet}!${multiple.cell} = 30; only ${rel} changed; backup ${kept[0]}`);
+            } finally {
+              server.kill();
+            }
+          }
+          main().catch((e) => {
+            console.error(e);
+            process.exit(1);
+          });
+          EOF
+          "$HOME/ResearchWorkbench/runtime/current/bin/node" "$RUNNER_TEMP/check-workbook-write.cjs"
+          # the workbook as written is part of the vault from here on: the update and the uninstall below must leave it alone too
+          cd "$vault" && find . -type f ! -path './.obsidian/plugins/research-workbench-sync/*' ! -path './.obsidian/community-plugins.json' -exec shasum -a 256 {} + | sort > "$RUNNER_TEMP/vault-before.txt"
+          grep -q 'CRWD_簡明損益表.xlsx' "$RUNNER_TEMP/vault-before.txt"
 
       - name: Installer unit tests on macOS (bsdtar, plutil)
         run: |

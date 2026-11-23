@@ -99,6 +99,8 @@ export function SettingsPage() {
           <AiSessionList sessions={sessions} projectName={projectName} />
         </div>
 
+        <PhoneSection remote={diag?.remote} />
+
         <ObsidianSection vault={diag ? diag.vault : undefined} />
 
         <div className="card" style={{ marginTop: 14 }} data-testid="system-status">
@@ -183,6 +185,54 @@ function PasteBox() {
           {t('Copy')}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Phone access through Tailscale: the address to open on the phone, or how to turn it on. `undefined` while loading. */
+function PhoneSection({ remote }: { remote: DiagnosticsDTO['remote'] | undefined }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const url = remote?.url ?? null;
+  const copy = async () => {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // no clipboard permission: select the text and copy it the old way
+      ref.current?.select();
+      document.execCommand('copy');
+    }
+    useWorkspace.getState().toast(t('Copied. Send it to your phone and open it there.'), 'success');
+  };
+  return (
+    <div className="card" data-testid="settings-phone" style={{ marginTop: 14 }}>
+      <h2>{t('Open on your phone')}</h2>
+      {remote && url && (
+        <>
+          <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+            <input ref={ref} readOnly value={url} aria-label={t('Phone address')} data-testid="phone-url" style={{ flex: '1 1 220px', minWidth: 0 }} onFocus={(e) => e.target.select()} />
+            <button className="btn primary" onClick={() => void copy()} data-testid="copy-phone-url">
+              {t('Copy')}
+            </button>
+          </div>
+          <div className="msg warn" style={{ marginTop: 8 }}>
+            {t('The Mac must be on and awake with Tailscale running, or the phone cannot connect.')}
+          </div>
+          <div className="small sub" style={{ marginTop: 8 }}>
+            {t('On the phone: install Tailscale, sign in as {login} and keep it connected, then open the address in the browser.', { login: remote.logins.join('、') })}
+          </div>
+        </>
+      )}
+      {remote && !url && (
+        <div className="small" data-testid="phone-off">
+          {t('Phone access is off.')}
+          <ol style={{ margin: '4px 0', paddingLeft: 20 }}>
+            <li>{t('Install Tailscale on this Mac and on the phone, and sign in with the same account on both.')}</li>
+            <li>{t('On the Mac, paste the install command into Terminal again and add “ -- --tailscale” at the end.')}</li>
+            <li>{t('The installer prints the address for the phone; it also appears here.')}</li>
+          </ol>
+        </div>
+      )}
     </div>
   );
 }

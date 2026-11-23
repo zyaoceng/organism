@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildApp, type AppContext } from './app';
+import { bareHost, buildApp, envList, type AppContext } from './app';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const dataDir = path.resolve(process.env.WORKBENCH_DATA_DIR ?? path.join(root, 'data'));
@@ -18,6 +18,13 @@ const allowedHosts = [
   ...(process.env.WORKBENCH_ALLOWED_HOSTS ?? '').split(',').map((h) => h.trim()).filter(Boolean),
 ];
 
+// Phone access: `tailscale serve` forwards https://<mac>.<tailnet>.ts.net to this loopback port (the installer sets both).
+const httpsHostsRaw = envList(process.env.WORKBENCH_HTTPS_HOSTS);
+const httpsHosts = httpsHostsRaw.map(bareHost).filter(Boolean);
+for (const h of httpsHostsRaw) if (!bareHost(h)) console.error(`Research Workbench: WORKBENCH_HTTPS_HOSTS entry ignored (want a bare host name, no https:// and no port): ${h}`);
+const tailscaleLogins = envList(process.env.WORKBENCH_TAILSCALE_LOGINS);
+if (httpsHosts.length && !tailscaleLogins.length) console.error('Research Workbench: WORKBENCH_HTTPS_HOSTS is set but WORKBENCH_TAILSCALE_LOGINS is empty; every request through those hosts will be refused');
+
 let ctx: AppContext;
 try {
   // daily backups start once the port is ours (below), not in an instance that is about to fail
@@ -28,6 +35,8 @@ try {
     allowedHosts,
     // Obsidian's requestUrl may send this Origin; the vault routes need the Obsidian token anyway
     allowedOrigins: ['app://obsidian.md'],
+    httpsHosts,
+    tailscaleLogins,
     publicUrl: `http://127.0.0.1:${port}`,
   });
 } catch (e) {

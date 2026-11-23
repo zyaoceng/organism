@@ -6,6 +6,7 @@
  *
  *   install.mjs [--yes] [--port <n>] [--import <wb-data.tgz>] [--no-register]   install, or update to release.json's commit
  *               [--obsidian | --obsidian-vault <dir> | --no-obsidian]            and the Obsidian plugin (lib/obsidian.mjs)
+ *               [--tailscale | --no-tailscale]                                   and phone access (lib/tailscale.mjs)
  *   install.mjs --dry-run | --doctor | --uninstall [--purge]
  *   install.mjs --source-dir <checkout> [--no-launchd]             CI: install a local checkout
  *
@@ -15,6 +16,9 @@
  * put back. After that the AI apps found on this Mac are pointed at the MCP adapter (lib/register.mjs),
  * and the Obsidian plugin is copied into the vault the user chose (lib/obsidian.mjs; never deletes there).
  * The running server is told that folder too: it reads the Excel workbooks kept in it.
+ * With Tailscale on this Mac the installer offers phone access (lib/tailscale.mjs): `tailscale serve`
+ * forwards https://<mac>.<tailnet>.ts.net to the loopback port, and the LaunchAgent tells the server
+ * that host name and the one Tailscale account it lets in.
  * Environment overrides (tests and install.sh):
  * WB_SOURCE_DIR, WB_RELEASE_COMMIT (skip reading release.json), WB_NODE (the Node the service runs).
  */
@@ -35,6 +39,7 @@ import { detectTargets, registerAll, registrationStatus } from './lib/register.m
 import { ReleaseError, isCommit, parseRelease, releaseUrl, tarExtractArgs, tarballUrl } from './lib/release.mjs';
 import { OBSIDIAN_STATUS_ZH, finalMessage, formatBytes, formatDoctorReport, formatImportSummary, lastJsonLine, registrationCheck, summarizeDiagnostics } from './lib/report.mjs';
 import { nodeForMacos } from './lib/system.mjs';
+import { NOT_INSTALLED_LINES, NOT_LOGGED_IN_LINES, SERVE_OFF_HINT, decideTailscale, detectTailscale, doctorChecks, parseServeStatus, phoneLines, phoneUrl, planServe, savedRemote, startServe } from './lib/tailscale.mjs';
 
 class InstallError extends Error {
   constructor(zh, en, details = []) {
@@ -643,6 +648,58 @@ function obsidianStep(o, L, appDir, port, settings) {
   return { result: { status: r.status, message: r.dir ? r.message : `${tilde(vault, L.home)}  ${r.message}`, lines: r.lines }, saved };
 }
 
+/**
+ * Phone access through Tailscale; runs before the LaunchAgent is written because the server learns the
+ * host name and the allowed account from it. Never fails the install.
+ * @returns {{ status: string, message: string, saved: object | undefined, remote: { host: string, login: string } | null }}
+ *   saved: the new `settings.tailscale`; remote: what goes into the LaunchAgent (null: phone access off)
+ */
+function tailscaleStep(o, L, port, settings, launchd) {
+  say('手機連線（Tailscale）', 'phone access through Tailscale');
+  const prev = settings.tailscale;
+  const keep = savedRemote(prev);
+  const skip = (status, message, lines = []) => {
+    info(message, `tailscale ${status}`);
+    for (const l of lines) console.log(`        ${l}`);
+    if (keep) info(`沿用之前的設定：${phoneUrl(keep.host)}`, 'keeping the saved phone address');
+    return { status, message, saved: prev, remote: keep };
+  };
+  const d = decideTailscale({ o, saved: prev, mac: L.mac, launchd });
+  if (d.action === 'off') {
+    info('不開放手機連線', 'phone access is off (--no-tailscale)');
+    if (keep) console.log(`        伺服器不再接受 ${phoneUrl(keep.host)}。Tailscale 那一邊的轉送沒有動；要一併關掉請執行：${SERVE_OFF_HINT}`);
+    return { status: 'off', message: '不開放手機連線', saved: { declined: true }, remote: null };
+  }
+  if (d.action === 'skip') return skip(d.status, d.message);
+  const { cli, status } = detectTailscale({ run, env: process.env, exists });
+  if (!cli) return skip('not-installed', '這台 Mac 沒有安裝 Tailscale，略過手機連線', NOT_INSTALLED_LINES);
+  if (status.state !== 'running') {
+    return skip('not-logged-in', `Tailscale 沒有連線（${status.state}${status.error ? `：${status.error}` : ''}），略過手機連線`, NOT_LOGGED_IN_LINES);
+  }
+  const p = planServe({ o, saved: prev, status });
+  if (p.action === 'skip') return skip(p.status, p.message);
+  if (p.ask) {
+    console.log(`    這台 Mac 在 Tailscale 上的名稱是 ${p.host}，登入的帳號是 ${p.login}。`);
+    console.log('    開放後，只有用這個 Tailscale 帳號登入的裝置（例如你的手機）打得開研究工作台；網際網路上的其他人連不到。');
+    if (!ask(o, '    要讓你自己的其他裝置透過 Tailscale 打開研究工作台嗎？/ Make the workbench reachable from your own devices over Tailscale?', true)) {
+      info(`不開放手機連線；之後可以執行 ${ONE_LINER} -- --tailscale`, 'declined');
+      return { status: 'declined', message: '不開放手機連線', saved: { declined: true }, remote: null };
+    }
+  }
+  const r = startServe({ cli, port, run });
+  if (!r.ok) {
+    warn('tailscale serve 沒有成功，手機連線沒有開', 'tailscale serve failed; phone access not turned on');
+    for (const l of r.lines.slice(0, 12)) console.log(`        ${l}`);
+    console.log('        如果上面有一個 https://login.tailscale.com/… 的網址，請用瀏覽器打開它、在 Tailscale 管理頁開啟 HTTPS 與 Serve，');
+    console.log(`        然後再執行：${ONE_LINER} -- --tailscale`);
+    return { status: 'failed', message: 'tailscale serve 沒有成功', saved: prev, remote: keep };
+  }
+  ok(`Tailscale 會把 ${phoneUrl(p.host)} 轉到這台 Mac 的埠 ${port}`, `tailscale serve --bg ${port}`);
+  const remote = { host: p.host, login: p.login };
+  const same = keep && keep.host === remote.host && keep.login === remote.login;
+  return { status: 'on', message: phoneUrl(p.host), saved: { ...remote, enabledAt: same && prev.enabledAt ? prev.enabledAt : new Date().toISOString() }, remote };
+}
+
 // ------------------------------------------------------------ install
 
 /** In a dry run install.sh has not created runtime/current yet (it runs us from a temporary Node), so a missing one is fine. */
@@ -710,6 +767,16 @@ async function install(o, L, settings) {
       throw e;
     }
 
+    // phone access: asked now, because the LaunchAgent written below carries the answer
+    let ts;
+    try {
+      ts = tailscaleStep(o, L, port, settings, launchd);
+    } catch (e) {
+      warn('手機連線沒有設定', `tailscale step failed: ${e?.message ?? e}`);
+      ts = { status: 'failed', message: String(e?.message ?? e).split('\n')[0], saved: settings.tailscale, remote: savedRemote(settings.tailscale) };
+    }
+    ciOutput('tailscale', ts.status);
+
     // e. switch and start; on any failure `current` goes back to the version that ran before
     const restorePrevious = () => {
       if (!previous || previous === name || !exists(path.join(L.root, previous))) return false;
@@ -737,7 +804,7 @@ async function install(o, L, settings) {
       snap = snapshotDb(L);
       oldPlist = exists(L.plist) ? fs.readFileSync(L.plist, 'utf8') : null;
       pointCurrent(L, name);
-      const plist = renderPlist(launchAgent({ node: L.node, workingDirectory: L.current, dataDir: L.dataDir, port, stdoutLog: L.stdoutLog, stderrLog: L.stderrLog }));
+      const plist = renderPlist(launchAgent({ node: L.node, workingDirectory: L.current, dataDir: L.dataDir, port, stdoutLog: L.stdoutLog, stderrLog: L.stderrLog, remote: ts.remote }));
       writeFileAtomic(L.plist, plist);
       if (hasCommand('plutil')) {
         const lint = run('plutil', ['-lint', L.plist]);
@@ -805,7 +872,9 @@ async function install(o, L, settings) {
     }
     ciOutput('launchd', service);
     fs.rmSync(rollbackDir(L), { recursive: true, force: true });
-    writeFileAtomic(L.settings, `${JSON.stringify({ ...settings, port }, null, 2)}\n`);
+    // from here on `settings` is what is on disk (the Obsidian step below adds to it)
+    settings = { ...settings, port, tailscale: ts.saved };
+    writeFileAtomic(L.settings, `${JSON.stringify(settings, null, 2)}\n`);
     prune(L, name, previous);
 
     // f. launcher
@@ -848,6 +917,13 @@ async function install(o, L, settings) {
 
     // i. how to use it
     console.log(finalMessage({ L, port, launcher, launchd: service === 'ok', registration, obsidian: obs.result }));
+    if (ts.remote && service === 'ok') {
+      console.log('\n手機 / Phone:');
+      for (const l of phoneLines(ts.remote)) console.log(`  ${l}`);
+    } else if (ts.status === 'not-installed' || ts.status === 'not-logged-in') {
+      console.log('\n手機 / Phone:');
+      for (const l of ts.status === 'not-installed' ? NOT_INSTALLED_LINES : NOT_LOGGED_IN_LINES) console.log(`  ${l}`);
+    }
     return 0;
   } finally {
     unlock();
@@ -892,7 +968,7 @@ async function dryRun(o, L, port, launchd) {
   if (!p.free && !p.ours && launchd) problems.push(`port ${port} is in use by ${p.who}`);
   plan(`埠 ${port}：${p.free ? '可用' : p.ours ? '由研究工作台使用中' : `被占用 ${p.who}`}`, `port ${port} ${p.free ? 'free' : p.ours ? 'held by our service' : 'busy'}`);
   if (launchd) {
-    const plist = renderPlist(launchAgent({ node: L.node, workingDirectory: L.current, dataDir: L.dataDir, port, stdoutLog: L.stdoutLog, stderrLog: L.stderrLog }));
+    const plist = renderPlist(launchAgent({ node: L.node, workingDirectory: L.current, dataDir: L.dataDir, port, stdoutLog: L.stdoutLog, stderrLog: L.stderrLog, remote: o.noTailscale ? null : savedRemote(readSettings(L).tailscale) }));
     plan(`寫入 ${tilde(L.plist, L.home)}，bootout → enable → bootstrap`, 'LaunchAgent:');
     for (const l of plist.trimEnd().split('\n')) console.log(`        ${l}`);
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-dry-'));
@@ -924,6 +1000,19 @@ async function dryRun(o, L, port, launchd) {
   if (d.action === 'skip') plan(d.message, `no Obsidian plugin (${d.status})`);
   else if (d.action === 'use') plan(`複製 Obsidian 外掛到 ${tilde(pluginTargetDir(d.vault), L.home)}`, `would copy the plugin into the ${d.source === 'flag' ? '--obsidian-vault' : 'saved'} vault`);
   else plan(`詢問要連接哪一個 Obsidian vault（${tilde(obsidianConfigPath(L.home), L.home)}）`, 'would ask which Obsidian vault to use');
+  const td = decideTailscale({ o, saved: readSettings(L).tailscale, mac: L.mac, launchd });
+  if (td.action === 'off') plan('不開放手機連線（--no-tailscale）', 'phone access off');
+  else if (td.action === 'skip') plan(td.message, `no phone access (${td.status})`);
+  else {
+    const { cli, status } = detectTailscale({ run, env: process.env, exists });
+    if (!cli) plan('這台 Mac 沒有安裝 Tailscale，不設定手機連線', 'Tailscale not installed');
+    else if (status.state !== 'running') plan(`Tailscale 沒有連線（${status.state}），不設定手機連線`, 'Tailscale not connected');
+    else {
+      const ps = planServe({ o, saved: readSettings(L).tailscale, status });
+      if (ps.action === 'skip') plan(ps.message, `no phone access (${ps.status})`);
+      else plan(`${ps.ask ? '詢問後' : ''}執行 tailscale serve --bg ${port}，手機網址 ${phoneUrl(ps.host)}，只允許 ${ps.login}`, 'would run tailscale serve and allow that account');
+    }
+  }
   if (problems.length) {
     console.log(`\n[dry-run] 有 ${problems.length} 個問題 / problems:`);
     for (const l of problems) console.log(`  - ${l}`);
@@ -945,12 +1034,15 @@ async function uninstall(o, L, settings) {
       `Obsidian 外掛沒有刪除：${tilde(pluginTargetDir(vault), L.home)}；要移除請在 Obsidian「設定 → 第三方外掛」停用並解除安裝`,
       'the Obsidian plugin folder in the vault is left alone',
     );
+  const phone = savedRemote(settings.tailscale);
+  const serveNote = () => phone && info(`Tailscale 的轉送沒有關掉（${phoneUrl(phone.host)}）；要關掉請執行：${SERVE_OFF_HINT}`, 'tailscale serve is left as it is');
   const remove = [...(launchd ? [L.plist, L.launcher] : []), L.root, ...(o.purge ? [L.dataDir, L.logsDir] : [])].filter(exists);
   if (o.dryRun) {
     if (launchd) plan(`停止背景服務 ${target()}`, 'would boot out the LaunchAgent');
     for (const p of remove) plan(`刪除 ${tilde(p, L.home)}`, 'would delete');
     if (!o.purge) plan(`保留資料 ${tilde(L.dataDir, L.home)}`, 'data is kept');
     vaultNote();
+    serveNote();
     return 0;
   }
   if (o.purge && !askTyped(`這會永久刪除所有研究資料與備份：${tilde(L.dataDir, L.home)} / This deletes ALL data and backups.`, 'yes')) {
@@ -968,6 +1060,7 @@ async function uninstall(o, L, settings) {
   if (o.purge) ok('已完整移除，包括資料', 'uninstalled, data deleted');
   else ok(`已移除；資料保留在 ${tilde(L.dataDir, L.home)}（重新安裝會繼續使用）`, 'uninstalled; data kept (a re-install picks it up)');
   vaultNote();
+  serveNote();
   return 0;
 }
 
@@ -1079,6 +1172,13 @@ async function doctor(o, L, settings) {
     const va = await vaultAccessCheck({ port, home: L.home });
     add(va.status, va.label, va.detail, va.lines);
   } else add('skip', VAULT_CHECK_LABEL, '伺服器沒有回應 / the server is not answering');
+
+  // phone access: what `tailscale serve` forwards, and whether the running service accepts the https address
+  if (L.mac) {
+    const { cli, status } = detectTailscale({ run, env: process.env, exists });
+    const serve = cli && status?.state === 'running' ? parseServeStatus(run(cli, ['serve', 'status', '--json'], { timeout: 15_000 }).stdout, port) : null;
+    for (const c of doctorChecks({ saved: settings.tailscale, cli, status, serve, remote: diagnostics ? (diagnostics.remote ?? null) : undefined, port })) add(c.status, c.label, c.detail, c.lines);
+  } else add('skip', 'Tailscale serve', '只在 macOS / macOS only');
 
   if (exists(L.dataDir)) {
     // daily/, weekly/ and the permanent pre-v*/pre-import copies (src/server/services/backup.ts)

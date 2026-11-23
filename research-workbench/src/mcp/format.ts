@@ -224,6 +224,10 @@ function dashFlags(r: DashboardRowDTO): string[] {
   if (c.undated) out.push(`日期未定的催化劑 ${c.undated} 個`);
   if (r.theses.reviewDue) out.push(`論點到了檢查日 ${r.theses.reviewDue} 個`);
   else if (r.theses.nextReviewBy) out.push(`下次論點檢查 ${r.theses.nextReviewBy}`);
+  // the count is from the last time the Excel file was read, so it carries that date
+  const wb = r.workbook;
+  if (wb.linked && wb.pending !== null) out.push(`Excel 假設待判斷 ${wb.pending} 格${wb.checkedAt ? `（${localTime(wb.checkedAt)} 讀檔）` : ''}`);
+  else if (wb.linked) out.push('Excel 假設待判斷 —（已連結，還沒讀到檔案）');
   if (r.ai) out.push(`最近 AI 活動：${actorLabel(`agent:${r.ai.client}`, 'zh-TW')} ${localTime(r.ai.at)}`);
   return out;
 }

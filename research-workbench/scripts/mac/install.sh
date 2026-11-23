@@ -23,7 +23,7 @@ main() {
   SUBDIR="research-workbench"
   RAW="https://raw.githubusercontent.com/$REPO"
   # install.mjs imports these (a unit test keeps the list in sync with scripts/mac/lib)
-  LIB_FILES="args.mjs health.mjs launchd.mjs launcher.mjs layout.mjs obsidian.mjs prune.mjs register.mjs release.mjs report.mjs system.mjs"
+  LIB_FILES="args.mjs health.mjs launchd.mjs launcher.mjs layout.mjs obsidian.mjs prune.mjs register.mjs release.mjs report.mjs system.mjs tailscale.mjs"
 
   say() { printf '==> %s\n' "$*"; }
   die() {
@@ -56,7 +56,7 @@ main() {
       --source-dir=*) SRC="${a#--source-dir=}" ;;
       -h | --help)
         printf '%s\n' "研究工作台 Mac 安裝程式 / Research Workbench Mac installer" \
-          "  options: --doctor --dry-run --uninstall [--purge] --import <file> --port <n> --yes --source-dir <dir> --no-launchd --no-register" \
+          "  options: --doctor --dry-run --uninstall [--purge] --import <file> --port <n> --yes --source-dir <dir> --no-launchd --no-register --tailscale --no-tailscale" \
           "  e.g. /bin/bash -c \"\$(curl -fsSL $RAW/$BRANCH/$SUBDIR/scripts/mac/install.sh)\" -- --doctor"
         exit 0
         ;;

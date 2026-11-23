@@ -182,6 +182,7 @@ describe('companies at a glance (list_companies)', () => {
     catalysts: { upcoming: 2, undated: 1, overdue: 1, next: brief('cat_2', 'Q4 法說', '2026-11-01', 'quarter', '2026-12-31'), oldestOverdue: brief('cat_1', '新品發表', '2026-09-15', 'day', '2026-09-15') },
     theses: { reviewDue: 1, nextReviewBy: '2026-12-31' },
     ai: { client: 'chatgpt', at: '2026-10-29T10:00:00.000Z', summary: '看完法說' },
+    workbook: { linked: false, pending: null, checkedAt: null },
     ...over,
   });
 
@@ -231,6 +232,15 @@ describe('companies at a glance (list_companies)', () => {
     expect(text).toContain('股價 30 TWD（2026-10-18，finmind，已 12 天沒有新股價）');
     expect(text).toContain('目標價 —（最近一次研究更新沒有目標價）');
     expect(text).toContain('沒代號（無代號）id: prj_d\n   股價 —（沒有股票代號）');
+  });
+
+  it('says how many Excel cells wait for a decision, and when that was counted', () => {
+    const flags = (workbook: DashboardRowDTO['workbook']) => formatCompanyList([row({ workbook, ai: null })], 4310);
+    // no linked Excel: nothing about it
+    expect(flags({ linked: false, pending: null, checkedAt: null })).not.toContain('Excel');
+    expect(flags({ linked: true, pending: 3, checkedAt: '2026-11-22T03:00:00.000Z' })).toMatch(/｜論點到了檢查日 1 個｜Excel 假設待判斷 3 格（2026-11-22 \d\d:\d\d 讀檔）\n/);
+    expect(flags({ linked: true, pending: 0, checkedAt: '2026-11-22T03:00:00.000Z' })).toMatch(/Excel 假設待判斷 0 格（/);
+    expect(flags({ linked: true, pending: null, checkedAt: null })).toContain('｜Excel 假設待判斷 —（已連結，還沒讀到檔案）\n');
   });
 });
 

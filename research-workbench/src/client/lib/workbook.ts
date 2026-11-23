@@ -1,9 +1,10 @@
 import type { OutputCandidate, OutputKey, OutputMapping } from '../../domain/workbook/types';
-import type { AssumptionDTO, TornadoRowDTO, WorkbookRecalcRequest } from '../../shared/api';
+import type { AssumptionDTO, TornadoRowDTO, WorkbookRecalcRequest, WorkbookRevertDTO, WorkbookWriteRequest } from '../../shared/api';
 
 /**
  * Pure helpers of the assumptions page (the linked Excel workbook). Trial values are text the user
- * typed, kept per browser tab; nothing here writes to the file.
+ * typed, kept per browser tab; they reach the file only through the write request built here, which
+ * the page sends when the user confirms the list of cells.
  */
 
 // ------------------------------------------------------------ numbers as the sheet formats them
@@ -34,6 +35,19 @@ export function fmtNum(v: number | null | undefined, numFmt?: string | null): st
 export function editNum(v: number | null | undefined, numFmt?: string | null): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return '';
   return String(Number((isPercent(numFmt) ? v * 100 : v).toFixed(8)));
+}
+
+/**
+ * A value for the list of cells a write will change. The cell's own format when it shows the whole
+ * value; every digit when the format would round it away (0.1601 in a 0% cell reads 16.01%, not 16%),
+ * so the list never shows "25.0 → 25.0" for a change it is about to make.
+ */
+export function exactNum(v: number | null | undefined, numFmt?: string | null): string {
+  const shown = fmtNum(v, numFmt);
+  if (v === null || v === undefined || !Number.isFinite(v)) return shown;
+  const back = parseNum(shown, numFmt);
+  if (back.ok && back.value !== null && same(back.value, v)) return shown;
+  return editNum(v, numFmt) + (isPercent(numFmt) ? '%' : '');
 }
 
 export type ParsedNum = { ok: true; value: number | null } | { ok: false };
@@ -107,6 +121,8 @@ export interface TrialState {
   values: Record<string, string>;
   /** Typed trial range by assumption id, for assumptions the sheet gives no range. */
   ranges: Record<string, { low: string; high: string }>;
+  /** Ids of assumptions marked 要 that the next write turns into 已定. */
+  decided?: string[];
 }
 
 export const emptyTrial = (): TrialState => ({ values: {}, ranges: {} });
@@ -120,6 +136,8 @@ export function parseTrial(raw: string | null): TrialState {
     const j = JSON.parse(raw) as Partial<TrialState> | null;
     for (const [id, v] of Object.entries(j?.values ?? {})) if (typeof v === 'string') out.values[id] = v;
     for (const [id, r] of Object.entries(j?.ranges ?? {})) if (r && typeof r.low === 'string' && typeof r.high === 'string') out.ranges[id] = { low: r.low, high: r.high };
+    const decided = Array.isArray(j?.decided) ? j.decided.filter((id): id is string => typeof id === 'string') : [];
+    if (decided.length) out.decided = decided;
   } catch {
     // unreadable: start without trial values
   }
@@ -136,7 +154,7 @@ export function loadTrial(projectId: string): TrialState {
 
 export function saveTrial(projectId: string, trial: TrialState) {
   try {
-    const empty = !Object.values(trial.values).some(Boolean) && !Object.values(trial.ranges).some((r) => r.low || r.high);
+    const empty = !Object.values(trial.values).some(Boolean) && !Object.values(trial.ranges).some((r) => r.low || r.high) && !trial.decided?.length;
     if (empty) globalThis.sessionStorage?.removeItem(trialKey(projectId));
     else globalThis.sessionStorage?.setItem(trialKey(projectId), JSON.stringify(trial));
   } catch {
@@ -178,6 +196,89 @@ export function recalcPlan(assumptions: AssumptionDTO[], trial: TrialState, base
   }
   if (plan.ranged.length) plan.request.trialRanges = ranges;
   return plan;
+}
+
+// ------------------------------------------------------------ writing back to Excel
+
+export interface WriteRow {
+  id: string;
+  label: string;
+  sheet: string;
+  cell: string;
+  numFmt: string | null;
+  from: number;
+  to: number;
+  /** The cell holds a formula; the number takes its place. */
+  wasFormula: boolean;
+}
+
+export interface WriteStatusRow {
+  id: string;
+  label: string;
+  sheet: string;
+  /** The cell that says 要. */
+  cell: string;
+}
+
+export interface WritePlan {
+  request: WorkbookWriteRequest;
+  rows: WriteRow[];
+  statusRows: WriteStatusRow[];
+}
+
+/**
+ * Every cell a write would change, in sheet order: the trial values that differ from the file, and
+ * the assumptions marked 要 that were picked to become 已定. Trial ranges are never written.
+ */
+export function writePlan(assumptions: AssumptionDTO[], plan: RecalcPlan, decided: string[] | undefined, baseSha: string): WritePlan {
+  const next = new Map(plan.request.overrides.map((o) => [o.id, o.value]));
+  const picked = new Set(decided ?? []);
+  const rows: WriteRow[] = [];
+  const statusRows: WriteStatusRow[] = [];
+  for (const a of assumptions) {
+    const to = next.get(a.id);
+    if (to !== undefined) rows.push({ id: a.id, label: a.label, sheet: a.sheet, cell: a.cell, numFmt: a.numFmt, from: a.value, to, wasFormula: a.valueIsFormula });
+    if (picked.has(a.id) && a.status === 'needs-decision' && a.statusCell) statusRows.push({ id: a.id, label: a.label, sheet: a.sheet, cell: a.statusCell });
+  }
+  return {
+    request: { baseSha, changes: rows.map((r) => ({ sheet: r.sheet, address: r.cell, value: r.to })), statusChanges: statusRows.map((r) => ({ sheet: r.sheet, address: r.cell, to: '已定' })) },
+    rows,
+    statusRows,
+  };
+}
+
+/**
+ * Is the list of cells on screen? Only while it was asked for and there is something in it: once the
+ * last change is taken back the list is closed for good, so it does not come back by itself (and
+ * scroll the page) when another number is typed.
+ */
+export const confirmOpen = (asked: boolean, cells: number) => asked && cells > 0;
+
+/** The party the others are compared with has a figure in this period. */
+export const mineFilled = (columns: { party: string }[], filled: boolean[]) => columns.some((c, j) => c.party === 'mine' && filled[j]);
+
+/** The trial state once a write went through: the written values and picks are gone, trial ranges stay. */
+export const afterWrite = (trial: TrialState): TrialState => ({ values: {}, ranges: trial.ranges });
+
+/**
+ * The trial state with the cells of a lost write typed in again, so the usual “Write to Excel” puts
+ * them back. `missing` counts the cells the file as it is now has no assumption for.
+ */
+export function refill(trial: TrialState, revert: WorkbookRevertDTO, assumptions: AssumptionDTO[]): { trial: TrialState; missing: number } {
+  const byId = new Map(assumptions.map((a) => [a.id, a]));
+  const values = { ...trial.values };
+  const decided = new Set(trial.decided ?? []);
+  let missing = 0;
+  for (const c of revert.changes) {
+    const a = c.id === null ? undefined : byId.get(c.id);
+    if (a) values[a.id] = editNum(c.value, a.numFmt);
+    else missing++;
+  }
+  for (const s of revert.statusChanges) {
+    if (s.id !== null && byId.has(s.id)) decided.add(s.id);
+    else missing++;
+  }
+  return { trial: { ...trial, values, decided: [...decided] }, missing };
 }
 
 /** A recalculation answer, kept with the request it answers. */

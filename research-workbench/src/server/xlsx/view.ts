@@ -60,6 +60,7 @@ export function assumptionDTOs(detect: DetectResult): AssumptionDTO[] {
     basis: a.basis,
     note: a.note,
     status: a.status,
+    statusCell: a.statusCell,
     origin: a.origin,
   }));
 }
@@ -139,6 +140,18 @@ export function evaluate(loaded: LoadedWorkbook, mapping: OutputMapping, input: 
   }
 }
 
+/**
+ * How far a party's figure is from 我的預估. Against a 我的預估 of 0 no share can be given, but any
+ * other figure is still flagged: it is further away than every percentage. A gap of exactly the
+ * threshold (1.1 against 1 is 0.10000000000000009 in binary) is not flagged.
+ */
+export function partyGap(value: number | null, mine: number | null): { gap: number | null; flagged: boolean } {
+  if (value === null || mine === null) return { gap: null, flagged: false };
+  if (mine === 0) return { gap: null, flagged: value !== 0 };
+  const gap = (value - mine) / Math.abs(mine);
+  return { gap, flagged: Math.abs(gap) > PARTY_GAP_THRESHOLD + 1e-9 };
+}
+
 /** The side-by-side tables as the file is, each figure compared with 我的預估 of its row and period. */
 export function partyTables(loaded: LoadedWorkbook): PartyTableDTO[] {
   const { engine, detect, workbook } = loaded;
@@ -159,9 +172,8 @@ export function partyTables(loaded: LoadedWorkbook): PartyTableDTO[] {
           const mine = mineAt >= 0 ? num(raw[mineAt]) : null;
           return period.columns.map((_, i): PartyValueDTO => {
             const value = num(raw[i]);
-            const gap = i !== mineAt && value !== null && mine !== null && mine !== 0 ? (value - mine) / Math.abs(mine) : null;
             const text = typeof raw[i] === 'string' && raw[i] !== '' ? (raw[i] as string) : null;
-            return { value, text, gap, flagged: gap !== null && Math.abs(gap) > PARTY_GAP_THRESHOLD };
+            return { value, text, ...(i === mineAt ? { gap: null, flagged: false } : partyGap(value, mine)) };
           });
         });
         return { label: row.label, numFmt, cells };
