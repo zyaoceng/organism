@@ -1,5 +1,5 @@
 {
-  "commit": "df5cde611b93f38d7ab500506b17d12650314ee8",
-  "date": "2026-11-15",
-  "note": "M1-M5 (Mac install, basic/advanced mode, AI connection via MCP, all-companies overview and trade log, Obsidian sync and journal import); verified by the Mac install workflow on macos-15 and macos-15-intel"
+  "commit": "160bcf381868a03c77c84c3c39f816565fb36ef3",
+  "date": "2026-11-23",
+  "note": "Adds the assumptions page on top of the company's Excel model (read, recalculate, sensitivity, write back), phone access through Tailscale, the pending column; verified by the Mac install workflow on macos-15 and macos-15-intel"
 }
