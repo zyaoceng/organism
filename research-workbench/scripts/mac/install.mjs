@@ -14,6 +14,7 @@
  * within 60 s the previous version, its LaunchAgent and the database as it was before the switch are
  * put back. After that the AI apps found on this Mac are pointed at the MCP adapter (lib/register.mjs),
  * and the Obsidian plugin is copied into the vault the user chose (lib/obsidian.mjs; never deletes there).
+ * The running server is told that folder too: it reads the Excel workbooks kept in it.
  * Environment overrides (tests and install.sh):
  * WB_SOURCE_DIR, WB_RELEASE_COMMIT (skip reading release.json), WB_NODE (the Node the service runs).
  */
@@ -28,7 +29,7 @@ import { appUrl, checkHealth, healthUrl, waitForHealth } from './lib/health.mjs'
 import { launchAgent, parseLaunchctlPrint, parseLsof, parsePrintDisabled, renderPlist, serviceTarget } from './lib/launchd.mjs';
 import { launcherScript, osacompileArgs } from './lib/launcher.mjs';
 import { APP_NAME, DEFAULT_PORT, ONE_LINER, appDirName, importedArchiveName, layout, shouldCopy, tilde } from './lib/layout.mjs';
-import { decideVault, formatVaultMenu, installPlugin, isPermissionError, obsidianConfigPath, parseVaultChoice, parseVaults, pluginCheck, pluginTargetDir, probePath } from './lib/obsidian.mjs';
+import { decideVault, formatVaultMenu, installPlugin, isPermissionError, obsidianConfigPath, parseVaultChoice, parseVaults, pluginCheck, pluginTargetDir, probePath, tellServerVault, vaultAccessCheck, VAULT_CHECK_LABEL } from './lib/obsidian.mjs';
 import { appDirsToDelete } from './lib/prune.mjs';
 import { detectTargets, registerAll, registrationStatus } from './lib/register.mjs';
 import { ReleaseError, isCommit, parseRelease, releaseUrl, tarExtractArgs, tarballUrl } from './lib/release.mjs';
@@ -835,6 +836,16 @@ async function install(o, L, settings) {
     if (obs.saved !== settings.obsidian) writeFileAtomic(L.settings, `${JSON.stringify({ ...settings, port, obsidian: obs.saved }, null, 2)}\n`);
     ciOutput('obsidian', obs.result.status);
 
+    // the vault is also where the Excel workbooks are: tell the server, and learn whether the service may read it
+    if (typeof obs.saved?.vault === 'string' && obs.saved.vault) {
+      const v = await tellServerVault({ vault: obs.saved.vault, port, dataDir: L.dataDir, home: L.home });
+      if (v.status === 'ok') ok(v.message, 'the server can read the vault folder');
+      else if (v.status === 'failed' && service !== 'ok') info(`${v.message}；伺服器沒有在執行`, 'the server is not running, so it was not told the vault folder');
+      else warn(v.message, `vault folder ${v.status}`);
+      for (const l of v.lines) console.log(`        ${l}`);
+      ciOutput('vault-dir', v.status);
+    }
+
     // i. how to use it
     console.log(finalMessage({ L, port, launcher, launchd: service === 'ok', registration, obsidian: obs.result }));
     return 0;
@@ -1063,6 +1074,11 @@ async function doctor(o, L, settings) {
   const seen = diagnostics?.vault?.lastSeenAt;
   if (pc.status !== 'skip' && diagnostics) pc.lines = [...(pc.lines ?? []), seen ? `最近同步 / last sync: ${seen}` : '外掛還沒有連線過 / the plugin has not synced yet'];
   add(pc.status, pc.label, pc.detail, pc.lines);
+  // macOS judges the background service separately from Terminal: ask the service itself
+  if (h.ok) {
+    const va = await vaultAccessCheck({ port, home: L.home });
+    add(va.status, va.label, va.detail, va.lines);
+  } else add('skip', VAULT_CHECK_LABEL, '伺服器沒有回應 / the server is not answering');
 
   if (exists(L.dataDir)) {
     // daily/, weekly/ and the permanent pre-v*/pre-import copies (src/server/services/backup.ts)

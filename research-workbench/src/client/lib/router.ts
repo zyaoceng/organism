@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 
-export type Tab = 'model' | 'valuation' | 'trades' | 'history' | 'evidence' | 'catalysts' | 'overview';
-/** Main tabs first; `more` tabs are listed under "More" in advanced mode (their routes always work). */
+export type Tab = 'assumptions' | 'model' | 'valuation' | 'trades' | 'history' | 'evidence' | 'catalysts' | 'overview';
+/** Main tabs first (Assumptions reads the linked Excel file); `more` tabs are listed under "More" in advanced mode (their routes always work). */
 export const TABS: { id: Tab; label: string; more?: boolean }[] = [
+  { id: 'assumptions', label: 'Assumptions' },
   { id: 'model', label: 'Model' },
   { id: 'valuation', label: 'Valuation' },
   { id: 'trades', label: 'Trades' },

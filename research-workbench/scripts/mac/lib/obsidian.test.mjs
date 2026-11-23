@@ -19,7 +19,12 @@ import {
   pluginCheck,
   pluginTargetDir,
   readObsidianToken,
+  readUserToken,
+  serviceAccessHelp,
   tccHelp,
+  tellServerVault,
+  vaultAccessCheck,
+  vaultDirUrl,
 } from './obsidian.mjs';
 import { displayWidth } from './report.mjs';
 
@@ -366,5 +371,95 @@ describe('installPlugin and pluginCheck', () => {
     expect(c.status).toBe('warn');
     expect(c.lines.join('\n')).toContain('stale token');
     expect(c.lines.join('\n')).toContain('0.2.0');
+  });
+});
+
+// ------------------------------------------------------------ the vault folder, as the server sees it
+
+describe('tellServerVault and vaultAccessCheck', () => {
+  let tmp;
+  let dataDir;
+  const home = '/Users/王小明';
+  const vault = `${home}/Desktop/股票`;
+  const answer = (status, json) => ({ ok: status >= 200 && status < 300, status, text: async () => (typeof json === 'string' ? json : JSON.stringify(json)) });
+  /** A fetch that records each request and answers with `reply`. */
+  const server = (reply) => {
+    const calls = [];
+    const fetch = async (url, init = {}) => {
+      calls.push({ url, method: init.method ?? 'GET', headers: init.headers ?? {}, body: init.body ?? null });
+      if (reply instanceof Error) throw reply;
+      return reply;
+    };
+    return { calls, fetch };
+  };
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-vaultdir-'));
+    dataDir = path.join(tmp, 'data');
+    fs.mkdirSync(dataDir);
+    fs.writeFileSync(path.join(dataDir, 'tokens.json'), JSON.stringify({ version: 1, tokens: { user: 'user-token', obsidian: 'obs-token' } }));
+  });
+  afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+  it('reads tokens.user from tokens.json', () => {
+    expect(readUserToken('{"tokens":{"user":"abc"}}')).toBe('abc');
+    expect(readUserToken('{"tokens":{"obsidian":"abc"}}')).toBeNull();
+    expect(readUserToken('{"tokens":{"user":""}}')).toBeNull();
+    expect(readUserToken('nope')).toBeNull();
+  });
+
+  it('sends the folder to this Mac only, as the user, and reports that the service can read it', async () => {
+    const s = server(answer(200, { dir: vault, source: 'settings', readable: true, reason: null }));
+    const r = await tellServerVault({ vault, port: 4310, dataDir, home, fetch: s.fetch });
+    expect(r).toEqual({ status: 'ok', message: '伺服器讀得到筆記庫 ~/Desktop/股票', lines: [] });
+    expect(s.calls).toHaveLength(1);
+    expect(s.calls[0].url).toBe('http://127.0.0.1:4310/api/settings/vault-dir');
+    expect(vaultDirUrl(4310)).toBe(s.calls[0].url);
+    expect(s.calls[0].method).toBe('PUT');
+    expect(s.calls[0].headers).toEqual({ 'content-type': 'application/json', authorization: 'Bearer user-token' });
+    expect(JSON.parse(s.calls[0].body)).toEqual({ dir: vault });
+  });
+
+  it('says how to let the background service in when macOS refuses it', async () => {
+    const s = server(answer(200, { dir: vault, source: 'settings', readable: false, reason: 'EPERM' }));
+    const r = await tellServerVault({ vault, port: 4310, dataDir, home, fetch: s.fetch });
+    expect(r.status).toBe('unreadable');
+    expect(r.message).toBe('伺服器讀不到筆記庫 ~/Desktop/股票（EPERM）');
+    expect(r.lines.join('\n')).toContain('檔案與資料夾 → node');
+    expect(r.lines.join('\n')).toContain('「桌面」');
+    expect(serviceAccessHelp(`${home}/Library/Mobile Documents/iCloud~md~obsidian/Documents/股票`, 'EACCES').join('\n')).toContain('打開「iCloud 雲碟」');
+    expect(serviceAccessHelp(vault, 'ENOENT')).toEqual([expect.stringContaining('ENOENT')]);
+  });
+
+  it('mentions WORKBENCH_VAULT_DIR when the server is using another folder', async () => {
+    const s = server(answer(200, { dir: '/tmp/e2e-vault', source: 'env', readable: true, reason: null }));
+    const r = await tellServerVault({ vault, port: 4310, dataDir, home, fetch: s.fetch });
+    expect(r.status).toBe('ok');
+    expect(r.lines).toEqual([expect.stringContaining('WORKBENCH_VAULT_DIR')]);
+  });
+
+  it('never throws: no token, a server that is not running, a refusal', async () => {
+    const down = server(Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNREFUSED' } }));
+    expect(await tellServerVault({ vault, port: 4310, dataDir, home, fetch: down.fetch })).toEqual({ status: 'failed', message: '沒有把筆記庫位置告訴伺服器（ECONNREFUSED）', lines: [] });
+    const refused = server(answer(403, { error: 'The vault folder can only be set on the Mac itself', code: 'LOCAL_ONLY' }));
+    expect((await tellServerVault({ vault, port: 4310, dataDir, home, fetch: refused.fetch })).message).toContain('HTTP 403 The vault folder can only be set on the Mac itself');
+    const old = server(answer(404, 'Not Found'));
+    expect((await tellServerVault({ vault, port: 4310, dataDir, home, fetch: old.fetch })).message).toContain('HTTP 404');
+    fs.writeFileSync(path.join(dataDir, 'tokens.json'), JSON.stringify({ tokens: { obsidian: 'x' } }));
+    const s = server(answer(200, {}));
+    expect((await tellServerVault({ vault, port: 4310, dataDir, home, fetch: s.fetch })).status).toBe('failed');
+    expect(s.calls).toHaveLength(0);
+  });
+
+  it('the doctor line asks the service itself', async () => {
+    const readable = server(answer(200, { dir: vault, source: 'settings', readable: true, reason: null }));
+    const okLine = await vaultAccessCheck({ port: 4310, home, fetch: readable.fetch });
+    expect(okLine).toEqual({ status: 'ok', label: '筆記庫讀取 / vault access', detail: '背景服務讀得到 / readable  ~/Desktop/股票' });
+    expect(readable.calls).toEqual([{ url: 'http://127.0.0.1:4310/api/settings/vault-dir', method: 'GET', headers: {}, body: null }]);
+    const denied = await vaultAccessCheck({ port: 4310, home, fetch: server(answer(200, { dir: vault, source: 'env', readable: false, reason: 'EPERM' })).fetch });
+    expect(denied).toMatchObject({ status: 'warn', detail: '背景服務讀不到 / not readable (EPERM)  ~/Desktop/股票（WORKBENCH_VAULT_DIR）' });
+    expect(denied.lines).toHaveLength(2);
+    expect(await vaultAccessCheck({ port: 4310, home, fetch: server(answer(200, { dir: null, source: null, readable: false, reason: null })).fetch })).toMatchObject({ status: 'skip' });
+    expect(await vaultAccessCheck({ port: 4310, home, fetch: server(answer(404, 'Not Found')).fetch })).toMatchObject({ status: 'warn', detail: expect.stringContaining('HTTP 404') });
   });
 });

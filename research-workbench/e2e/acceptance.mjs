@@ -9,6 +9,7 @@
  * T22 writes as an AI client with a token from tokens.json, so it runs only when this script started the server.
  * T23 (dashboard) and T24 (trade log) add two companies with trades; one of them is recorded by an AI client when tokens are at hand.
  * T25 plays the Obsidian plugin with the obsidian token from tokens.json, so it also needs the server this script started.
+ * T26 links the CRWD example workbook from a throwaway vault folder (WORKBENCH_VAULT_DIR), so it also needs the server this script started; T27 is the phone width.
  * CHROME=/path/to/chrome overrides the browser executable.
  */
 import { spawn, execSync } from 'node:child_process';
@@ -25,12 +26,19 @@ fs.mkdirSync(out, { recursive: true });
 
 let server = null;
 let dataDir = null;
+let vaultDir = null;
+const crwdFixture = path.join(root, 'src', 'server', 'xlsx', 'fixtures', 'CRWD_簡明損益表.xlsx');
 let BASE = process.env.BASE_URL;
 if (!BASE) {
   execSync('npx vite build', { cwd: root, stdio: 'inherit' });
   dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-e2e-'));
+  // a stand-in for the Obsidian vault: the CRWD workbook in a company folder, next to another workbook
+  vaultDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-e2e-vault-'));
+  fs.mkdirSync(path.join(vaultDir, '03 個股研究', 'CRWD'), { recursive: true });
+  fs.copyFileSync(crwdFixture, path.join(vaultDir, '03 個股研究', 'CRWD', 'CRWD_簡明損益表.xlsx'));
+  fs.copyFileSync(path.join(path.dirname(crwdFixture), '共用公式.xlsx'), path.join(vaultDir, '共用公式.xlsx'));
   const port = 4400 + Math.floor(Math.random() * 400);
-  server = spawn(process.execPath, ['--import', 'tsx', 'src/server/main.ts'], { cwd: root, env: { ...process.env, WORKBENCH_DATA_DIR: dataDir, WORKBENCH_PORT: String(port), WORKBENCH_QUIET: '1' }, stdio: 'inherit' });
+  server = spawn(process.execPath, ['--import', 'tsx', 'src/server/main.ts'], { cwd: root, env: { ...process.env, WORKBENCH_DATA_DIR: dataDir, WORKBENCH_VAULT_DIR: vaultDir, WORKBENCH_PORT: String(port), WORKBENCH_QUIET: '1' }, stdio: 'inherit' });
   BASE = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 60; i++) {
     try {
@@ -523,11 +531,11 @@ await test(20, 'Interface switches to Chinese and back; user data stays as typed
   await page.getByTestId('nav-model').getByText('Model').waitFor();
 });
 
-await test(21, 'Basic mode: four daily pages, Market inside Trades, simpler inspector and commit', async () => {
+await test(21, 'Basic mode: assumptions and four daily pages, Market inside Trades, simpler inspector and commit', async () => {
   await page.getByTestId('nav-model').click();
   await page.getByTestId('advanced-toggle').uncheck();
   const nav = await page.locator('.sidebar nav a').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
-  assert.deepEqual(nav, ['nav-model', 'nav-valuation', 'nav-trades', 'nav-history']);
+  assert.deepEqual(nav, ['nav-assumptions', 'nav-model', 'nav-valuation', 'nav-trades', 'nav-history']);
   assert.equal(await page.getByTestId('lang-toggle').count(), 0, 'language switch is advanced-only');
   // backup from the sidebar
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('sidebar-export').click()]);
@@ -849,9 +857,128 @@ await test(25, 'Obsidian: the plugin pulls notes, sends a reflection back; the p
   assert.equal(asUser.status(), 403);
 });
 
+let crwd;
+await test(26, 'Assumptions: link the CRWD workbook, 要 first, try a multiple and see the target price move, sensitivity order', async () => {
+  if (!vaultDir) {
+    console.log('      (skipped: needs the server started by this script, for the vault folder)');
+    return;
+  }
+  const linked = path.join(vaultDir, '03 個股研究', 'CRWD', 'CRWD_簡明損益表.xlsx');
+  const sha = (f) => execSync(`sha256sum "${f}"`).toString().split(' ')[0];
+  const before = sha(linked);
+  crwd = (await userWrite('POST', '/api/projects', { name: 'CrowdStrike', lang: 'en', security: { name: 'CrowdStrike', ticker: 'CRWD', exchange: 'NASDAQ', apiSymbol: 'CRWD', currency: 'USD', priceSource: 'demo' } })).id;
+  await page.goto(`${BASE}/#/p/${crwd}/assumptions`);
+  // first in the sidebar; nothing linked yet: the picker lists the vault's workbooks, this company's first
+  await page.getByTestId('wb-picker').waitFor();
+  assert.equal(await page.locator('.sidebar nav a').first().getAttribute('data-testid'), 'nav-assumptions');
+  await page.getByTestId('wb-file').first().waitFor();
+  const paths = await page.getByTestId('wb-file').evaluateAll((els) => els.map((e) => e.getAttribute('data-path')));
+  assert.deepEqual(paths, ['03 個股研究/CRWD/CRWD_簡明損益表.xlsx', '共用公式.xlsx']);
+  await page.getByTestId('wb-file').first().getByTestId('wb-link').click();
+  await page.getByTestId('wb-results').waitFor();
+  const num = async (id) => Number(await page.getByTestId(id).getAttribute('data-value'));
+  const near = (a, b, tol, what) => assert.ok(Math.abs(a - b) <= tol, `${what}: ${a}, expected about ${b}`);
+  near(await num('wb-result-revenue'), 6861, 0.5, 'four-quarter revenue');
+  near(await num('wb-result-tp'), 171.53, 0.01, 'target price');
+  assert.match(await page.getByTestId('wb-result-eps').innerText(), /FY27[\s\S]*1\.24/);
+  assert.match(await page.getByTestId('wb-not-saved').innerText(), /nothing is saved to Excel/);
+  // the 8 assumptions marked 要 come before every other one
+  const statuses = await page.getByTestId('wb-assumption').evaluateAll((els) => els.map((e) => e.getAttribute('data-status')));
+  assert.equal(statuses.length, 27);
+  assert.deepEqual(statuses.slice(0, 8), Array(8).fill('needs-decision'));
+  assert.ok(!statuses.slice(8).includes('needs-decision'));
+  assert.equal(await page.getByTestId('wb-needs').getByTestId('wb-assumption').count(), 8);
+  const first = page.getByTestId('wb-assumption').first();
+  assert.match(await first.innerText(), /端點台數年增率[\s\S]*16\.0%[\s\S]*12\.0%[\s\S]*20\.0%[\s\S]*最近四季台數年增/);
+  assert.equal(await page.getByTestId('wb-selfcheck').getAttribute('data-state'), 'verified');
+  assert.equal(await page.getByTestId('wb-file-state').getAttribute('data-state'), 'ok');
+  // sensitivity: longest bar first; the multiple has no range in the file, so it is not listed yet
+  const tornado = () => page.getByTestId('wb-tornado-row').evaluateAll((els) => els.map((e) => ({ id: e.getAttribute('data-id'), delta: Math.abs(Number(e.getAttribute('data-delta'))) })));
+  const sorted = (rows) => rows.every((r, i) => i === 0 || rows[i - 1].delta >= r.delta);
+  let rows = await tornado();
+  assert.equal(rows[0].id, '營收模型!端點台數年增率#1');
+  near(rows[0].delta, 3.41, 0.01, 'largest target-price change');
+  assert.ok(sorted(rows), 'sorted by target-price change');
+  assert.ok(!rows.some((r) => r.id.includes('倍數')));
+  await snap('assumptions');
+
+  // try 30× instead of 25×: the target price moves at once, the file does not
+  const multiple = page.locator('[data-testid=wb-assumption][data-id="營收模型!EV/Sales 倍數#1"]');
+  await multiple.getByTestId('wb-trial').fill('30');
+  await page.locator('[data-testid=wb-results][data-trial="1"][data-pending="0"]').waitFor();
+  near(await num('wb-result-tp'), 204.83, 0.01, 'target price at 30×');
+  assert.match(await page.getByTestId('wb-result-tp-delta').innerText(), /\+33\.31（\+19\.4%）/);
+  near(await num('wb-result-revenue'), 6861, 0.5, 'revenue does not depend on the multiple');
+  assert.match(await page.getByTestId('wb-not-saved').innerText(), /1 assumption\(s\) changed, not saved to Excel/);
+  // a trial range for the multiple puts it on top of the sensitivity list
+  await multiple.getByTestId('wb-range-low').fill('20');
+  await multiple.getByTestId('wb-range-high').fill('30');
+  await page.locator('[data-testid=wb-tornado-row]').first().and(page.locator('[data-id="營收模型!EV/Sales 倍數#1"]')).waitFor();
+  rows = await tornado();
+  near(rows[0].delta, 66.6, 0.05, 'target-price change over 20–30×');
+  assert.ok(sorted(rows), 'still sorted');
+  assert.match(await page.getByTestId('wb-tornado-lead').innerText(), /EV\/Sales 倍數[\s\S]*20\.0[\s\S]*30\.0[\s\S]*66\.6/);
+  await snap('assumptions-trial');
+  // one assumption back, then everything back
+  await page.locator('[data-testid=wb-assumption][data-id="營收模型!端點台數年增率#1"]').getByTestId('wb-trial').fill('20');
+  await page.waitForFunction(() => /2 assumption/.test(document.querySelector('[data-testid=wb-not-saved]')?.textContent ?? '') && document.querySelector('[data-testid=wb-results]')?.getAttribute('data-pending') === '0');
+  assert.ok((await num('wb-result-revenue')) > 6900, 'faster endpoint growth raises revenue');
+  await page.locator('[data-testid=wb-assumption][data-id="營收模型!端點台數年增率#1"]').getByTestId('wb-reset').click();
+  await page.waitForFunction(() => /1 assumption/.test(document.querySelector('[data-testid=wb-not-saved]')?.textContent ?? '') && document.querySelector('[data-testid=wb-results]')?.getAttribute('data-pending') === '0');
+  near(await num('wb-result-revenue'), 6861, 0.5, 'revenue after resetting one assumption');
+  await page.getByTestId('wb-reset-all').click();
+  await page.locator('[data-testid=wb-results][data-trial="0"]').waitFor();
+  near(await num('wb-result-tp'), 171.53, 0.01, 'target price after reset');
+  // the parties table marks what is more than 10% from 我的預估
+  const parties = page.getByTestId('wb-parties').first();
+  assert.match(await parties.getByTestId('wb-parties-lead').innerText(), /3Q27: 1 figure\(s\) are more than 10% away/);
+  assert.equal(await parties.locator('td[data-flagged]').count(), 1);
+  // the diagnosis is text without figures; nothing was written to the workbook
+  const diagnosis = await (await fetch(`${BASE}/api/projects/${crwd}/workbook/diagnosis`)).text();
+  assert.match(diagnosis, /營收模型/);
+  assert.doesNotMatch(diagnosis, /171\.5|6,?86[01]/);
+  assert.equal(sha(linked), before, 'the linked workbook is byte-identical');
+  assert.equal(sha(linked), sha(crwdFixture));
+});
+
+await test(27, 'Phone width (390×844): no sideways scrolling on the assumptions page and the home page', async () => {
+  const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  phone.on('pageerror', (e) => errors.push(e.message));
+  const overflow = () =>
+    phone.evaluate(() => {
+      const wide = [...document.querySelectorAll('.content, .main, .projects')].filter((el) => el.scrollWidth > el.clientWidth + 1).map((el) => el.className);
+      return { doc: document.documentElement.scrollWidth, win: window.innerWidth, wide };
+    });
+  try {
+    await phone.goto(`${BASE}/#/p/${crwd ?? projectId}/assumptions`);
+    await phone.getByTestId('assumptions-page').waitFor();
+    if (crwd) {
+      await phone.getByTestId('wb-results').waitFor();
+      // the sidebar is a bar across the top, the results stay in view while scrolling, inputs are 16px (no zoom on focus)
+      const bar = await phone.locator('.sidebar').boundingBox();
+      assert.ok(bar.width >= 389 && bar.height < 70, `sidebar ${bar.width}×${bar.height}`);
+      assert.equal(await phone.getByTestId('wb-trial').first().evaluate((el) => getComputedStyle(el).fontSize), '16px');
+      await phone.getByTestId('wb-file-status').scrollIntoViewIfNeeded();
+      const results = await phone.getByTestId('wb-results').boundingBox();
+      assert.ok(results.y >= 0 && results.y < 120, `results bar at y=${results.y}`);
+    }
+    let o = await overflow();
+    assert.ok(o.doc <= o.win && o.wide.length === 0, `assumptions page: ${JSON.stringify(o)}`);
+    await phone.screenshot({ path: path.join(out, 'phone-assumptions.png') });
+    await phone.goto(`${BASE}/#/`);
+    await phone.getByTestId('dash-table').waitFor();
+    o = await overflow();
+    assert.ok(o.doc <= o.win && o.wide.length === 0, `home page: ${JSON.stringify(o)}`);
+    await phone.screenshot({ path: path.join(out, 'phone-home.png') });
+  } finally {
+    await phone.close();
+  }
+});
+
 await browser.close();
 if (server) server.kill();
 if (dataDir) fs.rmSync(dataDir, { recursive: true, force: true });
+if (vaultDir) fs.rmSync(vaultDir, { recursive: true, force: true });
 
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} acceptance checks passed. Screenshots in e2e/output/.`);

@@ -65,6 +65,8 @@ export function launchAgent({ node, workingDirectory, dataDir, port, stdoutLog, 
     RunAtLoad: true,
     KeepAlive: { SuccessfulExit: false },
     ThrottleInterval: 10,
+    // lets the service read vault files iCloud has not downloaded (the linked Excel workbooks)
+    MaterializeDatalessFiles: true,
     StandardOutPath: stdoutLog,
     StandardErrorPath: stderrLog,
   };

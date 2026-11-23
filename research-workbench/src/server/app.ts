@@ -91,6 +91,7 @@ import { APP_ROOT, readVersion } from './version';
 import { projectReflectionVersions } from './vault/reflections';
 import { registerVaultRoutes } from './vault/routes';
 import { vaultStatus } from './vault/status';
+import { registerWorkbookRoutes } from './xlsx/routes';
 
 export interface AppOptions {
   dataDir: string;
@@ -125,6 +126,8 @@ export interface AppOptions {
   publicUrl?: string;
   /** The built Obsidian plugin (main.js, manifest.json). Default <appRoot>/dist/obsidian-plugin. */
   pluginDir?: string;
+  /** The folder linked Excel files must be in; wins over the saved setting. Default: WORKBENCH_VAULT_DIR, else the setting. */
+  vaultDir?: string;
 }
 
 export interface AppContext {
@@ -731,6 +734,9 @@ export async function buildApp(opts: AppOptions): Promise<AppContext> {
     obsidianToken: () => tokens.tokens.obsidian,
     generation: () => dbGeneration(db),
   });
+
+  // ------------------------------------------------------------ linked Excel workbooks (assumptions panel)
+  registerWorkbookRoutes(app, { db, vaultDir: opts.vaultDir ?? (process.env.WORKBENCH_VAULT_DIR?.trim() || undefined) });
 
   // ------------------------------------------------------------ built client (production)
   if (opts.clientDir && fs.existsSync(path.join(opts.clientDir, 'index.html'))) {

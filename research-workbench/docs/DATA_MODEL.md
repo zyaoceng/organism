@@ -605,6 +605,74 @@ the heading, so reading it back is not recorded as cleared.
 
 ---
 
+## 2c. Migration v4: linked Excel workbooks (assumptions panel)
+
+Each company can be linked to one `.xlsx` in the vault folder. **Excel is the
+only store of the assumptions**: their values, ranges, bases and 要／已定
+marks are read from the file on every load and recalculated in memory
+(`src/server/xlsx/`, `src/domain/workbook/`). The database holds where the
+file is, where its results are, and a small labelled summary; no assumption
+value is copied into it. Trial values live in the browser tab and are sent
+with each `POST …/workbook/recalc`; nothing is stored for them.
+
+```sql
+CREATE TABLE app_settings (               -- settings of this installation
+  key TEXT PRIMARY KEY,                   -- 'vault_dir': absolute path of the vault folder
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE project_workbooks (          -- one linked file per company
+  project_id TEXT PRIMARY KEY REFERENCES projects(id),
+  rel_path TEXT NOT NULL,                 -- relative to the vault folder, with "/"
+  mapping_json TEXT,                      -- OutputMapping saved by the user; NULL = detect on every load
+  summary_json TEXT,                      -- cache for the overview: { assumptions, needsDecision, selfCheck }
+  file_size INTEGER,                      -- the file as last read: size, SHA-256, modification time
+  file_sha256 TEXT,
+  file_mtime TEXT,
+  checked_at TEXT,
+  linked_at TEXT NOT NULL,
+  linked_by TEXT NOT NULL,                -- actor; always 'user' (an AI client may not link)
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE workbook_writes (            -- one row per write-back (created in v4, written by the write-back route)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id TEXT NOT NULL REFERENCES projects(id),
+  rel_path TEXT NOT NULL,
+  at TEXT NOT NULL,
+  actor TEXT NOT NULL,
+  cells_json TEXT NOT NULL,               -- the cells that were changed, before and after
+  before_sha256 TEXT NOT NULL, before_size INTEGER NOT NULL,
+  after_sha256 TEXT NOT NULL, after_size INTEGER NOT NULL,
+  backup_file TEXT                        -- the copy taken before the write
+);
+CREATE INDEX workbook_writes_project ON workbook_writes(project_id, id);
+```
+
+- **Vault folder.** `WORKBENCH_VAULT_DIR` wins over `app_settings.vault_dir`.
+  `PUT /api/settings/vault-dir` is accepted only from the user, in a request
+  addressed to a loopback Host (`127.0.0.1`, `localhost`, `[::1]`); the Mac
+  installer calls it with the vault chosen for Obsidian.
+- **Path.** A linked file's real path (symlinks followed) must stay under the
+  vault folder's real path and end in `.xlsx`; Excel lock files (`~$…`) are
+  refused. The check is repeated on every read.
+- **Mapping.** `OutputMapping` (`src/domain/workbook/types.ts`) finds each
+  result by sheet + label text + occurrence (optionally the column header and
+  sub-header), never by cell address, so rows and columns inserted into the
+  workbook do not break it. An anchor the file no longer has is reported as a
+  `mapping-unresolved` warning.
+- **Summary.** `summary_json`, `file_size`, `file_sha256` and `file_mtime` are
+  refreshed when a `GET …/workbook` reads a file whose SHA-256 or counts
+  differ from the row. Linking another file clears them and the mapping.
+- **Change check.** `POST …/workbook/recalc` carries the SHA-256 the page was
+  loaded with (`baseSha`); when the file on disk has another, the answer is
+  409 `WORKBOOK_CHANGED` and the page loads the file again.
+- **Not synced.** None of these tables has a `vault_*` trigger: linking a
+  workbook writes no Obsidian note.
+- **`workbook_writes.before_*`.** A file that later shows a `before_sha256`
+  again was put back by iCloud; the write-back route uses the table for that.
+
 ## 3. Point-in-time queries
 
 | Question | Query |

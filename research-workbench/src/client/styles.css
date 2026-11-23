@@ -362,3 +362,96 @@ details > summary { cursor: pointer; color: var(--sub); font-size: 12px; }
 .reflection-versions { margin-top: 6px; max-height: 320px; overflow-y: auto; border-top: 1px solid var(--line); }
 .reflection-versions .reflection-text { font-size: 12px; margin-top: 2px; }
 .journal-reflection { max-width: 260px; white-space: normal; }
+
+/* ---------- assumptions page (linked Excel file) */
+.wb { max-width: 980px; }
+.wb .wb-wrap { overflow-wrap: anywhere; }
+.wb .wb-h { margin: 18px 0 8px; }
+.wb .wb-list { margin: 4px 0 0; padding-left: 18px; }
+.wb .wb-lead { margin-bottom: 8px; }
+.wb section.card { margin-top: 14px; }
+.wb-results { position: sticky; top: 0; z-index: 4; background: var(--panel); border: 1px solid var(--line2); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+.wb-results-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.wb-result { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.wb-result span { font-size: 11.5px; color: var(--sub); }
+.wb-result b { font-size: 20px; }
+.wb-result small { font-size: 11.5px; color: var(--sub); }
+.wb-results.pending .wb-result b { opacity: .55; }
+.wb-quarters { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 4px; }
+.wb-trial-note { margin-top: 6px; }
+.wb-results[data-trial='1'] { border-color: var(--draft-strong); background: var(--draft); }
+.wb-files { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); }
+.wb-file { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.wb-file:last-child { border-bottom: 0; }
+.wb-a { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+.wb-a.changed { border-color: var(--draft-strong); background: var(--draft); }
+.wb-a-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.wb-a-head b { font-size: 14px; }
+.wb-a-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.6fr); gap: 10px; align-items: end; }
+.wb-a-nums > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wb-a-nums > div > span { font-size: 11.5px; color: var(--sub); }
+.wb-a-nums b { font-size: 15px; }
+.wb-a-basis { margin-top: 6px; line-height: 1.5; }
+.wb input.wb-in { width: 100%; text-align: right; font-variant-numeric: tabular-nums; }
+.wb input.wb-in.on { border-color: var(--warn); }
+.wb input.wb-in.bad { border-color: var(--err); }
+.wb-group { margin-bottom: 8px; }
+.wb-group > summary { font-size: 13px; color: var(--ink); padding: 8px 0; }
+.wb-t-row { padding: 8px 0; border-top: 1px solid var(--line); }
+.wb-t-bar { height: 10px; background: var(--act-bg); border-radius: 3px; margin: 4px 0; overflow: hidden; }
+.wb-t-bar i { display: block; height: 100%; background: var(--base); }
+.wb-periods { margin-bottom: 8px; max-width: 100%; overflow-x: auto; }
+.wb-scroll { overflow-x: auto; }
+table.grid.wb-party td:first-child, table.grid.wb-party th:first-child { position: sticky; left: 0; background: var(--panel); white-space: normal; }
+table.grid.wb-party td.wb-flag { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
+.wb-mapping { margin-top: 8px; }
+.wb-map-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 12px; }
+.wb-map-row .wb-map-name { flex: 0 0 9em; color: var(--sub); }
+.wb-map-row select { min-width: 0; flex: 1; }
+
+/* ---------- phones (390px wide): one column, the sidebar becomes a scrolling top bar, 16px inputs */
+@media (max-width: 720px) {
+  input[type=text], input[type=number], input[type=date], input[type=url], input[type=search], input:not([type]), select, textarea,
+  label.field > input, label.field > select, label.field > textarea, .search-pop input { font-size: 16px; }
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); height: 100vh; height: 100dvh; }
+  .sidebar { flex-direction: row; align-items: center; gap: 4px; overflow-x: auto; white-space: nowrap; padding: 4px 8px; -webkit-overflow-scrolling: touch; }
+  .sidebar > * { flex: none; }
+  .sidebar .brand { padding: 4px 8px; }
+  .sidebar .brand small { display: none; }
+  .sidebar .company { padding: 4px 8px; border-bottom: 0; }
+  .sidebar .company b { display: inline; margin-right: 6px; }
+  .sidebar nav { flex-direction: row; align-items: center; padding: 0; gap: 2px; }
+  .sidebar nav a { padding: 8px 10px; }
+  .sidebar nav .nav-group { padding: 0 6px; }
+  .sidebar .foot { margin-top: 0; padding: 4px 8px; border-top: 0; display: flex; align-items: center; gap: 14px; font-size: 12px; }
+  .sidebar .foot > a, .sidebar .foot > div { margin-top: 0 !important; padding: 6px 0; }
+  .topbar { gap: 8px 12px; padding: 6px 12px; }
+  .kpis { gap: 12px; flex-wrap: wrap; }
+  .topbar .right { margin-left: 0; }
+  .banner { flex-wrap: wrap; padding: 8px 12px; }
+  .page { padding: 12px 12px 32px; }
+  .page-head { flex-wrap: wrap; gap: 4px 12px; }
+  .projects { padding: 16px 12px; }
+  .projects .page-head .right { margin-left: 0; flex-wrap: wrap; }
+  .dash-tools .right { margin-left: 0; }
+  .dash-search { width: 100%; }
+  .two, .three, .split { grid-template-columns: minmax(0, 1fr); }
+  .card { padding: 12px; }
+  .toasts { left: 12px; right: 12px; max-width: none; }
+  .wb-results { margin: 0 -4px 12px; padding: 8px 10px; }
+  .wb-result b { font-size: 18px; }
+  .wb-file { flex-wrap: wrap; }
+  .wb-a-nums { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .wb-a-nums .wb-a-try { grid-column: 1 / -1; }
+  .wb .btn { padding: 8px 12px; }
+  .wb .btn.sm { padding: 6px 10px; font-size: 13px; }
+  /* finger-sized targets; a focused input scrolls clear of the sticky result bar */
+  .wb .btn, .wb input.wb-in, .wb select, .wb .wb-periods button { min-height: 44px; }
+  .wb .wb-results .btn.sm { min-height: 36px; }
+  .wb input.wb-in { scroll-margin-top: 200px; }
+  .wb-group > summary { padding: 10px 0; font-size: 14px; }
+  table.grid.wb-party td:first-child, table.grid.wb-party th:first-child { min-width: 6.5em; }
+  table.grid.wb-party th, table.grid.wb-party td { padding: 5px 6px; }
+  .wb-map-row { flex-wrap: wrap; }
+  .wb-map-row .wb-map-name { flex-basis: 100%; }
+}

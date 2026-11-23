@@ -94,10 +94,13 @@ describe('launchAgent', () => {
       RunAtLoad: true,
       KeepAlive: { SuccessfulExit: false },
       ThrottleInterval: 10,
+      MaterializeDatalessFiles: true,
       StandardOutPath: '/Users/王 小明/Library/Logs/ResearchWorkbench/server.out.log',
       StandardErrorPath: '/Users/王 小明/Library/Logs/ResearchWorkbench/server.err.log',
     });
     expect(xml).not.toContain('~');
+    // a boolean, not the string "true": launchd ignores the wrong type
+    expect(xml).toContain('\t<key>MaterializeDatalessFiles</key>\n\t<true/>\n');
   });
 
   it('refuses ~ and relative paths, and bad ports', () => {

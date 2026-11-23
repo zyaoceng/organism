@@ -10,6 +10,10 @@
  * there); an unreadable one is copied aside before it is replaced. A folder that is not ours (another
  * plugin's manifest, a symlink to a development checkout) is left alone and reported. Only Node
  * built-ins: install.sh downloads this file next to install.mjs, which runs before `npm ci`.
+ *
+ * The same folder is where the server looks for the Excel workbooks it reads (the assumptions
+ * panel): tellServerVault() passes it on, and vaultAccessCheck() asks whether the background
+ * service, which macOS judges separately from Terminal, can read it.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -24,6 +28,7 @@ export const PLUGIN_BUILD_DIR = path.join('dist', 'obsidian-plugin');
 /** The plugin's own defaults (obsidian-plugin/src/settings.ts DEFAULTS); only filled in when absent. */
 export const DATA_DEFAULTS = { rootFolder: '研究工作台', intervalSec: 60 };
 export const CHECK_LABEL = 'Obsidian 外掛 / Obsidian plugin';
+export const VAULT_CHECK_LABEL = '筆記庫讀取 / vault access';
 
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const firstLine = (s) => String(s ?? '').trim().split('\n')[0];
@@ -153,6 +158,81 @@ export function readObsidianToken(tokensText) {
   } catch {
     return null;
   }
+}
+
+/** tokens.user from <dataDir>/tokens.json: who the installer acts as when it changes a server setting. */
+export function readUserToken(tokensText) {
+  try {
+    const t = JSON.parse(tokensText)?.tokens?.user;
+    return typeof t === 'string' && t.length > 0 ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+export const vaultDirUrl = (port) => `${serverUrlFor(port)}/api/settings/vault-dir`;
+
+/** What to do when the background service, unlike Terminal, may not read the vault folder. */
+export function serviceAccessHelp(vault, reason) {
+  if (reason !== 'EPERM' && reason !== 'EACCES') return [`伺服器讀取這個資料夾時得到 ${reason ?? '未知的錯誤'}；請確認資料夾還在 / the folder could not be listed`];
+  const where = isICloudVault(vault) ? '「iCloud 雲碟」' : '「桌面」「文件」或「iCloud 雲碟」';
+  return [
+    'macOS 會另外問一次是否允許「node」取用這個資料夾，請按「允許」/ allow "node" when macOS asks',
+    `已經按過「不允許」的話：打開「系統設定 → 隱私權與安全性 → 檔案與資料夾 → node」，打開${where}`,
+  ];
+}
+
+const describeFetchError = (e) => e?.cause?.code ?? e?.code ?? e?.name ?? firstLine(e?.message ?? e);
+
+/** One request to /api/settings/vault-dir. @returns {Promise<{ ok: boolean, json?: any, error?: string }>} */
+async function vaultDirRequest(port, init, fetch) {
+  try {
+    const res = await fetch(vaultDirUrl(port), { ...init, signal: AbortSignal.timeout(5000) });
+    const text = await res.text().catch(() => '');
+    let json = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      /* not JSON */
+    }
+    if (!res.ok || !isPlainObject(json)) return { ok: false, error: `HTTP ${res.status}${isPlainObject(json) && json.error ? ` ${firstLine(json.error)}` : ''}` };
+    return { ok: true, json };
+  } catch (e) {
+    return { ok: false, error: String(describeFetchError(e)) };
+  }
+}
+
+/**
+ * Tell the running server which folder the vault is, so it can read the Excel workbooks in it, and
+ * report whether the service can read that folder. Never throws; nothing in the vault is touched.
+ * @param {{ vault: string, port: number, dataDir: string, home: string, fetch?: typeof fetch }} o
+ * @returns {Promise<{ status: 'ok' | 'unreadable' | 'failed', message: string, lines: string[] }>}
+ */
+export async function tellServerVault({ vault, port, dataDir, home, fetch = globalThis.fetch }) {
+  const t = (p) => tilde(p, home);
+  const token = readUserToken(readOrNull(path.join(dataDir, 'tokens.json')) ?? '');
+  if (!token) return { status: 'failed', message: `${t(path.join(dataDir, 'tokens.json'))} 裡沒有 user 的連線憑證（伺服器啟動時會產生）`, lines: [] };
+  const r = await vaultDirRequest(port, { method: 'PUT', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ dir: vault }) }, fetch);
+  if (!r.ok) return { status: 'failed', message: `沒有把筆記庫位置告訴伺服器（${r.error}）`, lines: [] };
+  const { dir, source, readable, reason } = r.json;
+  const lines = source === 'env' && dir !== vault ? [`伺服器目前用環境變數 WORKBENCH_VAULT_DIR 指定的 ${t(String(dir))}，不是這個資料夾`] : [];
+  if (readable === true) return { status: 'ok', message: `伺服器讀得到筆記庫 ${t(String(dir))}`, lines };
+  return { status: 'unreadable', message: `伺服器讀不到筆記庫 ${t(String(dir))}（${reason ?? '?'}）`, lines: [...lines, ...serviceAccessHelp(String(dir), reason)] };
+}
+
+/**
+ * The --doctor line: can the running service read the vault folder it was told about.
+ * @returns {Promise<{ status: 'ok' | 'warn' | 'skip', label: string, detail: string, lines?: string[] }>}
+ */
+export async function vaultAccessCheck({ port, home, fetch = globalThis.fetch }) {
+  const label = VAULT_CHECK_LABEL;
+  const r = await vaultDirRequest(port, {}, fetch);
+  if (!r.ok) return { status: 'warn', label, detail: `無法詢問伺服器 / cannot ask the server: ${r.error}` };
+  const { dir, source, readable, reason } = r.json;
+  if (typeof dir !== 'string' || !dir) return { status: 'skip', label, detail: '伺服器還不知道筆記庫在哪裡 / no vault folder set', lines: [`重新執行安裝指令並連接 Obsidian 就會設定 / ${ONE_LINER} -- --obsidian`] };
+  const from = source === 'env' ? '（WORKBENCH_VAULT_DIR）' : '';
+  if (readable === true) return { status: 'ok', label, detail: `背景服務讀得到 / readable  ${tilde(dir, home)}${from}` };
+  return { status: 'warn', label, detail: `背景服務讀不到 / not readable (${reason ?? '?'})  ${tilde(dir, home)}${from}`, lines: serviceAccessHelp(dir, reason) };
 }
 
 /** What to tell the user when macOS keeps Terminal out of the vault folder. */

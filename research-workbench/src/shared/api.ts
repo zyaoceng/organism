@@ -6,6 +6,7 @@ import type { Impact, KeyOutputs } from '../domain/revision/impact';
 import type { TradeMetrics } from '../domain/trade/metrics';
 import type { Unit } from '../domain/units';
 import type { ConflictReason, ReflectionKind } from '../domain/vault/types';
+import type { AssumptionStatus, DetectWarningCode, OutputCandidate, OutputMapping, PartyKey, SelfCheckReport } from '../domain/workbook/types';
 import type { Actor, AgentClient } from './actors';
 
 export interface ProjectDTO {
@@ -760,4 +761,221 @@ export interface VaultStatusDTO {
   missing: number;
   conflicts: { wbId: string; reason: ConflictReason; paths: string[]; title: string }[];
   errors: string[];
+}
+
+// ---------------------------------------------------------------- linked Excel workbook (assumptions panel)
+
+/** See src/server/xlsx/file.ts. */
+export type WorkbookFileState = 'ok' | 'missing' | 'dataless' | 'denied' | 'locked' | 'unreadable';
+
+/** GET and PUT /api/settings/vault-dir: the folder linked workbooks must be in. */
+export interface VaultDirDTO {
+  dir: string | null;
+  /** 'env': WORKBENCH_VAULT_DIR, which wins over the saved setting. */
+  source: 'env' | 'settings' | null;
+  /** Whether the server process can list the folder. */
+  readable: boolean;
+  /** errno when it cannot, e.g. EPERM (macOS privacy settings) or ENOENT. */
+  reason: string | null;
+}
+
+export interface WorkbookFileEntryDTO {
+  /** Relative to the vault folder, with "/". */
+  path: string;
+  name: string;
+  size: number | null;
+  modifiedAt: string | null;
+  /** Still in iCloud, not downloaded. */
+  dataless: boolean;
+  /** The name starts with the ticker of the company asked for (?projectId=). */
+  matchesTicker: boolean;
+}
+
+/** GET /api/workbook/files?projectId= : matching the ticker first, then newest first. */
+export interface WorkbookFilesDTO {
+  vault: VaultDirDTO;
+  files: WorkbookFileEntryDTO[];
+  /** More files exist than are listed. */
+  truncated: boolean;
+}
+
+export interface WorkbookFileDTO {
+  path: string;
+  name: string;
+  state: WorkbookFileState;
+  /** Why it is not ok: an errno, 'not-a-file', 'changing', or how the content failed to parse ('not-zip', 'bad-xml', …). */
+  reason: string | null;
+  size: number | null;
+  modifiedAt: string | null;
+  /** Of the bytes that were read; send it back as `baseSha`. Null unless state is ok. */
+  sha256: string | null;
+  /** Excel has the file open (its lock file is there): the numbers are those of the last save. */
+  excelOpen: boolean;
+}
+
+export interface WorkbookCellDTO {
+  sheet: string;
+  address: string;
+}
+
+export interface AssumptionDTO {
+  /** `${sheet}!${label}#${occurrence}`; the key of overrides and trial ranges. */
+  id: string;
+  sheet: string;
+  label: string;
+  /** Title of the step the row sits under. */
+  section: string | null;
+  /** Address of the 取用值 cell. */
+  cell: string;
+  value: number;
+  /** The 取用值 cell holds a formula (writing back replaces it with a number). */
+  valueIsFormula: boolean;
+  /** Excel number format of the value cell, e.g. "0.0%". */
+  numFmt: string | null;
+  low: number | null;
+  high: number | null;
+  basis: string | null;
+  /** The value cell's note (its source). */
+  note: string | null;
+  /** 要 → 'needs-decision', 已定 → 'decided'. */
+  status: AssumptionStatus | null;
+  /** 'output': the valuation multiple, found by its label outside the assumption tables. */
+  origin: 'table' | 'output';
+}
+
+export interface WorkbookOutputDTO {
+  cell: WorkbookCellDTO | null;
+  /** With the trial values applied. */
+  value: number | null;
+  /** As the file is, recalculated without trial values. */
+  fileValue: number | null;
+}
+
+export interface WorkbookPeriodOutputDTO extends WorkbookOutputDTO {
+  period: string;
+}
+
+export interface WorkbookOutputsDTO {
+  /** The next four quarters' total revenue, in order. */
+  revenueQuarters: WorkbookPeriodOutputDTO[];
+  revenueTotal: WorkbookOutputDTO;
+  /** 我的預估 EPS of each forecast period. */
+  eps: WorkbookPeriodOutputDTO[];
+  /** The period whose EPS the sensitivity rows use (the first full year, else the first). */
+  epsPeriod: string | null;
+  targetPrice: WorkbookOutputDTO;
+  multiple: WorkbookOutputDTO;
+  shareCount: WorkbookOutputDTO;
+  netCash: WorkbookOutputDTO;
+}
+
+export interface TornadoEffectDTO {
+  atLow: number | null;
+  atHigh: number | null;
+  /** atHigh − atLow. */
+  delta: number | null;
+}
+
+export interface TornadoRowDTO {
+  /** Assumption id. */
+  id: string;
+  label: string;
+  section: string | null;
+  low: number;
+  high: number;
+  /** 'sheet': 下緣／上緣 from the file. 'trial': sent with the recalculation, never written. */
+  rangeSource: 'sheet' | 'trial';
+  targetPrice: TornadoEffectDTO;
+  /** On the four-quarter revenue total. */
+  revenue: TornadoEffectDTO;
+  /** On the EPS of `outputs.epsPeriod`. */
+  eps: TornadoEffectDTO;
+}
+
+export interface WorkbookSensitivityDTO {
+  /** Largest absolute target-price change first. */
+  rows: TornadoRowDTO[];
+  /** Assumption ids without a complete range. */
+  withoutRange: string[];
+}
+
+export interface PartyColumnDTO {
+  party: PartyKey;
+  /** The column header as written in the sheet. */
+  label: string;
+}
+
+export interface PartyValueDTO {
+  value: number | null;
+  /** What the cell says when it is text, e.g. 尚無資料. */
+  text: string | null;
+  /** (value − 我的預估) ÷ |我的預估| for the same row and period; null for 我的預估 itself or when either is missing. */
+  gap: number | null;
+  /** |gap| is above `gapThreshold`. */
+  flagged: boolean;
+}
+
+export interface PartyRowDTO {
+  label: string;
+  numFmt: string | null;
+  /** cells[i][j] belongs to periods[i].columns[j]. */
+  cells: PartyValueDTO[][];
+}
+
+export interface PartyTableDTO {
+  sheet: string;
+  periods: { period: string; columns: PartyColumnDTO[] }[];
+  rows: PartyRowDTO[];
+}
+
+export interface WorkbookWarningDTO {
+  code: DetectWarningCode | 'mapping-unresolved';
+  sheet: string | null;
+  /** One sentence in Traditional Chinese naming what was not found. */
+  message: string;
+}
+
+export interface WorkbookMappingDTO {
+  /** false: found by detection on every load. true: saved with PUT …/workbook/mapping. */
+  saved: boolean;
+  outputs: OutputMapping;
+  /** Every place detection found for each result. */
+  candidates: OutputCandidate[];
+}
+
+/** GET /api/projects/:id/workbook (also the answer of PUT …/workbook/link and …/workbook/mapping). */
+export interface WorkbookViewDTO {
+  vault: VaultDirDTO;
+  linked: boolean;
+  file: WorkbookFileDTO | null;
+  /** The file was read and parsed; everything below is empty or null otherwise. */
+  loaded: boolean;
+  selfCheck: SelfCheckReport | null;
+  /** In sheet order. */
+  assumptions: AssumptionDTO[];
+  /** How many assumptions are marked 要. */
+  needsDecision: number;
+  outputs: WorkbookOutputsDTO | null;
+  sensitivity: WorkbookSensitivityDTO | null;
+  parties: PartyTableDTO[];
+  /** A party's figure further than this from 我的預估 is flagged (0.1 = 10%). */
+  gapThreshold: number;
+  warnings: WorkbookWarningDTO[];
+  mapping: WorkbookMappingDTO | null;
+}
+
+/** POST /api/projects/:id/workbook/recalc. Nothing is saved. */
+export interface WorkbookRecalcRequest {
+  /** `file.sha256` of the view the trial values were entered on. */
+  baseSha: string;
+  /** Trial values by assumption id; assumptions not listed keep the file's value. */
+  overrides: { id: string; value: number }[];
+  /** Ranges for the sensitivity rows, by assumption id; they take the place of the file's 下緣／上緣. */
+  trialRanges?: Record<string, { low: number; high: number }>;
+}
+
+export interface WorkbookRecalcDTO {
+  baseSha: string;
+  outputs: WorkbookOutputsDTO;
+  sensitivity: WorkbookSensitivityDTO;
 }

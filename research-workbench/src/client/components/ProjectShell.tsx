@@ -12,6 +12,7 @@ import { useActiveState, useWorkspace } from '../lib/store';
 import { useAdvanced } from '../lib/prefs';
 import { useDraftSync } from '../lib/useDraftSync';
 import { cls, exportProjectJson, fmtDateTime, isTypingTarget, periodLabelFn, timeAgo } from '../lib/util';
+import { AssumptionsPage } from '../pages/AssumptionsPage';
 import { CatalystsPage } from '../pages/CatalystsPage';
 import { EvidencePage } from '../pages/EvidencePage';
 import { HistoryPage } from '../pages/HistoryPage';
@@ -77,10 +78,12 @@ export function ProjectShell({ projectId, tab, param }: { projectId: string; tab
       <div className="main">
         {ready ? (
           <>
-            <TopBar onSearch={() => setSearchOpen(true)} />
+            {/* the top bar shows this app's own model; the assumptions page shows the Excel file's results instead */}
+            {tab !== 'assumptions' && <TopBar onSearch={() => setSearchOpen(true)} />}
             <ViewingBanner />
             <MineBanner />
             <div className="content" style={tab === 'model' ? { overflow: 'hidden' } : undefined}>
+              {tab === 'assumptions' && <AssumptionsPage />}
               {tab === 'overview' && <OverviewPage />}
               {tab === 'model' && <ModelPage param={param} />}
               {tab === 'evidence' && <EvidencePage param={param} />}
@@ -118,7 +121,7 @@ function Sidebar({ projectId, tab }: { projectId: string; tab: Tab }) {
     trades: String(trades.length || ''),
     history: String(revisions.length || ''),
   };
-  // Basic mode lists the four daily pages; a deep link into a "More" page shows it there while it is open.
+  // Basic mode lists the assumptions page and the four daily pages; a deep link into a "More" page shows it there while it is open.
   const more = TABS.filter((x) => x.more && (adv || x.id === tab));
   const link = (tb: (typeof TABS)[number]) => (
     <a key={tb.id} href={href({ page: 'project', projectId, tab: tb.id })} className={cls(tab === tb.id && 'on')} data-testid={`nav-${tb.id}`}>

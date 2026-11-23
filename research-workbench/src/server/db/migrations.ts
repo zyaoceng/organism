@@ -7,6 +7,8 @@ import type Database from 'better-sqlite3';
  * v3 adds SQLite triggers (vault_*) that queue Obsidian notes in vault_changes whenever a synced
  * table changes. A future migration that rebuilds one of those tables (CREATE new, copy, DROP old,
  * RENAME) drops its triggers with it and must create them again.
+ *
+ * v4 adds the tables of the linked Excel workbooks. None of them is synced to Obsidian.
  */
 export const MIGRATIONS: { version: number; name: string; sql: string }[] = [
   {
@@ -468,6 +470,51 @@ WHEN NEW.summary_md IS NOT NULL BEGIN
   INSERT INTO vault_changes (note_kind, note_id, op, at) VALUES ('ai_session', NEW.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now')), ('index', 'index-ai', 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
   INSERT INTO vault_changes (note_kind, note_id, op, at) SELECT 'company', p.id, 'upsert', strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM json_each(NEW.project_ids_json) j JOIN projects p ON p.id = j.value;
 END;
+`,
+  },
+  {
+    version: 4,
+    name: 'linked Excel workbooks (assumptions panel)',
+    sql: `
+-- Settings of this installation, e.g. vault_dir: the folder linked workbooks must be in.
+CREATE TABLE app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- The Excel file a company's assumptions are read from. Excel is the only store of the values:
+-- this row holds where the file is, where its results are (label anchors) and a small summary.
+CREATE TABLE project_workbooks (
+  project_id TEXT PRIMARY KEY REFERENCES projects(id),
+  rel_path TEXT NOT NULL,
+  mapping_json TEXT,
+  summary_json TEXT,
+  file_size INTEGER,
+  file_sha256 TEXT,
+  file_mtime TEXT,
+  checked_at TEXT,
+  linked_at TEXT NOT NULL,
+  linked_by TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- One row per write-back to a linked file. A file that later shows a before_* state again was
+-- put back by iCloud.
+CREATE TABLE workbook_writes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id TEXT NOT NULL REFERENCES projects(id),
+  rel_path TEXT NOT NULL,
+  at TEXT NOT NULL,
+  actor TEXT NOT NULL,
+  cells_json TEXT NOT NULL,
+  before_sha256 TEXT NOT NULL,
+  before_size INTEGER NOT NULL,
+  after_sha256 TEXT NOT NULL,
+  after_size INTEGER NOT NULL,
+  backup_file TEXT
+);
+CREATE INDEX workbook_writes_project ON workbook_writes(project_id, id);
 `,
   },
 ];

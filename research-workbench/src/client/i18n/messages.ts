@@ -166,6 +166,26 @@ const P: [RegExp, string][] = [
   [/^The Obsidian plugin is not built \(npm run build\)$/, 'Obsidian 外掛還沒有建置（npm run build）'],
   [/^(evidenceIds|projectIds) must be a list of ids$/, '$1 必須是 id 清單'],
 
+  // Server: linked Excel workbook (src/server/xlsx)
+  [/^Only the browser user can link an Excel file$/, '只有在瀏覽器裡的使用者可以連結 Excel 檔'],
+  [/^Only the browser user can unlink an Excel file$/, '只有在瀏覽器裡的使用者可以取消連結 Excel 檔'],
+  [/^Only the browser user can change where the results are read from$/, '只有在瀏覽器裡的使用者可以修改結果格的位置'],
+  [/^Only the browser user can set the vault folder$/, '只有在瀏覽器裡的使用者可以設定筆記庫資料夾'],
+  [/^The vault folder can only be set on the Mac itself$/, '筆記庫資料夾只能在這台 Mac 上設定'],
+  [/^The vault folder is not set$/, '還沒有設定筆記庫資料夾'],
+  [/^The vault folder cannot be opened \((.+)\)$/, '筆記庫資料夾打不開（$1）'],
+  [/^dir must be an absolute folder path$/, '資料夾必須是完整路徑'],
+  [/^Not a folder: (.+)$/, '這不是資料夾：$1'],
+  [/^path is required$/, '沒有指定檔案'],
+  [/^The path must be relative to the vault folder$/, '檔案位置必須從筆記庫資料夾算起'],
+  [/^The file must be inside the vault folder$/, '檔案必須在筆記庫資料夾裡面'],
+  [/^Only \.xlsx files can be linked$/, '只能連結 .xlsx 檔'],
+  [/^There is no such file in the vault folder$/, '筆記庫資料夾裡沒有這個檔案'],
+  [/^No Excel file is linked to this company$/, '這家公司還沒有連結 Excel 檔'],
+  [/^The linked Excel file cannot be read right now$/, '現在讀不到連結的 Excel 檔'],
+  [/^The Excel file changed after it was loaded; load it again$/, 'Excel 檔在載入之後被改過，請重新載入'],
+  [/^Not an assumption of this workbook: (.+)$/, '這個 Excel 檔裡沒有這個假設：$1'],
+
   // Market data
   [/^Unknown market data provider "(.+)"\. Available: (.+)$/, '沒有「$1」這個行情來源。可用的有：$2'],
   [/^(NETWORK|RATE_LIMITED|NOT_FOUND|PROVIDER|UNSUPPORTED): (.+?)(?: \(retry after (\d+)s\))?$/, '%2'],
