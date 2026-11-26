@@ -1,4 +1,16 @@
 {
-  "tickers": {},
-  "reports": []
+  "tickers": {
+    "SAIL": "SailPoint"
+  },
+  "reports": [
+    {
+      "type": "Deep",
+      "date": "2026-11-26",
+      "title": "SailPoint：代理人治理已開始貢獻新增 ARR，成長速度是 Okta 的兩倍",
+      "tickers": [
+        "SAIL"
+      ],
+      "href": "research/SAIL/2026-11-26-deep.html"
+    }
+  ]
 }
