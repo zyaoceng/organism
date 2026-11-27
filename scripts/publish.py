@@ -36,7 +36,7 @@ PAGE = """<!DOCTYPE html>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@400;700&family=Zen+Antique&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../../assets/article.css">
+<link rel="stylesheet" href="../../assets/article.css?v=2">
 </head>
 <body>
 <header class="bar">
